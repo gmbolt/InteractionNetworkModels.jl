@@ -80,36 +80,36 @@ end
 
 # Multisets
 # in place
-"""
-In-place distance matrix calculation between elements of multiset.
-"""
-function Distances.pairwise!(
-    A::AbstractMatrix,
-    metric::Metric,
-    a::Multiset{T} where T,
-    b::Multiset{T} where T
-    )
+# """
+# In-place distance matrix calculation between elements of multiset.
+# """
+# function Distances.pairwise!(
+#     A::AbstractMatrix,
+#     metric::Metric,
+#     a::Multiset{T} where T,
+#     b::Multiset{T} where T
+#     )
 
-    for (j, val_b) in enumerate(b)
-        for (i, val_a) in enumerate(a)
-            A[i,j] = metric(val_a,val_b)
-        end
-    end
-end
-"""
-Distance matrix calculation between elements of multiset. This is a custom extension
-of the function in the Distances.jl package to allow vectors of general type.
-"""
-function Distances.pairwise(
-    metric::Metric,
-    a::Multiset{T} where T,
-    b::Multiset{T} where T
-    )
+#     for (j, val_b) in enumerate(b)
+#         for (i, val_a) in enumerate(a)
+#             A[i,j] = metric(val_a,val_b)
+#         end
+#     end
+# end
+# """
+# Distance matrix calculation between elements of multiset. This is a custom extension
+# of the function in the Distances.jl package to allow vectors of general type.
+# """
+# function Distances.pairwise(
+#     metric::Metric,
+#     a::Multiset{T} where T,
+#     b::Multiset{T} where T
+#     )
 
-    D = Array{Float64,2}(undef, length(a), length(b))
-    pairwise!(D, metric, a, b)
-    return D
-end
+#     D = Array{Float64,2}(undef, length(a), length(b))
+#     pairwise!(D, metric, a, b)
+#     return D
+# end
 
 # Vectors
 """
