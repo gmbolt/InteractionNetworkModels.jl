@@ -1,4 +1,4 @@
-using Distributions, InvertedIndices, StatsBase, ProgressMeter, GraphRecipes
+using Distributions, InvertedIndices, StatsBase, ProgressMeter
 
 export iex_mcmc_mode, iex_mcmc_gamma
 export get_cooccurrence_matrix, get_cooccurrence_prob_matrix, plot_cooccurrence_graph
