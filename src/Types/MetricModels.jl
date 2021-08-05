@@ -1,4 +1,4 @@
-using ProgressMeter
+using ProgressMeter, Multisets
 export SPF, SIS, SIM, sum_of_dists, cardinality
 export get_normalising_const, get_sample_space, eachpath, eachinterseq
 export pmf_unormalised, get_true_dist_vec, get_true_dist_dict

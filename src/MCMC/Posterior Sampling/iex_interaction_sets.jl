@@ -1,6 +1,6 @@
 using Distributions, InvertedIndices, StatsBase, ProgressMeter
 
-function MyPkg.iex_mcmc_within_gibbs_update!(
+function InteractionNetworkModels.iex_mcmc_within_gibbs_update!(
     posterior::SimPosterior{T},
     S_curr::Vector{Path{T}}, 
     γ_curr::Float64,
@@ -94,7 +94,7 @@ function iex_mcmc_within_gibbs_scan!(
     return count
 end 
 
-function MyPkg.iex_mcmc_mode(
+function InteractionNetworkModels.iex_mcmc_mode(
     posterior::SimPosterior{T},
     mcmc_sampler::SimMcmcSampler,
     γ_fixed::Float64;

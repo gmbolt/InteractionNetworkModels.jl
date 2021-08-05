@@ -34,7 +34,7 @@ end
 # In case (ii) we must map integers to vertices 
 
 
-function MyPkg.imcmc_prop_sample_edit_informed(
+function InteractionNetworkModels.imcmc_prop_sample_edit_informed(
     I_curr::Path{Int}, 
     δ::Int,
     d::Int, 
@@ -76,7 +76,7 @@ function MyPkg.imcmc_prop_sample_edit_informed(
 
 end 
 
-function MyPkg.imcmc_prop_sample_edit_informed(
+function InteractionNetworkModels.imcmc_prop_sample_edit_informed(
     I_curr::Path{String}, 
     δ::Int,
     d::Int, 
