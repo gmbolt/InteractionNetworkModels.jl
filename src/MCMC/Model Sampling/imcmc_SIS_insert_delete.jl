@@ -1,4 +1,4 @@
-using Distributions, StatsBase, Distributed
+using Distributions, StatsBase
 
 export imcmc_insert_prop_sample, imcmc_delete_prop_sample, draw_sample, draw_sample!
 export imcmc_gibbs_update!, imcmc_gibbs_scan!, pdraw_sample
