@@ -1,7 +1,7 @@
-using Distributions, StatsBase
+using Distributions, StatsBase, Distributed
 
 export imcmc_insert_prop_sample, imcmc_delete_prop_sample, draw_sample, draw_sample!
-export imcmc_gibbs_update!, imcmc_gibbs_scan!
+export imcmc_gibbs_update!, imcmc_gibbs_scan!, pdraw_sample
 
 
 function imcmc_insert_prop_sample(
@@ -148,7 +148,7 @@ function migrate!(
 end 
 
 function draw_sample!(
-    sample_out::InteractionSequenceSample{T},
+    sample_out::Union{InteractionSequenceSample{T}, SubArray},
     mcmc::SisInvolutiveMcmcInsertDelete,
     model::SIS{T};
     burn_in::Int=mcmc.burn_in,
@@ -294,11 +294,25 @@ function draw_sample(
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
     init::Vector{Path{T}}=model.mode
+    ) where {T<:Union{Int,String}} 
+    sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
+    # @show sample_out
+    draw_sample!(sample_out, mcmc, model, burn_in=burn_in, lag=lag, init=init)
+        return sample_out
+
+end 
+
+
+function (mcmc::SisInvolutiveMcmcInsertDelete{T})(
+    model::SIS{T};
+    desired_samples::Int=mcmc.desired_samples, 
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    init::Vector{Path{T}}=model.mode
     ) where {T<:Union{Int,String}}
 
-
-
     sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
+    # @show sample_out
     (
         count, 
         acc_count, 
@@ -312,12 +326,29 @@ function draw_sample(
             "Trans-dimensional move acceptance probability" => acc_count/count,
             "Gibbs move acceptance probability" => gibbs_acc_count/gibbs_tot_count
         )
-        output = SisMcmcOutput(
+    output = SisMcmcOutput(
             model, 
             sample_out, 
             p_measures
             )
 
-        return output
+    return output
 
+end 
+
+function pdraw_sample(
+    mcmc::SisInvolutiveMcmcInsertDelete{T},
+    model::SIS{T}, 
+    split::Vector{Int}; 
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    init::Vector{Path{T}}=model.mode
+    ) where {T<:Union{Int,String}}
+    out = pmap(split) do index
+        draw_sample(
+            mcmc, model, 
+            desired_samples=index,
+            lag=lag, burn_in=burn_in, init=init)
+    end 
+    vcat(out...)
 end 
