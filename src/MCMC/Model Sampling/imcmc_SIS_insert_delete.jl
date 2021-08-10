@@ -1,7 +1,7 @@
 using Distributions, StatsBase, Distributed
 
 export imcmc_insert_prop_sample, imcmc_delete_prop_sample, draw_sample, draw_sample!
-export imcmc_gibbs_update!, imcmc_gibbs_scan!, pdraw_sample
+export imcmc_gibbs_update!, imcmc_gibbs_scan!, pdraw_sample, get_split, plog_aux_term_mode_update
 
 
 function imcmc_insert_prop_sample(
@@ -336,6 +336,23 @@ function (mcmc::SisInvolutiveMcmcInsertDelete{T})(
 
 end 
 
+function get_split(
+    n::Int, bins::Int   
+    )
+    increment = n / bins 
+    rem = 0.0
+    tot = 0
+    step = floor(Int, increment + rem)
+    out = Int[]
+    for i in 1:(bins-1)
+        step = floor(Int, increment + rem)
+        rem += increment - step
+        push!(out, step) 
+        tot += step
+    end 
+    push!(out, n-tot)
+end
+
 function pdraw_sample(
     mcmc::SisInvolutiveMcmcInsertDelete{T},
     model::SIS{T}, 
@@ -345,10 +362,41 @@ function pdraw_sample(
     init::Vector{Path{T}}=model.mode
     ) where {T<:Union{Int,String}}
     out = Distributed.pmap(split) do index
-        draw_sample(
-            mcmc, model, 
-            desired_samples=index,
-            lag=lag, burn_in=burn_in, init=init)
+        return draw_sample(
+                mcmc, model, 
+                desired_samples=index,
+                lag=lag, burn_in=burn_in, init=init
+                )
     end 
     vcat(out...)
 end 
+
+# Parallel log auxiliary term for model update7
+# - γ * (∑ d(x, S_curr) - ∑ d(x, S_prop)) (where sum is over auxiliary data)
+function plog_aux_term_mode_update(
+    mcmc::SisInvolutiveMcmcInsertDelete, 
+    aux_model::SIS{T},
+    split::Vector{T}, 
+    S_curr::InteractionSequence{T},
+    S_prop::InteractionSequence{T};
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    init::Vector{Path{T}}=aux_model.mode
+    ) where {T<:Union{Int,String}}
+
+    out = Distributed.pmap(split) do index
+        sample = draw_sample(
+                mcmc, aux_model, 
+                desired_samples=index,
+                lag=lag, burn_in=burn_in, init=init
+                )
+        return mapreduce(
+            x -> -aux_model.γ * (aux_model.dist(x,S_curr) - aux_model.dist(x,S_prop)),
+            (+),
+            sample
+        )
+    end 
+    sum(out)
+end 
+
+
