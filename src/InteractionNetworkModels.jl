@@ -1,6 +1,6 @@
 module InteractionNetworkModels
 
-export Path, InteractionSequence, InteractionSequenceSample
+export Path, InteractionSequence, InteractionSequenceSample, test
 
 # Write your package code here.
 # Define some type aliases 
@@ -8,6 +8,7 @@ const Path{T} = Vector{T} where {T<:Union{Int, String}}
 const InteractionSequence{T} = Vector{Vector{T}} where {T<:Union{Int, String}}
 const InteractionSequenceSample{T} = Vector{Vector{Vector{T}}} where {T<:Union{Int, String}}
 
+test() = 1.0
 
 # Distances
 include("Distances/Distances.jl")
