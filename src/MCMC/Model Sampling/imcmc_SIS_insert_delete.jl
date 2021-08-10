@@ -1,4 +1,4 @@
-using Distributions, StatsBase
+using Distributions, StatsBase, Distributed
 
 export imcmc_insert_prop_sample, imcmc_delete_prop_sample, draw_sample, draw_sample!
 export imcmc_gibbs_update!, imcmc_gibbs_scan!, pdraw_sample
@@ -344,7 +344,7 @@ function pdraw_sample(
     lag::Int=mcmc.lag,
     init::Vector{Path{T}}=model.mode
     ) where {T<:Union{Int,String}}
-    out = pmap(split) do index
+    out = Distributed.pmap(split) do index
         draw_sample(
             mcmc, model, 
             desired_samples=index,
