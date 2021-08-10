@@ -335,20 +335,3 @@ function (mcmc::SisInvolutiveMcmcInsertDelete{T})(
     return output
 
 end 
-
-function pdraw_sample(
-    mcmc::SisInvolutiveMcmcInsertDelete{T},
-    model::SIS{T}, 
-    split::Vector{Int}; 
-    burn_in::Int=mcmc.burn_in,
-    lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=model.mode
-    ) where {T<:Union{Int,String}}
-    out = Distributed.pmap(split) do index
-        draw_sample(
-            mcmc, model, 
-            desired_samples=index,
-            lag=lag, burn_in=burn_in, init=init)
-    end 
-    vcat(out...)
-end 
