@@ -22,6 +22,7 @@ include("Types/Posteriors.jl")
 include("Types/McmcOutputs.jl")
 include("Types/McmcSamplers.jl")
 include("Types/distributions.jl")
+include("Types/hollywood_model.jl")
 
 
 # Data Processing

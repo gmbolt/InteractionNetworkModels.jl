@@ -1,13 +1,13 @@
 using Distributions, StatsBase
-export
+export Hollywood
 
 struct Hollywood 
     α::Real 
     θ::Real 
     ν::DiscreteUnivariateDistribution
     K::Real
-    function Hollywood(α::Real, θ::Real, ν::DiscreteUnivariateDistribution, K::Int)
-        @assert ((0 < α < 1.0) & (θ > -α)) | ((α < 0) & (θ = - K * α)) "Check parameters satisfy required constraints"
+    function Hollywood(α::Real, θ::Real, ν::DiscreteUnivariateDistribution, K::Real)
+        @assert ((0 < α < 1.0) & (θ > -α)) | ((α < 0) & (θ == - K * α)) "Check parameters satisfy required constraints"
         new(α, θ, ν, K) 
     end     
 end 
@@ -24,7 +24,7 @@ function StatsBase.sample!(
     counts = Int[]
     prob_new(t, V, θ, α) = (θ + α * V) / (t - 1 + θ)
     for i in 1:length(out)
-        m = rand(model.ν)
+        m = rand(model.ν) 
         I_tmp = zeros(Int, m)
         for j in 1:m 
             t += 1
@@ -35,14 +35,16 @@ function StatsBase.sample!(
             elseif rand() < prob_new(t, V, model.θ, model.α)
                 I_tmp[j] = V+1
                 V+=1
-                push!(count, 1)
+                push!(counts, 1)
             else
-                μ = cumsum(count ./ (t - 1 + θ))
+                μ = cumsum(counts) / sum(counts)
                 pushfirst!(μ, 0.0)
-                val = rand_multivariate_bernoulli(μ)
-                I_tmp[i] = val
-                count[val] += 1
+                # @show μ
+                val, p = rand_multivariate_bernoulli(μ)
+                I_tmp[j] = val
+                counts[val] += 1
             end 
+            out[i] = I_tmp
         end 
     end 
 end 
