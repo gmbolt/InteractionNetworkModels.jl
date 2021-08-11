@@ -19,10 +19,10 @@ vertices(x::InteractionSequence) = unique(vcat(x...))
 # Helper functions
 vertex_countmap(x::Path{T}) where {T<:Union{Int,String}} = StatsBase.counts(x)
 vertex_counts(x::Path{T}) where {T<:Union{Int,String}} = StatsBase.counts(x)
-vertex_countmap(x::InteractionSequence{T}) where {T<:Union{Int,String}} = countmap(vertices(x))
-vertex_counts(x::InteractionSequence{Int}) = counts(vertices(x))
-vertex_counts(x::InteractionSequence{Int}, levels::UnitRange{<:Integer}) = counts(vertices(x), levels)
-vertex_counts(x::InteractionSequence{Int}, k::Int) = counts(vertices(x), k)
+vertex_countmap(x::InteractionSequence{T}) where {T<:Union{Int,String}} = countmap(vcat(x...))
+vertex_counts(x::InteractionSequence{Int}) = counts(vcat(x...))
+vertex_counts(x::InteractionSequence{Int}, levels::UnitRange{<:Integer}) = counts(vcat(x...), levels)
+vertex_counts(x::InteractionSequence{Int}, k::Int) = counts(vcat(x...), k)
 function vertex_counts(x::Union{InteractionSequence{T}, Path{T}}, ref::Vector{T}) where {T<:Union{Int,String}}
     d = vertex_countmap(x)
     return [ref[i] in keys(d) ? d[ref[i]] : 0 for i in 1:length(ref)]
@@ -37,7 +37,7 @@ end
 # Sample Frechet Means
 # =======================================================
 
-function sample_frechet_mean(data::InteractionSequenceSample{T}, d::PathDistance) where T <:Union{Int, String}
+function sample_frechet_mean(data::InteractionSequenceSample{T}, d::InteractionSeqDistance) where T <:Union{Int, String}
     z_best = Inf
     ind_best = 1
     n = length(data)
@@ -53,7 +53,7 @@ function sample_frechet_mean(data::InteractionSequenceSample{T}, d::PathDistance
             ind_best = i
         end 
     end 
-    return data[ind_best], ind_best, z_best
+    return data[ind_best]
 end 
 
 # Probability Matrices - Used in informed proposal for SIS/SIM posterior sampling

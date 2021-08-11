@@ -155,7 +155,7 @@ function iex_mcmc_within_gibbs_update!(
     # @show S_curr, S_prop
 
     # Sample auxiliary data 
-    aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, K_inner=posterior.K_inner, K_outer=posterior.K_outer)
+    aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
     draw_sample!(aux_data, mcmc_sampler, aux_model)
     
     log_lik_ratio = - γ_curr * (
@@ -323,7 +323,7 @@ function iex_mcmc_mode(
     posterior::SisPosterior{T},
     mcmc_sampler::SisMcmcSampler,
     γ_fixed::Float64;
-    S_init::Vector{Path{T}}=sample_frechet_mean(posterior.data, poseterior.dist),
+    S_init::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist),
     desired_samples::Int=100, # MCMC parameters...
     burn_in::Int=100,
     lag::Int=1,
@@ -412,7 +412,7 @@ function iex_mcmc_mode(
             end 
 
             # Sample auxiliary data 
-            aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, K_inner=posterior.K_inner, K_outer=posterior.K_outer)
+            aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
             draw_sample!(aux_data, mcmc_sampler, aux_model)
 
             # Accept reject

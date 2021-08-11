@@ -7,12 +7,15 @@ struct Hollywood
     ν::DiscreteUnivariateDistribution
     K::Real
     function Hollywood(α::Real, θ::Real, ν::DiscreteUnivariateDistribution, K::Real)
-        @assert ((0 < α < 1.0) & (θ > -α)) | ((α < 0) & (θ == - K * α)) "Check parameters satisfy required constraints"
+        # @show θ, -K*α
+        @assert ((0 < α < 1.0) & (θ > -α)) | ((α < 0) & (θ == (- K * α))) "Check parameters satisfy required constraints"
         new(α, θ, ν, K) 
     end     
 end 
 
 Hollywood(α::Real, θ::Real, ν::DiscreteUnivariateDistribution) = Hollywood(α, θ, ν, Inf)
+Hollywood(α::Real, ν::DiscreteUnivariateDistribution, K::Int) = Hollywood(α, (-K)*α, ν, K)
+
 
 function StatsBase.sample!(
     out::InteractionSequence,
@@ -48,3 +51,12 @@ function StatsBase.sample!(
         end 
     end 
 end 
+
+function StatsBase.sample(
+    model::Hollywood,
+    n::Int
+    )
+    out = fill(Int[], n)
+    sample!(out, model)
+    return out
+end     
