@@ -13,6 +13,7 @@ struct Hollywood
 end 
 
 Hollywood(α::Real, θ::Real, ν::DiscreteUnivariateDistribution) = Hollywood(α, θ, ν, Inf)
+Hollywood(α::Real, ν::DiscreteUnivariateDistribution, K::Int) = Hollywood(α, (-K)*α, ν, K)
 
 function StatsBase.sample!(
     out::InteractionSequence,
