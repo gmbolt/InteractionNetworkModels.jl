@@ -390,13 +390,14 @@ function plog_aux_term_mode_update(
                 desired_samples=index,
                 lag=lag, burn_in=burn_in, init=init
                 )
-        return mapreduce(
+        log_lik = mapreduce(
             x -> -aux_model.γ * (aux_model.dist(x,S_curr) - aux_model.dist(x,S_prop)),
             (+),
             sample
-        )
+        ) 
+        return log_lik
     end 
-    sum(out)
+    mapreduce(x->x[1], (+), out)
 end 
 
 
