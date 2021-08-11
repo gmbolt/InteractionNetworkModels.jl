@@ -464,6 +464,7 @@ function iex_mcmc_mode(
 end 
 
 
+
 function iex_mcmc_gamma(
     posterior::SisPosterior{T},
     mcmc_sampler::SisMcmcSampler, 
@@ -499,7 +500,7 @@ function iex_mcmc_gamma(
             S_curr, γ_prop, 
             posterior.dist, 
             posterior.V, 
-            K_inner=posterior.K_inner, K_outer=posterior.K_outer
+            posterior.K_inner, posterior.K_outer
             )
         draw_sample!(aux_data, mcmc_sampler, aux_model)
 
