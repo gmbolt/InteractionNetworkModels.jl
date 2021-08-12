@@ -1,6 +1,6 @@
 export piex_mcmc_mode
 
-function iex_mcmc_within_gibbs_update!(
+function piex_mcmc_within_gibbs_update!(
     posterior::SisPosterior{T},
     S_curr::Vector{Path{T}}, 
     γ_curr::Float64,
@@ -10,7 +10,6 @@ function iex_mcmc_within_gibbs_update!(
     vertex_map::Dict{Int,T},
     vertex_map_inv::Dict{T,Int},
     mcmc_sampler::SisMcmcSampler, # Sampler for auxiliary variables 
-    aux_init::InteractionSequence{T},
     split::Vector{Int}
 ) where {T<:Union{Int, String}}
 
@@ -41,15 +40,10 @@ function iex_mcmc_within_gibbs_update!(
         )
     # @show aux_data
     # Run burn-in to get initial values
-    aux_init = draw_sample(
-        mcmc_sampler, aux_model, 
-        desired_samples=1, init=aux_init
-        )[1]
     aux_log_lik_ratio= plog_aux_term_mode_update(
-        mcmc, aux_model, 
+        mcmc_sampler, aux_model, 
         split,
-        S_curr, S_prop, 
-        init = aux_init
+        S_curr, S_prop
         )
     # @show log_lik_ratio, aux_log_lik_ratio
     log_α = (
@@ -81,7 +75,6 @@ function piex_mcmc_within_gibbs_scan!(
     vertex_map::Dict{Int,T},
     vertex_map_inv::Dict{T,Int},
     mcmc_sampler::SisMcmcSampler, # Sampler for auxiliary variables 
-    aux_init::InteractionSequence{T},
     split::Vector{Int} # Split of samples over processors
     ) where {T<:Union{Int, String}}
 
@@ -95,7 +88,6 @@ function piex_mcmc_within_gibbs_scan!(
             ν,
             P, vertex_map, vertex_map_inv, 
             mcmc_sampler,
-            aux_init, 
             split)
     end 
     return count
@@ -142,8 +134,6 @@ function piex_mcmc_mode(
     probs_gibbs = 1/(2+1) + β
     
     # Run one MCMC burn_in at S_curr to get an aux_end value (the final value from MCMC chain)
-    aux_model = SIS(S_curr, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
-    aux_init = draw_sample(mcmc_sampler, aux_model, desired_samples=1, init=S_curr)[1]
 
     for i in 1:req_samples
         
@@ -156,7 +146,6 @@ function piex_mcmc_mode(
                 ν, 
                 P, vmap, vmap_inv, 
                 mcmc_sampler,
-                aux_init,
                 psplit) # Gibbs sampler parameters
             S_sample[i] = copy(S_curr)
             next!(iter)
@@ -201,16 +190,10 @@ function piex_mcmc_mode(
             #         - sum_of_dists(aux_data, S_prop, posterior.dist)
             #     )
 
-            # Run burn-in to get initial values
-            aux_init = draw_sample(
-                mcmc_sampler, aux_model, 
-                desired_samples=1, init=aux_init
-                )[1]
             aux_log_lik_ratio = plog_aux_term_mode_update(
                 mcmc_sampler, aux_model, 
                 psplit,
-                S_curr, S_prop, 
-                init = aux_init
+                S_curr, S_prop
                 )
 
             log_α = (

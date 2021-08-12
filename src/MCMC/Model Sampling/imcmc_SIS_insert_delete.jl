@@ -361,14 +361,28 @@ function pdraw_sample(
     lag::Int=mcmc.lag,
     init::Vector{Path{T}}=model.mode
     ) where {T<:Union{Int,String}}
+    S_init = draw_sample(mcmc, model, desired_samples=1, burn_in=burn_in, init=init)[1]
     out = Distributed.pmap(split) do index
         return draw_sample(
                 mcmc, model, 
                 desired_samples=index,
-                lag=lag, burn_in=burn_in, init=init
+                lag=lag, burn_in=burn_in, init=S_init
                 )
     end 
     vcat(out...)
+end 
+
+function pdraw_sample(
+    mcmc::SisInvolutiveMcmcInsertDelete{T},
+    model::SIS{T};
+    desired_samples::Int=mcmc.desired_samples,
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    init::Vector{Path{T}}=model.mode
+) where {T<:Union{Int,String}}
+    psplit = get_split(desired_samples, nworkers())
+    return pdraw_sample(mcmc, model, psplit, burn_in=burn_in, lag=lag, init=init)
+
 end 
 
 # Parallel log auxiliary term for model update7
@@ -383,12 +397,12 @@ function plog_aux_term_mode_update(
     lag::Int=mcmc.lag,
     init::Vector{Path{T}}=aux_model.mode
     ) where {T<:Union{Int,String}}
-
+    S_init = draw_sample(mcmc, model, desired_samples=1, burn_in=burn_in, init=init)[1]
     out = Distributed.pmap(split) do index
         sample = draw_sample(
                 mcmc, aux_model, 
                 desired_samples=index,
-                lag=lag, burn_in=burn_in, init=init
+                lag=lag, burn_in=burn_in, init=S_init
                 )
         log_lik = mapreduce(
             x -> -aux_model.γ * (aux_model.dist(x,S_curr) - aux_model.dist(x,S_prop)),
