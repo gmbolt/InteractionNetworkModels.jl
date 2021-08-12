@@ -2,7 +2,7 @@ using Distributions, StatsBase, Distributed
 
 export imcmc_insert_prop_sample, imcmc_delete_prop_sample, draw_sample, draw_sample!
 export imcmc_gibbs_update!, imcmc_gibbs_scan!, pdraw_sample, get_split, plog_aux_term_mode_update
-
+export ptest
 
 function imcmc_insert_prop_sample(
     S_curr, path_dist
@@ -353,6 +353,10 @@ function get_split(
     push!(out, n-tot)
 end
 
+function ptest(n)
+    out = pmap(x->x^2, 1:n)
+end 
+
 function pdraw_sample(
     mcmc::SisInvolutiveMcmcInsertDelete{T},
     model::SIS{T},
@@ -361,7 +365,9 @@ function pdraw_sample(
     lag::Int=mcmc.lag,
     init::Vector{Path{T}}=model.mode
     ) where {T<:Union{Int,String}}
+    @show burn_in, lag, init
     out = Distributed.pmap(split) do index
+        println(index)
         return draw_sample(
                 mcmc, model,
                 desired_samples=index,

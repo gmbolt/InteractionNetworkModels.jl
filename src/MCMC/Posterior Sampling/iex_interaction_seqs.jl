@@ -134,7 +134,8 @@ function iex_mcmc_within_gibbs_update!(
     vertex_map::Dict{Int,T},
     vertex_map_inv::Dict{T,Int},
     mcmc_sampler::SisMcmcSampler, # Sampler for auxiliary variables 
-    aux_data::InteractionSequenceSample{T}
+    aux_data::InteractionSequenceSample{T},
+    all_aux_data::InteractionSequenceSample{T}
 ) where {T<:Union{Int, String}}
 
     S_prop = deepcopy(S_curr)
@@ -156,7 +157,16 @@ function iex_mcmc_within_gibbs_update!(
 
     # Sample auxiliary data 
     aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
+    # println("Initialising at:", aux_data[end])
+    # aux_data = draw_sample(mcmc_sampler, aux_model, init=deepcopy(aux_data[end])) # Initialise at last val of previous
+    # draw_sample!(aux_data, mcmc_sampler, aux_model, init=deepcopy(aux_data[end]))
     draw_sample!(aux_data, mcmc_sampler, aux_model)
+    # push!(all_aux_data, deepcopy(aux_data)...)
+    # println("\n")
+    # for x in aux_data
+    #     println(x)
+    # end 
+    # println("\n")
     
     log_lik_ratio = - γ_curr * (
             sum_of_dists(posterior.data, S_prop, posterior.dist)
@@ -195,7 +205,8 @@ function iex_mcmc_within_gibbs_scan!(
     vertex_map::Dict{Int,T},
     vertex_map_inv::Dict{T,Int},
     mcmc_sampler::SisMcmcSampler, # Sampler for auxiliary variables 
-    aux_data::InteractionSequenceSample{T}
+    aux_data::InteractionSequenceSample{T},
+    all_aux_data::InteractionSequenceSample{T}
     ) where {T<:Union{Int, String}}
 
     N = length(S_curr)
@@ -208,7 +219,8 @@ function iex_mcmc_within_gibbs_scan!(
             ν,
             P, vertex_map, vertex_map_inv, 
             mcmc_sampler,
-            aux_data)
+            aux_data, 
+            all_aux_data)
     end 
     return count
 end 
@@ -349,7 +361,11 @@ function iex_mcmc_mode(
     gibbs_tot_count = 0
     gibbs_acc_count = 0 
     aux_data = [[T[]] for i in 1:posterior.sample_size]
-
+    all_aux_data = InteractionSequence{T}[]
+    # Initialise the aux_data with a large burn_in 
+    aux_model = SIS(S_curr, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
+    draw_sample!(aux_data, mcmc_sampler, aux_model, burn_in=1000)
+    
     # tmp_inds = Int[]
     # Vertex distribution for proposal 
     # μ = get_vertex_proposal_dist(posterior)
@@ -382,7 +398,8 @@ function iex_mcmc_mode(
                 ν, 
                 P, vmap, vmap_inv, 
                 mcmc_sampler,
-                aux_data) # Gibbs sampler parameters
+                aux_data, 
+                all_aux_data) # Gibbs sampler parameters
             S_sample[i] = copy(S_curr)
             next!(iter)
         
@@ -413,8 +430,10 @@ function iex_mcmc_mode(
 
             # Sample auxiliary data 
             aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
+            # println("Initialising at:", aux_data[end])
+            # aux_data = draw_sample(mcmc_sampler, aux_model, init=deepcopy(aux_data[end])) # Initialise at last val of previous
             draw_sample!(aux_data, mcmc_sampler, aux_model)
-
+            # push!(all_aux_data, deepcopy(aux_data)...)
             # Accept reject
             log_lik_ratio = - γ_curr * (
             sum_of_dists(posterior.data, S_prop, posterior.dist)
@@ -460,7 +479,7 @@ function iex_mcmc_mode(
         posterior.data,
         p_measures
     )
-    return output
+    return output, all_aux_data
 end 
 
 
