@@ -18,7 +18,7 @@ end
 struct FastNormLCS <: PathDistance
     curr_row::Vector{Int}
     prev_row::Vector{Int}
-    function FastLCS(K::Int)
+    function FastNormLCS(K::Int)
         new(zeros(Int,K), zeros(Int,K))
     end 
 end 
