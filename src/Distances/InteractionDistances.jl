@@ -1,6 +1,6 @@
 using Distances, InvertedIndices
 
-export InteractionDistance, PathDistance, LCS, FastLCS, NormLCS, lcs, get_lcs, lcs_norm, ACS, get_lcs_locations
+export InteractionDistance, PathDistance, LCS, FastLCS, NormLCS, FastNormLCS, lcs, get_lcs, lcs_norm, ACS, get_lcs_locations
 ## Interaction Distances
 
 abstract type InteractionDistance <: Metric end
@@ -9,6 +9,13 @@ abstract type PathDistance <: InteractionDistance end
 struct LCS <: PathDistance end
 struct NormLCS <: PathDistance end
 struct FastLCS <: PathDistance 
+    curr_row::Vector{Int}
+    prev_row::Vector{Int}
+    function FastLCS(K::Int)
+        new(zeros(Int,K), zeros(Int,K))
+    end 
+end 
+struct FastNormLCS <: PathDistance
     curr_row::Vector{Int}
     prev_row::Vector{Int}
     function FastLCS(K::Int)
@@ -137,6 +144,49 @@ function (d::FastLCS)(
         copy!(prev_row, curr_row)
     end
     return curr_row[m+1]
+end
+
+function (d::FastNormLCS)(
+    X::AbstractVector,Y::AbstractVector
+    )::Float64
+
+    n = length(X)
+    m = length(Y)
+
+    # If one or more is empty string return 0 or length of nonzero
+    if (n == 0) || (m == 0)
+        return n + m
+    end
+
+    # Code only needs previous row to update next row using the rule from
+    # Wagner-Fisher algorithm
+
+    #            Y
+    #       0 1 2   ...
+    #    X  1 0
+    #       2
+
+    prev_row = view(d.prev_row, 1:(m+1))
+    curr_row = view(d.curr_row, 1:(m+1))
+
+    copy!(prev_row, 0:m)
+    curr_row .= 0
+
+    # @show prev_row, curr_row
+
+    for i = 1:n
+        curr_row[1] = i
+        for j = 1:m
+            if X[i] == Y[j]
+                curr_row[j+1] = prev_row[j]
+            else
+                curr_row[j+1] = min(curr_row[j], prev_row[j+1]) + 1
+            end
+        end
+        copy!(prev_row, curr_row)
+    end
+    d_lcs = curr_row[m+1]
+    return 2 * d_lcs / (n + m + d_lcs)
 end
 
 
