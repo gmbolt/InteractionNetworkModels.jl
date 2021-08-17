@@ -1,4 +1,42 @@
-export piex_mcmc_mode
+export piex_mcmc_mode, get_split_inds, get_split_ind_iters
+
+function get_split_inds(
+    n::Int, bins::Int   
+    )
+    split = get_split(n, bins)
+    pushfirst!(split, 1)
+    cumsum(split)
+end 
+
+function get_split_ind_iters(n::Int, bins::Int)
+    split_inds = get_split_inds(n, bins)
+    [split_inds[i]:(split_inds[i+1]-1) for i in 1:(length(split_inds)-1)]
+end 
+
+function log_lik(
+    data::InteractionSequenceSample,
+    S::InteractionSequence, 
+    γ::Real,
+    d::InteractionSeqDistance
+)
+    return mapreduce(x->-γ*d(x, S), +, data)
+
+end 
+
+function plog_lik(
+    data::InteractionSequenceSample, 
+    S::InteractionSequence, 
+    γ::Real,
+    d::InteractionSeqDistance,
+    split_inds::Vector{UnitRange})
+    out = Distributed.pmap(split_inds) do index
+        return log_lik(data[index], S, γ, d)
+    end 
+    out
+end 
+
+
+
 
 function piex_mcmc_within_gibbs_update!(
     posterior::SisPosterior{T},
@@ -123,7 +161,7 @@ function piex_mcmc_mode(
     gibbs_acc_count = 0 
 
     # Decide splitting of Auxiliary samples over processors 
-    psplit = get_split(posterior.sample_size, Distributed.nprocs())
+    psplit = get_split(posterior.sample_size, Distributed.nworkers())
 
     P, vmap, vmap_inv = get_informed_proposal_matrix(posterior.data, α)
 

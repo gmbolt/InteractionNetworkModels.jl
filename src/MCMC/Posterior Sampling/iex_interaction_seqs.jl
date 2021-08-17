@@ -479,7 +479,7 @@ function iex_mcmc_mode(
         posterior.data,
         p_measures
     )
-    return output, all_aux_data
+    return output
 end 
 
 

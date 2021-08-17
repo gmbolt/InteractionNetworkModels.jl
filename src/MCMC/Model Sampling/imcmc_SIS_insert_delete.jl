@@ -361,12 +361,13 @@ function pdraw_sample(
     lag::Int=mcmc.lag,
     init::Vector{Path{T}}=model.mode
     ) where {T<:Union{Int,String}}
-    S_init = draw_sample(mcmc, model, desired_samples=1, burn_in=burn_in, init=init)[1]
+    S_init = draw_sample(mcmc, model, desired_samples=1, burn_in=burn_in, init=init)[1] 
+    # @show S_init
     out = Distributed.pmap(split) do index
         return draw_sample(
                 mcmc, model, 
                 desired_samples=index,
-                lag=lag, burn_in=burn_in, init=S_init
+                lag=lag, burn_in=0, init=S_init
                 )
     end 
     vcat(out...)
@@ -397,12 +398,12 @@ function plog_aux_term_mode_update(
     lag::Int=mcmc.lag,
     init::Vector{Path{T}}=aux_model.mode
     ) where {T<:Union{Int,String}}
-    S_init = draw_sample(mcmc, model, desired_samples=1, burn_in=burn_in, init=init)[1]
+    S_init = draw_sample(mcmc, aux_model, desired_samples=1, burn_in=burn_in, init=init)[1]
     out = Distributed.pmap(split) do index
         sample = draw_sample(
                 mcmc, aux_model, 
                 desired_samples=index,
-                lag=lag, burn_in=burn_in, init=S_init
+                lag=lag, burn_in=0, init=S_init
                 )
         log_lik = mapreduce(
             x -> -aux_model.γ * (aux_model.dist(x,S_curr) - aux_model.dist(x,S_prop)),
