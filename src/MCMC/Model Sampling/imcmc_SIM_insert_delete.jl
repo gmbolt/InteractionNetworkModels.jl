@@ -1,6 +1,6 @@
 using Distributions, StatsBase
 
-function MyPkg.imcmc_gibbs_update!(
+function InteractionNetworkModels.imcmc_gibbs_update!(
     S_curr::InteractionSequence{T},
     S_prop::InteractionSequence{T},
     i::Int,
@@ -54,7 +54,7 @@ function MyPkg.imcmc_gibbs_update!(
     # @show S_curr
 end 
 
-function MyPkg.imcmc_gibbs_scan!(
+function InteractionNetworkModels.imcmc_gibbs_scan!(
     S_curr::InteractionSequence{T},
     S_prop::InteractionSequence{T},
     model::SIM{T}, 
@@ -68,7 +68,7 @@ function MyPkg.imcmc_gibbs_scan!(
     return count
 end
 
-function MyPkg.draw_sample!(
+function InteractionNetworkModels.draw_sample!(
     sample_out::InteractionSequenceSample{T},
     mcmc::SimInvolutiveMcmcInsertDelete,
     model::SIM{T};
@@ -210,7 +210,7 @@ function MyPkg.draw_sample!(
     
 end 
 
-function MyPkg.draw_sample(
+function InteractionNetworkModels.draw_sample(
     mcmc::SimInvolutiveMcmcInsertDelete{T},
     model::SIM{T};
     desired_samples::Int=mcmc.desired_samples, 

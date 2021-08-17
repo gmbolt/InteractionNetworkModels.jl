@@ -1,7 +1,45 @@
-using Distributions, InvertedIndices, StatsBase, ProgressMeter
+export piex_mcmc_mode, get_split_inds, get_split_ind_iters
 
-function InteractionNetworkModels.iex_mcmc_within_gibbs_update!(
-    posterior::SimPosterior{T},
+function get_split_inds(
+    n::Int, bins::Int   
+    )
+    split = get_split(n, bins)
+    pushfirst!(split, 1)
+    cumsum(split)
+end 
+
+function get_split_ind_iters(n::Int, bins::Int)
+    split_inds = get_split_inds(n, bins)
+    [split_inds[i]:(split_inds[i+1]-1) for i in 1:(length(split_inds)-1)]
+end 
+
+function log_lik(
+    data::InteractionSequenceSample,
+    S::InteractionSequence, 
+    γ::Real,
+    d::InteractionSeqDistance
+)
+    return mapreduce(x->-γ*d(x, S), +, data)
+
+end 
+
+function plog_lik(
+    data::InteractionSequenceSample, 
+    S::InteractionSequence, 
+    γ::Real,
+    d::InteractionSeqDistance,
+    split_inds::Vector{UnitRange})
+    out = Distributed.pmap(split_inds) do index
+        return log_lik(data[index], S, γ, d)
+    end 
+    out
+end 
+
+
+
+
+function piex_mcmc_within_gibbs_update!(
+    posterior::SisPosterior{T},
     S_curr::Vector{Path{T}}, 
     γ_curr::Float64,
     i::Int, 
@@ -9,9 +47,9 @@ function InteractionNetworkModels.iex_mcmc_within_gibbs_update!(
     P::CumCondProbMatrix,
     vertex_map::Dict{Int,T},
     vertex_map_inv::Dict{T,Int},
-    mcmc_sampler::SimMcmcSampler, # Sampler for auxiliary variables 
-    aux_data::InteractionSequenceSample{T}
-    ) where {T<:Union{Int, String}}
+    mcmc_sampler::SisMcmcSampler, # Sampler for auxiliary variables 
+    split::Vector{Int}
+) where {T<:Union{Int, String}}
 
     S_prop = deepcopy(S_curr)
 
@@ -31,29 +69,27 @@ function InteractionNetworkModels.iex_mcmc_within_gibbs_update!(
     # @show S_curr, S_prop
 
     # Sample auxiliary data 
-    aux_model = SIM(S_prop, γ_curr, posterior.dist, posterior.V, K_inner=posterior.K_inner, K_outer=posterior.K_outer)
-    draw_sample!(aux_data, mcmc_sampler, aux_model)
+    aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
+    # draw_sample!(aux_data, mcmc_sampler, aux_model)
     
     log_lik_ratio = - γ_curr * (
             sum_of_dists(posterior.data, S_prop, posterior.dist)
             -sum_of_dists(posterior.data, S_curr, posterior.dist)
         )
-
     # @show aux_data
-    aux_log_lik_ratio = -γ_curr * (
-            sum_of_dists(aux_data, S_curr, posterior.dist) - sum_of_dists(aux_data, S_prop, posterior.dist)
+    # Run burn-in to get initial values
+    aux_log_lik_ratio= plog_aux_term_mode_update(
+        mcmc_sampler, aux_model, 
+        split,
+        S_curr, S_prop
         )
     # @show log_lik_ratio, aux_log_lik_ratio
-
-    # EXTRA MULTINOMIAL TERM 
-    log_multinom_ratio = log_multinomial_ratio(S_curr, S_prop)
-
     log_α = (
         posterior.S_prior.γ *(
             sum_of_dists(posterior.S_prior, S_curr)
             - sum_of_dists(posterior.S_prior, S_prop)
         )
-        + log_lik_ratio + aux_log_lik_ratio + log_ratio + log_multinom_ratio
+        + log_lik_ratio + aux_log_lik_ratio + log_ratio
     ) 
     # println("Gibbs:")
     if log(rand()) < log_α
@@ -67,36 +103,37 @@ function InteractionNetworkModels.iex_mcmc_within_gibbs_update!(
     end 
 end 
 
-function iex_mcmc_within_gibbs_scan!(
-    posterior::SimPosterior{T},
+
+function piex_mcmc_within_gibbs_scan!(
+    posterior::SisPosterior{T},
     S_curr::Vector{Path{T}}, 
     γ_curr::Float64, 
     ν::Int,
     P::CumCondProbMatrix,
     vertex_map::Dict{Int,T},
     vertex_map_inv::Dict{T,Int},
-    mcmc_sampler::SimMcmcSampler, # Sampler for auxiliary variables 
-    aux_data::InteractionSequenceSample{T}
+    mcmc_sampler::SisMcmcSampler, # Sampler for auxiliary variables 
+    split::Vector{Int} # Split of samples over processors
     ) where {T<:Union{Int, String}}
 
     N = length(S_curr)
     count = 0
     for i in 1:N
-        count += iex_mcmc_within_gibbs_update!(
+        count += piex_mcmc_within_gibbs_update!(
             posterior, 
             S_curr,γ_curr, 
             i,
             ν,
             P, vertex_map, vertex_map_inv, 
             mcmc_sampler,
-            aux_data)
+            split)
     end 
     return count
 end 
 
-function InteractionNetworkModels.iex_mcmc_mode(
-    posterior::SimPosterior{T},
-    mcmc_sampler::SimMcmcSampler,
+function piex_mcmc_mode(
+    posterior::SisPosterior{T},
+    mcmc_sampler::SisMcmcSampler,
     γ_fixed::Float64;
     S_init::Vector{Path{T}}=sample_frechet_mean(posterior.data, poseterior.dist),
     desired_samples::Int=100, # MCMC parameters...
@@ -107,7 +144,6 @@ function InteractionNetworkModels.iex_mcmc_mode(
     β = 0.0,
     α = 0.0
     ) where {T<:Union{Int, String}}
-
 
     # Find required length of chain
     req_samples = burn_in + 1 + (desired_samples - 1) * lag
@@ -123,22 +159,11 @@ function InteractionNetworkModels.iex_mcmc_mode(
     gibbs_scan_count = 0
     gibbs_tot_count = 0
     gibbs_acc_count = 0 
-    aux_data = [[T[]] for i in 1:posterior.sample_size]
 
-    # tmp_inds = Int[]
-    # Vertex distribution for proposal 
-    # μ = get_vertex_proposal_dist(posterior)
-    # if T == String 
-    #     vdist = StringCategorical(posterior.V, μ)
-    # elseif T == Int
-    #     vdist = Categorical(μ)
-    # else 
-    #     error("Path eltype not recognised for defining vertex proposal dist.")
-    # end 
+    # Decide splitting of Auxiliary samples over processors 
+    psplit = get_split(posterior.sample_size, Distributed.nworkers())
 
-    # Pairwise occurence probability matrix (and vertex maps)
     P, vmap, vmap_inv = get_informed_proposal_matrix(posterior.data, α)
-
 
     # Bounds for uniform sampling of number of interactions
     lb(x::Vector{Path{T}}) = max( ceil(Int, length(x)/2), length(x) - ν_outer )
@@ -146,18 +171,20 @@ function InteractionNetworkModels.iex_mcmc_mode(
 
     probs_gibbs = 1/(2+1) + β
     
+    # Run one MCMC burn_in at S_curr to get an aux_end value (the final value from MCMC chain)
+
     for i in 1:req_samples
         
         if rand() < probs_gibbs
             gibbs_scan_count += 1
             gibbs_tot_count += length(S_curr)
-            gibbs_acc_count += iex_mcmc_within_gibbs_scan!(
+            gibbs_acc_count += piex_mcmc_within_gibbs_scan!(
                 posterior, # Target
                 S_curr, γ_curr, # State values
                 ν, 
                 P, vmap, vmap_inv, 
                 mcmc_sampler,
-                aux_data) # Gibbs sampler parameters
+                psplit) # Gibbs sampler parameters
             S_sample[i] = copy(S_curr)
             next!(iter)
         
@@ -187,8 +214,8 @@ function InteractionNetworkModels.iex_mcmc_mode(
             end 
 
             # Sample auxiliary data 
-            aux_model = SIM(S_prop, γ_curr, posterior.dist, posterior.V, K_inner=posterior.K_inner, K_outer=posterior.K_outer)
-            draw_sample!(aux_data, mcmc_sampler, aux_model)
+            aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
+            # draw_sample!(aux_data, mcmc_sampler, aux_model)
 
             # Accept reject
             log_lik_ratio = - γ_curr * (
@@ -196,22 +223,24 @@ function InteractionNetworkModels.iex_mcmc_mode(
             -sum_of_dists(posterior.data, S_curr, posterior.dist)
                 )
             
-            aux_log_lik_ratio = -γ_curr * (
-                    sum_of_dists(aux_data, S_curr, posterior.dist)
-                    - sum_of_dists(aux_data, S_prop, posterior.dist)
-                )
+            # aux_log_lik_ratio = -γ_curr * (
+            #         sum_of_dists(aux_data, S_curr, posterior.dist)
+            #         - sum_of_dists(aux_data, S_prop, posterior.dist)
+            #     )
 
-            # EXTRA MULTINOMIAL TERM 
-            log_multinom_ratio = log_multinomial_ratio(S_curr, S_prop)
+            aux_log_lik_ratio = plog_aux_term_mode_update(
+                mcmc_sampler, aux_model, 
+                psplit,
+                S_curr, S_prop
+                )
 
             log_α = (
                 posterior.S_prior.γ *(
                     sum_of_dists(posterior.S_prior, S_curr)
                     - sum_of_dists(posterior.S_prior, S_prop)
                 )
-                + log_lik_ratio + aux_log_lik_ratio + log_ratio + log_multinom_ratio
+                + log_lik_ratio + aux_log_lik_ratio + log_ratio
             ) 
-
             # println("Transdim:")
             # @show log_lik_ratio, aux_log_lik_ratio
 
@@ -231,7 +260,7 @@ function InteractionNetworkModels.iex_mcmc_mode(
         "Trans-dimensional move acceptance probability" => acc_count/count,
         "Gibbs move acceptance probability" => gibbs_acc_count/gibbs_tot_count
     )
-    output = SimPosteriorModeConditionalMcmcOutput(
+    output = SisPosteriorModeConditionalMcmcOutput(
         γ_fixed, 
         S_sample[(burn_in+1):lag:end],
         posterior.dist,
@@ -241,3 +270,4 @@ function InteractionNetworkModels.iex_mcmc_mode(
     )
     return output
 end 
+

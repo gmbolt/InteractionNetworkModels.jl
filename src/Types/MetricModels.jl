@@ -1,4 +1,4 @@
-using ProgressMeter
+using ProgressMeter, Multisets
 export SPF, SIS, SIM, sum_of_dists, cardinality
 export get_normalising_const, get_sample_space, eachpath, eachinterseq
 export pmf_unormalised, get_true_dist_vec, get_true_dist_dict
@@ -117,19 +117,24 @@ struct SIS{T<:Union{Int, String}}
     K_inner::Real # Maximum interaction sequence size
     K_outer::Real # Maximum path (interaction) length
     # Inner constructor (to impose default value for K's).
-    function SIS(
-        mode::Vector{Path{T}},
-        γ::Real,
-        dist::InteractionSeqDistance,
-        V::Vector{T};
-        K_inner::Real=Inf,
-        K_outer::Real=Inf
-        ) where {T<:Union{Int, String}}
-        new{T}(mode, γ, dist, V, K_inner, K_outer)
-    end
+    # function SIS(
+    #     mode::Vector{Path{T}},
+    #     γ::Real,
+    #     dist::InteractionSeqDistance,
+    #     V::Vector{T};
+    #     K_inner::Real,
+    #     K_outer::Real
+    #     ) where {T<:Union{Int, String}}
+    #     new{T}(mode, γ, dist, V, K_inner, K_outer)
+    # end
 end
 
-
+SIS(
+    mode::InteractionSequence{T}, 
+    γ::Real, 
+    dist::InteractionSeqDistance, 
+    V::Vector{T}
+    ) where {T<:Union{Int,String}}= SIS(mode, γ, dist, V, Inf, Inf)
 
 struct SIM{T<:Union{Int, String}}
     mode::Vector{Path{T}} # Mode

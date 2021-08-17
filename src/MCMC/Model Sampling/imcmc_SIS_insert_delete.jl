@@ -1,7 +1,7 @@
-using Distributions, StatsBase
+using Distributions, StatsBase, Distributed
 
 export imcmc_insert_prop_sample, imcmc_delete_prop_sample, draw_sample, draw_sample!
-export imcmc_gibbs_update!, imcmc_gibbs_scan!
+export imcmc_gibbs_update!, imcmc_gibbs_scan!, pdraw_sample, get_split, plog_aux_term_mode_update
 
 
 function imcmc_insert_prop_sample(
@@ -148,7 +148,7 @@ function migrate!(
 end 
 
 function draw_sample!(
-    sample_out::InteractionSequenceSample{T},
+    sample_out::Union{InteractionSequenceSample{T}, SubArray},
     mcmc::SisInvolutiveMcmcInsertDelete,
     model::SIS{T};
     burn_in::Int=mcmc.burn_in,
@@ -294,11 +294,25 @@ function draw_sample(
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
     init::Vector{Path{T}}=model.mode
+    ) where {T<:Union{Int,String}} 
+    sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
+    # @show sample_out
+    draw_sample!(sample_out, mcmc, model, burn_in=burn_in, lag=lag, init=init)
+        return sample_out
+
+end 
+
+
+function (mcmc::SisInvolutiveMcmcInsertDelete{T})(
+    model::SIS{T};
+    desired_samples::Int=mcmc.desired_samples, 
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    init::Vector{Path{T}}=model.mode
     ) where {T<:Union{Int,String}}
 
-
-
     sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
+    # @show sample_out
     (
         count, 
         acc_count, 
@@ -312,12 +326,93 @@ function draw_sample(
             "Trans-dimensional move acceptance probability" => acc_count/count,
             "Gibbs move acceptance probability" => gibbs_acc_count/gibbs_tot_count
         )
-        output = SisMcmcOutput(
+    output = SisMcmcOutput(
             model, 
             sample_out, 
             p_measures
             )
 
-        return output
+    return output
 
 end 
+
+function get_split(
+    n::Int, bins::Int   
+    )
+    increment = n / bins 
+    rem = 0.0
+    tot = 0
+    step = floor(Int, increment + rem)
+    out = Int[]
+    for i in 1:(bins-1)
+        step = floor(Int, increment + rem)
+        rem += increment - step
+        push!(out, step) 
+        tot += step
+    end 
+    push!(out, n-tot)
+end
+
+function pdraw_sample(
+    mcmc::SisInvolutiveMcmcInsertDelete{T},
+    model::SIS{T}, 
+    split::Vector{Int}; 
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    init::Vector{Path{T}}=model.mode
+    ) where {T<:Union{Int,String}}
+    S_init = draw_sample(mcmc, model, desired_samples=1, burn_in=burn_in, init=init)[1] 
+    # @show S_init
+    out = Distributed.pmap(split) do index
+        return draw_sample(
+                mcmc, model, 
+                desired_samples=index,
+                lag=lag, burn_in=0, init=S_init
+                )
+    end 
+    vcat(out...)
+end 
+
+function pdraw_sample(
+    mcmc::SisInvolutiveMcmcInsertDelete{T},
+    model::SIS{T};
+    desired_samples::Int=mcmc.desired_samples,
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    init::Vector{Path{T}}=model.mode
+) where {T<:Union{Int,String}}
+    psplit = get_split(desired_samples, nworkers())
+    return pdraw_sample(mcmc, model, psplit, burn_in=burn_in, lag=lag, init=init)
+
+end 
+
+# Parallel log auxiliary term for model update7
+# - γ * (∑ d(x, S_curr) - ∑ d(x, S_prop)) (where sum is over auxiliary data)
+function plog_aux_term_mode_update(
+    mcmc::SisInvolutiveMcmcInsertDelete, 
+    aux_model::SIS{T},
+    split::Vector{T}, 
+    S_curr::InteractionSequence{T},
+    S_prop::InteractionSequence{T};
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    init::Vector{Path{T}}=aux_model.mode
+    ) where {T<:Union{Int,String}}
+    S_init = draw_sample(mcmc, aux_model, desired_samples=1, burn_in=burn_in, init=init)[1]
+    out = Distributed.pmap(split) do index
+        sample = draw_sample(
+                mcmc, aux_model, 
+                desired_samples=index,
+                lag=lag, burn_in=0, init=S_init
+                )
+        log_lik = mapreduce(
+            x -> -aux_model.γ * (aux_model.dist(x,S_curr) - aux_model.dist(x,S_prop)),
+            (+),
+            sample
+        ) 
+        return log_lik
+    end 
+    mapreduce(x->x[1], (+), out)
+end 
+
+

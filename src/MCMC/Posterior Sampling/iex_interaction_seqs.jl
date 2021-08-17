@@ -1,4 +1,4 @@
-using Distributions, InvertedIndices, StatsBase, ProgressMeter, GraphRecipes
+using Distributions, InvertedIndices, StatsBase, ProgressMeter
 
 export iex_mcmc_mode, iex_mcmc_gamma
 export get_cooccurrence_matrix, get_cooccurrence_prob_matrix, plot_cooccurrence_graph
@@ -34,7 +34,7 @@ end
 # In case (ii) we must map integers to vertices 
 
 
-function MyPkg.imcmc_prop_sample_edit_informed(
+function InteractionNetworkModels.imcmc_prop_sample_edit_informed(
     I_curr::Path{Int}, 
     δ::Int,
     d::Int, 
@@ -76,7 +76,7 @@ function MyPkg.imcmc_prop_sample_edit_informed(
 
 end 
 
-function MyPkg.imcmc_prop_sample_edit_informed(
+function InteractionNetworkModels.imcmc_prop_sample_edit_informed(
     I_curr::Path{String}, 
     δ::Int,
     d::Int, 
@@ -134,7 +134,8 @@ function iex_mcmc_within_gibbs_update!(
     vertex_map::Dict{Int,T},
     vertex_map_inv::Dict{T,Int},
     mcmc_sampler::SisMcmcSampler, # Sampler for auxiliary variables 
-    aux_data::InteractionSequenceSample{T}
+    aux_data::InteractionSequenceSample{T},
+    all_aux_data::InteractionSequenceSample{T}
 ) where {T<:Union{Int, String}}
 
     S_prop = deepcopy(S_curr)
@@ -155,8 +156,17 @@ function iex_mcmc_within_gibbs_update!(
     # @show S_curr, S_prop
 
     # Sample auxiliary data 
-    aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, K_inner=posterior.K_inner, K_outer=posterior.K_outer)
+    aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
+    # println("Initialising at:", aux_data[end])
+    # aux_data = draw_sample(mcmc_sampler, aux_model, init=deepcopy(aux_data[end])) # Initialise at last val of previous
+    # draw_sample!(aux_data, mcmc_sampler, aux_model, init=deepcopy(aux_data[end]))
     draw_sample!(aux_data, mcmc_sampler, aux_model)
+    # push!(all_aux_data, deepcopy(aux_data)...)
+    # println("\n")
+    # for x in aux_data
+    #     println(x)
+    # end 
+    # println("\n")
     
     log_lik_ratio = - γ_curr * (
             sum_of_dists(posterior.data, S_prop, posterior.dist)
@@ -195,7 +205,8 @@ function iex_mcmc_within_gibbs_scan!(
     vertex_map::Dict{Int,T},
     vertex_map_inv::Dict{T,Int},
     mcmc_sampler::SisMcmcSampler, # Sampler for auxiliary variables 
-    aux_data::InteractionSequenceSample{T}
+    aux_data::InteractionSequenceSample{T},
+    all_aux_data::InteractionSequenceSample{T}
     ) where {T<:Union{Int, String}}
 
     N = length(S_curr)
@@ -208,7 +219,8 @@ function iex_mcmc_within_gibbs_scan!(
             ν,
             P, vertex_map, vertex_map_inv, 
             mcmc_sampler,
-            aux_data)
+            aux_data, 
+            all_aux_data)
     end 
     return count
 end 
@@ -323,7 +335,7 @@ function iex_mcmc_mode(
     posterior::SisPosterior{T},
     mcmc_sampler::SisMcmcSampler,
     γ_fixed::Float64;
-    S_init::Vector{Path{T}}=sample_frechet_mean(posterior.data, poseterior.dist),
+    S_init::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist),
     desired_samples::Int=100, # MCMC parameters...
     burn_in::Int=100,
     lag::Int=1,
@@ -349,7 +361,11 @@ function iex_mcmc_mode(
     gibbs_tot_count = 0
     gibbs_acc_count = 0 
     aux_data = [[T[]] for i in 1:posterior.sample_size]
-
+    all_aux_data = InteractionSequence{T}[]
+    # Initialise the aux_data with a large burn_in 
+    aux_model = SIS(S_curr, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
+    draw_sample!(aux_data, mcmc_sampler, aux_model, burn_in=1000)
+    
     # tmp_inds = Int[]
     # Vertex distribution for proposal 
     # μ = get_vertex_proposal_dist(posterior)
@@ -382,7 +398,8 @@ function iex_mcmc_mode(
                 ν, 
                 P, vmap, vmap_inv, 
                 mcmc_sampler,
-                aux_data) # Gibbs sampler parameters
+                aux_data, 
+                all_aux_data) # Gibbs sampler parameters
             S_sample[i] = copy(S_curr)
             next!(iter)
         
@@ -412,9 +429,11 @@ function iex_mcmc_mode(
             end 
 
             # Sample auxiliary data 
-            aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, K_inner=posterior.K_inner, K_outer=posterior.K_outer)
+            aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
+            # println("Initialising at:", aux_data[end])
+            # aux_data = draw_sample(mcmc_sampler, aux_model, init=deepcopy(aux_data[end])) # Initialise at last val of previous
             draw_sample!(aux_data, mcmc_sampler, aux_model)
-
+            # push!(all_aux_data, deepcopy(aux_data)...)
             # Accept reject
             log_lik_ratio = - γ_curr * (
             sum_of_dists(posterior.data, S_prop, posterior.dist)
@@ -464,6 +483,7 @@ function iex_mcmc_mode(
 end 
 
 
+
 function iex_mcmc_gamma(
     posterior::SisPosterior{T},
     mcmc_sampler::SisMcmcSampler, 
@@ -499,7 +519,7 @@ function iex_mcmc_gamma(
             S_curr, γ_prop, 
             posterior.dist, 
             posterior.V, 
-            K_inner=posterior.K_inner, K_outer=posterior.K_outer
+            posterior.K_inner, posterior.K_outer
             )
         draw_sample!(aux_data, mcmc_sampler, aux_model)
 

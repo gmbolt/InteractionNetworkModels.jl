@@ -221,6 +221,17 @@ struct SisInvolutiveMcmcInsertDelete{T<:Union{Int,String}} <: SisMcmcSampler
     end 
 end 
 
+SisInvolutiveMcmcInsertDelete(
+    model::SIS;
+    K=100,
+    ν=4, β=0.0,
+    desired_samples=1000, lag=1, burn_in=0
+    ) = SisInvolutiveMcmcInsertDelete(
+        PathPseudoUniform(model.V, TrGeometric(0.8, 1, model.K_inner));
+        K=K, ν=ν, β=β, desired_samples=desired_samples, lag=lag, burn_in=burn_in
+        )
+
+
 function Base.show(io::IO, sampler::SisInvolutiveMcmcInsertDelete)
     title = "MCMC Sampler for Spherical Interaction Sequence (SIS) Family via Insert-Delete Algorithm"
     n = length(title)

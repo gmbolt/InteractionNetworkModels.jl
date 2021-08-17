@@ -29,7 +29,7 @@ end
 # Now a function for dataframes
 
 function make_labels(X::AbstractDataFrame, cols::Vector{Int}; nan="NaN")
-    X = convert(Matrix, X[:,cols])
+    X = Matrix(X[:,cols])
     return make_labels(X, nan=nan)
 end
 
