@@ -1,15 +1,12 @@
 module InteractionNetworkModels
 
-export Path, InteractionSequence, InteractionSequenceSample
+using Distributed
 
 # Write your package code here.
-# Define some type aliases 
-const Path{T} = Vector{T} where {T<:Union{Int, String}}
-const InteractionSequence{T} = Vector{Vector{T}} where {T<:Union{Int, String}}
-const InteractionSequenceSample{T} = Vector{Vector{Vector{T}}} where {T<:Union{Int, String}}
-
+# Define some type aliases
 
 # Distances
+include("aliases.jl")
 include("Distances/Distances.jl")
 include("Distances/InteractionDistances.jl")
 include("Distances/InteractionSequenceDistances.jl")
@@ -41,7 +38,8 @@ include("MCMC/Model Sampling/summarys.jl")
 include("MCMC/Posterior Sampling/iex_interaction_seqs.jl")
 include("MCMC/Posterior Sampling/iex_interaction_sets.jl")
 include("MCMC/Posterior Sampling/iex_paths.jl")
-include("MCMC/Posterior Sampling/parallel_iex_interaction_seqs.jl")
+# include("MCMC/Posterior Sampling/parallel_iex_interaction_seqs.jl")
+include("MCMC/Posterior Sampling/parallel_helpers.jl")
 
 
 end

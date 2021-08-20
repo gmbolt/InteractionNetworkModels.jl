@@ -5,6 +5,7 @@ export get_cooccurrence_matrix, get_cooccurrence_prob_matrix, plot_cooccurrence_
 export merge_move_with_kick_sampler, separation_move_with_kick_sampler
 export iex_mcmc_within_gibbs_update!, iex_mcmc_within_gibbs_scan!
 export rand_multivariate_bernoulli
+export get_informed_proposal_matrix
 
 # const print_notes = false
 

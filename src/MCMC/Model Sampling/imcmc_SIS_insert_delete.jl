@@ -1,7 +1,7 @@
 using Distributions, StatsBase, Distributed
 
 export imcmc_insert_prop_sample, imcmc_delete_prop_sample, draw_sample, draw_sample!
-export imcmc_gibbs_update!, imcmc_gibbs_scan!, pdraw_sample, get_split, plog_aux_term_mode_update
+export imcmc_gibbs_update!, imcmc_gibbs_scan!, pdraw_sample, plog_aux_term_mode_update
 
 
 function imcmc_insert_prop_sample(
@@ -336,22 +336,6 @@ function (mcmc::SisInvolutiveMcmcInsertDelete{T})(
 
 end 
 
-function get_split(
-    n::Int, bins::Int   
-    )
-    increment = n / bins 
-    rem = 0.0
-    tot = 0
-    step = floor(Int, increment + rem)
-    out = Int[]
-    for i in 1:(bins-1)
-        step = floor(Int, increment + rem)
-        rem += increment - step
-        push!(out, step) 
-        tot += step
-    end 
-    push!(out, n-tot)
-end
 
 function pdraw_sample(
     mcmc::SisInvolutiveMcmcInsertDelete{T},
