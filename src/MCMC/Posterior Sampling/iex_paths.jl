@@ -1,8 +1,18 @@
 using Distributions, InvertedIndices, StatsBase, ProgressMeter, RecipesBase
 
-export iex_mcmc_mode, iex_mcmc_gamma, aux_term_eval_mode
+export iex_mcmc_mode, iex_mcmc_gamma, aux_term_eval_mode, rand_reflect
 
-
+function rand_reflect(x, ε, l, u)
+    ξ = ε * (2*rand() - 1)
+    y = x + ξ
+    if y < l 
+        return 2*l - y
+    elseif y > u 
+        return 2*u - y
+    else 
+        return y 
+    end 
+end 
 
 # Auxiliary sampler types 
 

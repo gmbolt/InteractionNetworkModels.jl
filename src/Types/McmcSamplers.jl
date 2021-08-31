@@ -41,7 +41,7 @@ struct SpfInvolutiveMcmcEdit <: SpfMcmcSampler
 end 
 
 function Base.show(io::IO, sampler::SpfInvolutiveMcmcEdit)
-    title = "MCMC Sampler for Spherical Path Family (SPF) via Subsequence Preservation"
+    title = "MCMC Sampler for Spherical Path Family (SPF) via Edit Operations"
     n = length(title)
     println(io, title)
     println(io, "-"^n)
