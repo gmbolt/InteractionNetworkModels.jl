@@ -1,5 +1,10 @@
 # InteractionNetworkModels
 
+This package contains supporting code of Bolt et al. (2021) *Temporary reference*. Features include 
+1. Model types for Spherical Interaction Sequence (SIS) and Spherical Interaction Multisets (SIM) models, and the Hollywood model of Crane et al. (2018);
+2. Samplers for models;
+3. Samplers SIS/SIM posterior distributions.
+
 ## Data Structures
 
 We represent a path with a vector of `Int` or `String` values. That is, if `x` is to store a path then we can have 
@@ -19,13 +24,47 @@ For readability we define the following aliases
 2. `InteractionSequence{T} = Vector{Vector{T}}` for `T = Int` and `T=String`
 
 that is, we can use `Path{T}` and `InteractionSequence{T}` as we would `Vector{T}` or `Vector{Vector{T}}`. This is purely out of convenience. 
- 
+
+Note there is no separate representation of interaction multisets. The reason being this seemed an unnecessary complication, since one can simply interpret two interaction sequences as equal up a permutation of interaction order. Furthermore, one can can make use of the `Multisets.jl` package to convert any interaction sequence into an interaction multiset. For example, one could convert any vector `x::Vector{InteractionSequence{T}}` to type `Vector{Multiset{Path{T}}}` via the following
+
+```julia 
+using Multisets 
+x = Multiset.(x) 
+```
+
 
 ## Distance Metrics
 
-We have defined some custom types to denote different distance metrics, both between interactions and interaction sequences. These have been made subtypes of the `Metric` type of the `Distances.jl` package. 
+A key feature of the models proposed in Bolt et al. (2021) are distance metrics. This includes distances between
+1. Interactions, that is, paths;
+2. Interaction sequences 
+3. Interaction multisets 
 
-## Models
+We have defined some custom types to denote the various distance metrics. These have all been made subtypes of the `Metric` type of the `Distances.jl` package. 
+
+### Interaction Distances 
+
+Here we introduce the abstract type `InteractionDistance`, intended to cover distances between any type of interaction (e.g. if perhaps you would like to extend this beyond interactions being paths). We then have a further abstract subtype `PathDistance<:InteractionDistance`, which is to cover specifically distances between paths. Current supported path distances are a follows 
+
+* *Longest Common Subsequence (LCS) Distance* - instantiated via `LCS()`
+* *Longest Common Subpath (LCP) Distance* - instantiated via `LCP()`
+* *Normalised LCS Distance* - instantiated via `NormLCS()`
+* *Normalised LCP Distance* - instantiated via `NormLCP()`
+
+Once a distance has been defined it can be called naturally as a function on two suitable arguments. For example, the following would evaluate the LCS distance between `x` and `y`
+```julia
+d = LCS()
+x = [1,2,1,2]
+y = [1,3,1,3]
+d(x,y)
+```
+
+### Interaction Sequence Distances 
+
+### Interaction Multiset Distances 
+
+
+## Defining and Sampling From Models
 
 Model types have been constructed to define models discussed in the paper. These include (i) Spherical Path Family (SPF) distributions (ii) Spherical Interaction Sequence (SIS) family distributions (iii) Spherical Interaction Multiset (SIM) family distributions. 
 
@@ -42,10 +81,8 @@ These are instantiated as follows
     model = SPF(Iᵐ, γ, d, 𝒱, K=K)
     ```
 
-## Posterior Distributions
+## Posterior Inference
 
-## MCMC Samplers 
+### Defining Posterior Distributions 
 
-### Models 
-
-### Posteriors
+### Samplers 
