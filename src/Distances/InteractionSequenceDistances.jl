@@ -1,4 +1,4 @@
-using OptimalTransport, StatsBase, Distances, Hungarian
+using PythonOT, StatsBase, Distances, Hungarian
 
 export InteractionSetDistance, InteractionSeqDistance, LengthDistance, EMD, sEMD, sEMD2, MatchingDist
 export FastMatchingDist, FpMatchingDist, FpMatchingDist2, NormFpMatchingDist, GED, FastGED, FpGED, NormFpGED, get_matching
@@ -118,7 +118,7 @@ function (d::EMD)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where 
     p_a /= sum(p_a)
     p_b /= sum(p_b)
 
-    TransPlan::Array{Float64,2} = OptimalTransport.emd(p_a, p_b, C)
+    TransPlan::Array{Float64,2} = PythonOT.emd(p_a, p_b, C)
 
     # Verify not nonsense output
     @assert(abs(sum(TransPlan) - 1.0) < 10e-5 , "Invalid transport plan, check code.")
@@ -199,7 +199,7 @@ function (d::FpMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence
         # @show C
         @views Distances.pairwise!(C, d.ground_dist, S1, S2)
         # @show C
-        TransPlan = OptimalTransport.emd([], [], C)
+        TransPlan = PythonOT.emd([], [], C)
         matching_cost = sum(C[(x -> x > 0).(TransPlan)])
 
         # for i = 1:length(S1)
@@ -212,7 +212,7 @@ function (d::FpMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence
         # end
 
 
-        return matching_cost, TransPlan, sum( (OptimalTransport.emd([], [], C)[:,1:length(S2)].*length(S1)) .* C[:,1:length(S2)] ) + d.penalty*(length(S1) - length(S2))
+        return matching_cost, TransPlan, sum( (PythonOT.emd([], [], C)[:,1:length(S2)].*length(S1)) .* C[:,1:length(S2)] ) + d.penalty*(length(S1) - length(S2))
     end
 end
 
@@ -224,7 +224,7 @@ function (d::FpMatchingDist2)(S1::InteractionSequence{T}, S2::InteractionSequenc
 
     @views MyPkg.pairwise!(C[1:length(S1), 1:length(S2)], d.ground_dist, S1, S2)
     @views fill!(C[(end-length(S2)+1):end, (end-length(S1)+1):end], 0.0) 
-    TransPlan = OptimalTransport.emd([], [], C)
+    TransPlan = PythonOT.emd([], [], C)
     matching_cost = sum(C[(x -> x > 0).(TransPlan)])
     for i = 1:(length(S1)+length(S2))
         j = findfirst(TransPlan[i,:] .> 0)
@@ -489,14 +489,14 @@ function get_matching(d::MatchingDist, S1::InteractionSequence{T}, S2::Interacti
     C = Distances.pairwise(d.ground_dist, S1, S2)
     if length(S1) == length(S2)
         ext_C = copy(C)
-        Tplan = OptimalTransport.emd([], [], ext_C)
+        Tplan = PythonOT.emd([], [], ext_C)
     elseif length(S1) > length(S2)
         # ext_C = hcat(C, hcat(fill([d.ground_dist(Path([]), p) for p in S1], length(S1)-length(S2))...)) # Extend the cost matrix
         ext_C = hcat(C, [d.ground_dist(Path([]), S1[i]) for i=1:length(S1), j=1:(length(S1)-length(S2))])
-        Tplan = OptimalTransport.emd([], [], ext_C)
+        Tplan = PythonOT.emd([], [], ext_C)
     else
         ext_C = vcat(C, [d.ground_dist(Path([]), S2[j]) for i=1:(length(S2)-length(S1)), j=1:length(S2)])
-        Tplan = OptimalTransport.emd([], [], ext_C)
+        Tplan = PythonOT.emd([], [], ext_C)
     end
     for i in 1:size(ext_C)[1]
         if i ≤ length(S1)
