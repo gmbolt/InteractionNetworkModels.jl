@@ -177,8 +177,8 @@ as input either vectors or matrices (data points as rows).
 This version takes a single vector and will evaluate all pairwise distances
 """
 function Distances.pairwise(
-    d::Metric,
-    a::Vector{T} where T
+    d::Union{InteractionSeqDistance,InteractionSetDistance},
+    a::Vector{InteractionSequence{T}} where {T<:Union{Int,String}}
     )
 
     D = zeros(length(a), length(a))
