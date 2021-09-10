@@ -189,11 +189,11 @@ function iex_mcmc_within_gibbs_update!(
     if log(rand()) < log_α
         @inbounds S_curr[i] = copy(S_prop[i])
         # println("$(i) value proposal $(tmp_prop) was accepted")
-        return 1
+        return 1, log_lik_ratio, aux_log_lik_ratio
         
     else
         # println("$(i) value proposal $(tmp_prop) was rejected")
-        return 0
+        return 0, log_lik_ratio, aux_log_lik_ratio
     end 
 end 
 
@@ -211,9 +211,11 @@ function iex_mcmc_within_gibbs_scan!(
     ) where {T<:Union{Int, String}}
 
     N = length(S_curr)
+    log_like_ratios = Float64[]
+    aux_log_lik_ratios = Float64[]
     count = 0
     for i in 1:N
-        count += iex_mcmc_within_gibbs_update!(
+        tmp, log_lik_ratio, aux_log_lik_ratio = iex_mcmc_within_gibbs_update!(
             posterior, 
             S_curr,γ_curr, 
             i,
@@ -222,8 +224,11 @@ function iex_mcmc_within_gibbs_scan!(
             mcmc_sampler,
             aux_data, 
             all_aux_data)
+        count += tmp
+        push!(log_like_ratios, log_lik_ratio)
+        push!(aux_log_lik_ratios, aux_log_lik_ratio)
     end 
-    return count
+    return count, log_like_ratios, aux_log_lik_ratios
 end 
 
 
@@ -367,6 +372,10 @@ function iex_mcmc_mode(
     aux_model = SIS(S_curr, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
     draw_sample!(aux_data, mcmc_sampler, aux_model, burn_in=1000)
     
+    log_lik_ratios = Float64[]
+    aux_log_lik_ratios = Float64[]
+    tmp, tmp_ll_ratios, tmp_aux_ll_ratios = 0, Float64[], Float64[]
+
     # tmp_inds = Int[]
     # Vertex distribution for proposal 
     # μ = get_vertex_proposal_dist(posterior)
@@ -393,7 +402,7 @@ function iex_mcmc_mode(
         if rand() < probs_gibbs
             gibbs_scan_count += 1
             gibbs_tot_count += length(S_curr)
-            gibbs_acc_count += iex_mcmc_within_gibbs_scan!(
+            tmp, tmp_ll_ratios, tmp_aux_ll_ratios = iex_mcmc_within_gibbs_scan!(
                 posterior, # Target
                 S_curr, γ_curr, # State values
                 ν, 
@@ -401,6 +410,10 @@ function iex_mcmc_mode(
                 mcmc_sampler,
                 aux_data, 
                 all_aux_data) # Gibbs sampler parameters
+                
+            gibbs_acc_count += tmp
+            append!(log_lik_ratios, tmp_ll_ratios)
+            append!(aux_log_lik_ratios, tmp_aux_ll_ratios)
             S_sample[i] = copy(S_curr)
             next!(iter)
         
@@ -455,7 +468,8 @@ function iex_mcmc_mode(
             ) 
             # println("Transdim:")
             # @show log_lik_ratio, aux_log_lik_ratio
-
+            push!(log_lik_ratios, log_lik_ratio)
+            push!(aux_log_lik_ratios, aux_log_lik_ratio)
             if log(rand()) < log_α
                 S_sample[i] = copy(S_prop)
                 S_curr = copy(S_prop)
@@ -480,7 +494,7 @@ function iex_mcmc_mode(
         posterior.data,
         p_measures
     )
-    return output
+    return output, log_lik_ratios, aux_log_lik_ratios
 end 
 
 
