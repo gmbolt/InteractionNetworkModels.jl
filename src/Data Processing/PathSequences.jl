@@ -73,14 +73,20 @@ function get_paths(
         end
     end
     Y = Vector{Vector{eltype(X[:,vertex_col_name])}}() # Initialise storage
-    ind = diff(X[:,"time_gmt"]).>T
+    ind = diff(X[:,time_col_name]).>T
     recurse_split!(X, Y, ind, 1, vertex_col_name=vertex_col_name)
     return Y
 end
 
 
 ## Now do on a grouped data frame (will return a vector of vector of vectors)
+"""
+Given a `DataFrames.GroupedDataFrame` object and some time threshold of type `Dates.TimePeriod` this will convert the data to interaction sequences. 
 
+Column names for vertex labels and timestamps are passed names arguments.
+
+**Note** the time column must be of type `Dates.DateTime`.
+"""
 function get_path_sequences(
     X::GroupedDataFrame;
     T::TimePeriod=Minute(15),
@@ -96,7 +102,6 @@ end
 
 
 ## Filtering functions
-
 # On raw dataframe
 
 function max_length(
