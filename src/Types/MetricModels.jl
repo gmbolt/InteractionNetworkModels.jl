@@ -97,7 +97,7 @@ function get_sample_space(
 )
     z = Vector{Path}()
     for P in eachpath(model.V, model.K)
-        push!(z, Path(P...))
+        push!(z, [P...])
     end
     return z
 
