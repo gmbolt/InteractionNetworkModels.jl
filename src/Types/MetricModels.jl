@@ -83,7 +83,7 @@ function get_normalising_const(
     for i=1:model.K
         for P in Base.Iterators.product([model.V for j=1:i]...)
             # println(Path(P...))
-            Z += exp( - model.γ * model.dist(Path(P...), model.mode) )
+            Z += exp( - model.γ * model.dist([P...], model.mode) )
         end
     end
     return Z
