@@ -153,7 +153,7 @@ function draw_sample!(
     model::SIS{T};
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=model.mode
+    init::Vector{Path{T}}=[rand(model.V, x) for x in length.(model.mode)]
     ) where {T<:Union{Int,String}}
 
     # Define aliases for pointers to the storage of current vals and proposals
@@ -293,12 +293,12 @@ function draw_sample(
     desired_samples::Int=mcmc.desired_samples, 
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=model.mode
+    init::Vector{Path{T}}=[rand(model.V, x) for x in length.(model.mode)]
     ) where {T<:Union{Int,String}} 
     sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
     # @show sample_out
     draw_sample!(sample_out, mcmc, model, burn_in=burn_in, lag=lag, init=init)
-        return sample_out
+    return sample_out
 
 end 
 
@@ -308,7 +308,7 @@ function (mcmc::SisInvolutiveMcmcInsertDelete{T})(
     desired_samples::Int=mcmc.desired_samples, 
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=model.mode
+    init::Vector{Path{T}}=[rand(model.V, x) for x in length.(model.mode)]
     ) where {T<:Union{Int,String}}
 
     sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)

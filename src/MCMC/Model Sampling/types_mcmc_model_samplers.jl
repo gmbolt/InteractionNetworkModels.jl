@@ -1,5 +1,6 @@
 export SisInvolutiveMcmcMergeSplit, SimInvolutiveMcmcMergeSplit
 export SimInvolutiveMcmcInsertDelete, SisInvolutiveMcmcInsertDelete
+export SisMcmcInsertDeleteEdit
 export SpfMcmcSampler, SisMcmcSampler, SimMcmcSampler
 export SpfInvolutiveMcmcCentSubseq, SpfInvolutiveMcmcEdit
 # ====================
@@ -161,6 +162,71 @@ function Base.show(io::IO, sampler::SisInvolutiveMcmcInsertDelete)
     println(io, "-"^n)
     println(io, "Parameters:")
     num_of_pars = 3
+    for par in fieldnames(typeof(sampler))[1:num_of_pars]
+        println(io, par, " = $(getfield(sampler, par))  ", sampler.par_info[par])
+    end 
+    println(io, "\nDefault output parameters:")
+    for par in fieldnames(typeof(sampler))[(num_of_pars+1):(num_of_pars+3)]
+        println(io, par, " = $(getfield(sampler, par))  ")
+    end 
+end 
+
+
+struct SisMcmcInsertDeleteEdit{T<:Union{Int,String}} <: SisMcmcSampler
+    ν_edit::Int  # Maximum number of edit operations
+    ν_trans_dim::Int  # Maximum change in outer dimension
+    β::Real  # Probability of trans-dimensional move
+    path_dist::PathDistribution{T}  # Distribution used to introduce new interactions
+    K::Int # Max number of interactions (used to determined how many pointers to store interactions)
+    desired_samples::Int  # Final three set default values for MCMC samplers 
+    burn_in::Int
+    lag::Int
+    par_info::Dict
+    curr_pointers::InteractionSequence{T} # Storage for prev value in MCMC
+    prop_pointers::InteractionSequence{T} # Storage for curr value in MCMC
+    ind_del::Vector{Int} # Storage for indexing of deletions of interactions
+    ind_add::Vector{Int} # Storage for indexing of additions of interactions
+    vals::Vector{T} # Storage for values to insert in interactions
+    ind_update::Vector{Int} # Storage of which values have been updated
+    ind_trans_dim::Vector{Int} # Storage of where to insert/delete 
+    function SisMcmcInsertDeleteEdit(
+        path_dist::PathDistribution{S};
+        K=100,
+        ν_edit=2, ν_trans_dim=2, β=0.4,
+        desired_samples=1000, lag=1, burn_in=0
+        ) where {S<:Union{Int, String}}
+        curr_pointers = [S[] for i in 1:K]
+        prop_pointers = [S[] for i in 1:K]
+        ind_del = zeros(Int, ν_edit)
+        ind_add = zeros(Int, ν_edit)
+        vals = zeros(Int, ν_edit)
+        ind_update = zeros(Int, ν_edit)
+        ind_trans_dim = zeros(Int, ν_trans_dim)
+        par_info = Dict()
+        par_info[:ν_edit] = "(maximum number of edit operations)"
+        par_info[:ν_trans_dim] = "(maximum increase/decrease in dimension)"
+        par_info[:path_dist] = "(path distribution for insertions)"
+        par_info[:β] = "(probability of update move)"
+        par_info[:K] = "(maximum number of interactions, used to initialise storage)"
+
+        new{S}(
+            ν_edit, ν_trans_dim, β, 
+            path_dist, K,
+            desired_samples, burn_in, lag, 
+            par_info,
+            curr_pointers, prop_pointers, ind_del, ind_add, vals,
+            ind_update, ind_trans_dim
+            )
+    end 
+end 
+
+function Base.show(io::IO, sampler::SisMcmcInsertDeleteEdit)
+    title = "MCMC Sampler for Spherical Interaction Sequence (SIS) Family via Multi-Insert-Delete Algorithm with Multinomial Allocated Updates."
+    n = length(title)
+    println(io, title)
+    println(io, "-"^n)
+    println(io, "Parameters:")
+    num_of_pars = 5
     for par in fieldnames(typeof(sampler))[1:num_of_pars]
         println(io, par, " = $(getfield(sampler, par))  ", sampler.par_info[par])
     end 
