@@ -1,29 +1,93 @@
 using RecipesBase
 
 export SpfPosteriorMcmcOutput, SpfPosteriorModeConditionalMcmcOutput, SpfPosteriorDispersionConditionalMcmcOutput
-export SpfMcmcOutput
+export SisPosteriorModeConditionalMcmcOutput, SisPosteriorDispersionConditionalMcmcOutput
+export SimPosteriorModeConditionalMcmcOutput, SimPosteriorDispersionConditionalMcmcOutput
 export print_map_est
 
-# ==========================
-#      SPF 
-# ==========================
+# ==========
+#    SIS 
+# ==========
 
 
-# From Model
-struct SpfMcmcOutput{T<:Union{String,Int}}
-    model::SPF{T} # The model from which the sample was drawn
-    sample::Vector{Path{T}}  # The sample
-    a::Real # Acceptance Probability
+struct SisPosteriorModeConditionalMcmcOutput{T<:Union{Int,String}}
+    γ_fixed::Float64
+    S_sample::Vector{Vector{Path{T}}}
+    dist::InteractionSeqDistance
+    S_prior::SIS{T}
+    data::Vector{Vector{Path{T}}}
+    performance_measures::Dict
 end 
 
-function Base.show(io::IO, output::SpfMcmcOutput) 
-    title = "MCMC Sample for Spherical Path Family (SPF)"
-    println(io, title)
-    println(io, "-"^length(title))
-    println(io, "\nAcceptance probability: $(output.a)")
+struct SisPosteriorDispersionConditionalMcmcOutput{T<:Union{Int,String}}
+    S_fixed::Vector{Path{T}}
+    γ_sample::Vector{Float64}
+    γ_prior::ContinuousUnivariateDistribution
+    data::Vector{Vector{Path{T}}}
+    performance_measures::Dict
 end 
 
-# Posteriors 
+
+@recipe function f(output::SisPosteriorModeConditionalMcmcOutput{T}, S_true::Vector{Path{T}}) where {T<:Union{Int, String}}
+    S_sample = output.S_sample
+    xguide --> "Index"
+    yguide --> "Distance from Truth"
+    size --> (800, 300)
+    label --> nothing
+    map(x->output.dist(S_true,x), S_sample)
+end 
+
+@recipe function f(output::SisPosteriorDispersionConditionalMcmcOutput{T}) where {T<:Union{Int,String}}
+    xguide --> "Index"
+    yguide --> "Distance from Truth"
+    size --> (800, 300)
+    label --> nothing
+    output.γ_sample
+end 
+
+# ==========
+#    SIM 
+# ==========
+
+struct SimPosteriorModeConditionalMcmcOutput{T<:Union{Int,String}}
+    γ_fixed::Float64
+    S_sample::Vector{Vector{Path{T}}}
+    dist::InteractionSetDistance
+    S_prior::SIM{T}
+    data::Vector{Vector{Path{T}}}
+    performance_measures::Dict
+end 
+
+struct SimPosteriorDispersionConditionalMcmcOutput{T<:Union{Int,String}}
+    S_fixed::Vector{Path{T}}
+    γ_sample::Vector{Float64}
+    γ_prior::ContinuousUnivariateDistribution
+    data::Vector{Vector{Path{T}}}
+    performance_measures::Dict
+end 
+
+@recipe function f(output::SimPosteriorModeConditionalMcmcOutput{T}, S_true::Vector{Path{T}}) where {T<:Union{Int, String}}
+    S_sample = output.S_sample
+    xguide --> "Index"
+    yguide --> "Distance from Truth"
+    size --> (800, 300)
+    label --> nothing
+    map(x->output.dist(S_true,x), S_sample)
+end 
+
+@recipe function f(output::SimPosteriorDispersionConditionalMcmcOutput{T}) where {T<:Union{Int,String}}
+    xguide --> "Index"
+    yguide --> "Distance from Truth"
+    size --> (800, 300)
+    label --> nothing
+    output.γ_sample
+end 
+
+
+# ==========
+#    SPF 
+# ==========
+
 struct SpfPosteriorMcmcOutput{T<:Union{Int, String}}
     I_sample::Vector{Path{T}}
     γ_sample::Vector{Float64}
@@ -125,6 +189,7 @@ function Base.show(io::IO, output::T) where {T<:SpfPosteriorDispersionConditiona
     end 
 end 
 
+
 function StatsBase.addcounts!(d::Dict{Path{T}, Real}, x::Path) where {T<:Union{Int,String}}
     d[x] = get!(d, x, 0) + 1
 end 
@@ -154,40 +219,4 @@ function print_map_est(output::T; top_num::Int=5) where {T<:Union{SpfPosteriorMo
         println(counts[i][2],"  ", counts[i][1])
     end    
     println("\n...showing top $(min(top_num, length(d))) interactions.")
-end 
-
-# ==========================
-#      SIS/SIM
-# ==========================
-
-struct SisMcmcOutput{T<:Union{Int, String}}
-    model::SIS{T} # The model from which the sample was drawn
-    sample::Vector{Vector{Path{T}}}  # The sample
-    performance_measures::Dict  # Dictionary of performance measures key => value, e.g. "acceptance probability" => 0.25
-end 
-
-struct SimMcmcOutput{T<:Union{Int, String}}
-    model::SIM{T}
-    sample::Vector{Vector{Path{T}}}  # The sample
-    performance_measures::Dict  # Dictionary of performance measures key => value, e.g. "acceptance probability" => 0.25
-end 
-
-function Base.show(io::IO, output::T) where {T<:SisMcmcOutput}
-    title = "MCMC Sample for Spherical Interaction Sequence (SIS) Model"
-    n = length(title)
-    println(io, title)
-    println(io, "-"^n)
-    for (key, value) in output.performance_measures
-        println(io, key, ": ", value)
-    end 
-end 
-
-function Base.show(io::IO, output::T) where {T<:SimMcmcOutput}
-    title = "MCMC Sample for Spherical Interaction Multiset (SIM) Model"
-    n = length(title)
-    println(io, title)
-    println(io, "-"^n)
-    for (key, value) in output.performance_measures
-        println(io, key, ": ", value)
-    end 
 end 
