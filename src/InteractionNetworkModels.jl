@@ -15,7 +15,6 @@ include("Distances/InteractionSequenceDistances.jl")
 include("Types/PathDistributions.jl")
 include("Types/DataStructures.jl")
 include("Types/MetricModels.jl")
-include("Types/McmcOutputs.jl")
 include("Types/distributions.jl")
 include("Types/hollywood_model.jl")
 
@@ -27,7 +26,8 @@ include("Data Processing/PathSequences.jl")
 include("Data Processing/Multigraphs.jl")
 
 # MCMC files
-include("MCMC/Model Sampling/mcmc_model_sampler_types.jl")
+include("MCMC/Model Sampling/types_mcmc_model_samplers.jl")
+include("MCMC/Model Sampling/types_mcmc_model_outputs.jl")
 include("MCMC/Model Sampling/multinomial_term_calculation.jl")
 include("MCMC/Model Sampling/imcmc_SIS_insert_delete.jl")
 include("MCMC/Model Sampling/imcmc_SIM_insert_delete.jl")
