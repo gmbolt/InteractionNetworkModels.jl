@@ -161,7 +161,7 @@ function iex_mcmc_within_gibbs_update!(
     # println("Initialising at:", aux_data[end])
     # aux_data = draw_sample(mcmc_sampler, aux_model, init=deepcopy(aux_data[end])) # Initialise at last val of previous
     # draw_sample!(aux_data, mcmc_sampler, aux_model, init=deepcopy(aux_data[end]))
-    draw_sample!(aux_data, mcmc_sampler, aux_model)
+    draw_sample!(aux_data, mcmc_sampler, aux_model, init=aux_model.mode)
     # push!(all_aux_data, deepcopy(aux_data)...)
     # println("\n")
     # for x in aux_data
@@ -185,6 +185,7 @@ function iex_mcmc_within_gibbs_update!(
         )
         + log_lik_ratio + aux_log_lik_ratio + log_ratio
     ) 
+    # @show log_lik_ratio, aux_log_lik_ratio, log_ratio
     # println("Gibbs:")
     if log(rand()) < log_α
         @inbounds S_curr[i] = copy(S_prop[i])
@@ -341,7 +342,7 @@ function iex_mcmc_mode(
     burn_in::Int=100,
     lag::Int=1,
     ν::Int=1, 
-    path_dist::PathDistribution{T}=PathPseudoUniform(posterior.V, TrGeometric(0.6, 1, 10)),
+    path_dist::PathDistribution{T}=PathPseudoUniform(posterior.V, TrGeometric(0.7, 1, posterior.K_inner)),
     β = 0.0,
     α = 0.0
     ) where {T<:Union{Int, String}}
@@ -433,7 +434,7 @@ function iex_mcmc_mode(
             aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
             # println("Initialising at:", aux_data[end])
             # aux_data = draw_sample(mcmc_sampler, aux_model, init=deepcopy(aux_data[end])) # Initialise at last val of previous
-            draw_sample!(aux_data, mcmc_sampler, aux_model)
+            draw_sample!(aux_data, mcmc_sampler, aux_model, init=aux_model.mode)
             # push!(all_aux_data, deepcopy(aux_data)...)
             # Accept reject
             log_lik_ratio = - γ_curr * (
@@ -455,7 +456,7 @@ function iex_mcmc_mode(
             ) 
             # println("Transdim:")
             # @show log_lik_ratio, aux_log_lik_ratio
-
+            # @show log_lik_ratio, aux_log_lik_ratio, log_ratio
             if log(rand()) < log_α
                 S_sample[i] = copy(S_prop)
                 S_curr = copy(S_prop)

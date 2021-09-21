@@ -13,9 +13,12 @@ function imcmc_multinomial_edit_accept_reject!(
     N = length(S_curr)  
     δ = rand(1:mcmc.ν_edit)  # Number of edits to enact 
     rem_edits = δ # Remaining edits to allocate
-    tot_dels = 0 # Total deletions (used in acceptance probability)
+    len_diffs = 0
     j = 0 # Keeps track how many interaction have been edited 
-    
+    log_prod_term = 0.0 
+
+    # println("Making $δ edits in total...")
+
     for i = 1:N
 
         # If at end we just assign all remaining edits to final interaction 
@@ -27,6 +30,7 @@ function imcmc_multinomial_edit_accept_reject!(
             δ_tmp = rand(Binomial(rem_edits, p)) # Number of edits to perform on ith interaction 
         end 
 
+        # println("   Index $i getting $δ_tmp edits...")
         # If we sampled zero edits we skip to next iteration 
         if δ_tmp == 0
             continue 
@@ -38,11 +42,13 @@ function imcmc_multinomial_edit_accept_reject!(
             d = rand(a:b)
             m = n + δ_tmp - 2*d
 
-            tot_dels += d
-
+            # tot_dels += d
+            # println("       Deleting $d and adding $(δ_tmp-d)")
             ind_del = view(mcmc.ind_del, 1:d)
             ind_add = view(mcmc.ind_add, 1:(δ_tmp-d))
             vals = view(mcmc.vals, 1:(δ_tmp-d))
+
+            # println("           ind_del: $ind_del ; ind_add: $ind_add")
 
             # Sample indexing info and new entries (all in-place)
             StatsBase.seqsample_a!(1:n, ind_del)
@@ -53,6 +59,9 @@ function imcmc_multinomial_edit_accept_reject!(
 
             mcmc.ind_update[j] = i # Store which interaction was updated
             
+            # Add to log_ratio
+            log_prod_term += log(b - a + 1) - log(ub(m, δ_tmp) - lb(m, δ_tmp, model) +1)
+            len_diffs += m-n  # How much bigger the next interaction is 
         end 
 
         # Update rem_edits
@@ -65,11 +74,22 @@ function imcmc_multinomial_edit_accept_reject!(
 
     end 
 
-    log_α = (
-        -model.γ * (
-            model.dist(model.mode, S_prop)-model.dist(model.mode, S_curr)
-            ) + log(length(model.V)) * (δ - 2 * tot_dels)
+    # Add final part of log_ratio term
+    log_dim_diff = log(length(model.V)) * len_diffs
+    log_ratio = log_dim_diff + log_prod_term
+    log_lik_ratio = -model.γ * (
+        model.dist(model.mode, S_prop)-model.dist(model.mode, S_curr)
         )
+
+    # @show log_dim_diff, log_prod_term, log_lik_ratio
+        
+    # Log acceptance probability
+    log_α = log_lik_ratio + log_ratio
+
+    mean_len_prop = mean(length.(S_prop))
+    mean_len_curr = mean(length.(S_curr))
+
+    # @show log_dim_diff, log_prod_term, log_lik_ratio, log_α, mean_len_curr, mean_len_prop
 
     # Accept-reject step. Use info in mcmc.ind_update to know which interaction are to be copied over 
     if log(rand()) < log_α
