@@ -5,6 +5,18 @@ This package contains supporting code of Bolt et al. (2021) *Temporary reference
 2. Samplers for models;
 3. Samplers SIS/SIM posterior distributions.
 
+## Installation Note
+
+This package contains `PythonOT.jl` in its dependencies, which itself calls python code (specifically, the Python Optimal Transport (POT) library). Thus one will clearly need a Python installation for this package to work. Thankfully, `PythonOT.jl` will sort this for you, installing python in a Julia-specific folder by making use of the `Conda.jl` package. However, the `Conda.jl` package defaults to python version 3.9, and at the moment of writing this led to issues. If this is the case for you then a solution is to specify `Conda.jl` to use Python 3.8, the approach of which we now outline. 
+
+For now, you can do the following in your root Julia enviroment. If you have never installed `Conda.jl` then you can skip the next comment a move to the steps bellow. If you *have* installed `Conda.jl` before then call `Pkg.rm("Conda")` to remove it and follow this with `Pkg.gc()`. Now, do the following 
+1. In Julia REPL run `ENV["CONDA_JL_VERSION"]="3.8"` 
+2. Install `PyCall.jl` via `Pkg.add("PyCall")`
+3. Install `Conda.jl` via `Pkg.add("Conda")`
+4. Build `PyCall` via `Pkg.build("PyCall")`
+
+When we did these steps above the package seemd to install fine. 
+
 ## Data Structures
 
 We represent a path with a vector of `Int` or `String` values. That is, if `x` is to store a path then we can have 
