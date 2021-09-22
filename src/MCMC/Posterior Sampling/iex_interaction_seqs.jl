@@ -343,7 +343,7 @@ function iex_mcmc_mode(
     lag::Int=1,
     ν::Int=1, 
     path_dist::PathDistribution{T}=PathPseudoUniform(posterior.V, TrGeometric(0.7, 1, posterior.K_inner)),
-    β = 0.0,
+    β = 0.6, # Probability of Gibbs move
     α = 0.0
     ) where {T<:Union{Int, String}}
 
@@ -386,12 +386,10 @@ function iex_mcmc_mode(
     # Bounds for uniform sampling of number of interactions
     lb(x::Vector{Path{T}}) = max( ceil(Int, length(x)/2), length(x) - ν_outer )
     ub(x::Vector{Path{T}}) = min(posterior.K_outer, 2*length(x), length(x) + ν_outer)
-
-    probs_gibbs = 1/(2+1) + β
     
     for i in 1:req_samples
         
-        if rand() < probs_gibbs
+        if rand() < β
             gibbs_scan_count += 1
             gibbs_tot_count += length(S_curr)
             gibbs_acc_count += iex_mcmc_within_gibbs_scan!(
