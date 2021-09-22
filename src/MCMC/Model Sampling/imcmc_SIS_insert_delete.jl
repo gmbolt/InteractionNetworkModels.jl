@@ -186,9 +186,6 @@ function draw_sample!(
     lb(x::Vector{Path{T}}) = max(1, length(x) - 1 )
     ub(x::Vector{Path{T}}) = min(model.K_outer, length(x) + 1)
 
-    # prob gibbs (effectively with ϵ=1)
-    prob_gibbs = 1/(2+1) + mcmc.β
-
 
     while sample_count ≤ length(sample_out)
         i += 1
@@ -198,7 +195,7 @@ function draw_sample!(
             sample_count += 1
         end 
         # Gibbs scan
-        if rand() < prob_gibbs
+        if rand() < β
             # println("Gibbs")
             gibbs_scan_count += 1
             gibbs_tot_count += length(S_curr)
