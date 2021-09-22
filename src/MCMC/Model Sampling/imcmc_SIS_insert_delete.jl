@@ -195,7 +195,7 @@ function draw_sample!(
             sample_count += 1
         end 
         # Gibbs scan
-        if rand() < β
+        if rand() < mcmc.β
             # println("Gibbs")
             gibbs_scan_count += 1
             gibbs_tot_count += length(S_curr)
