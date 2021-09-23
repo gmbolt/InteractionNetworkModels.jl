@@ -4,7 +4,6 @@ authors = ["George Bolt g.bolt@lancaster.ac.uk"]
 version = "0.1.0"
 
 [deps]
-AutoHashEquals = "15f4f7f2-30c1-5605-9d31-71845cf9641f"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"

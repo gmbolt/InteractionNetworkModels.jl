@@ -1,4 +1,4 @@
-using InvertedIndices, AutoHashEquals, StatsBase, Printf
+using InvertedIndices, StatsBase, Printf
 
 export CondProbMatrix, CumCondProbMatrix, vertices, vertex_countmap, vertex_counts
 export sample_frechet_mean, BoundedInteractionSequence
