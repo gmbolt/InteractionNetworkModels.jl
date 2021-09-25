@@ -366,7 +366,7 @@ function iex_mcmc_mode(
     all_aux_data = InteractionSequence{T}[]
     # Initialise the aux_data with a large burn_in 
     aux_model = SIS(S_curr, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
-    draw_sample!(aux_data, mcmc_sampler, aux_model, burn_in=1000)
+    draw_sample!(aux_data, mcmc_sampler, aux_model, burn_in=1000, init=aux_model.mode)
     
     # tmp_inds = Int[]
     # Vertex distribution for proposal 
