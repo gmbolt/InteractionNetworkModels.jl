@@ -11,6 +11,7 @@ function imcmc_multinomial_edit_accept_reject!(
     ) where {T<:Union{Int, String}}
 
     N = length(S_curr)  
+    K_inner = model.K_inner
     δ = rand(1:mcmc.ν_edit)  # Number of edits to enact 
     rem_edits = δ # Remaining edits to allocate
     len_diffs = 0
@@ -38,9 +39,18 @@ function imcmc_multinomial_edit_accept_reject!(
             j += 1 # Increment j 
             # Make edits .... 
             @inbounds n = length(S_curr[i])
-            a,b = (lb(n, δ_tmp, model), ub(n, δ_tmp))
-            d = rand(a:b)
+            # a,b = (lb(n, δ_tmp, model), ub(n, δ_tmp))
+            d = rand(0:min(n,δ_tmp))
             m = n + δ_tmp - 2*d
+
+            # Catch invalid proposals
+            if (m < 1) | (m > K_inner)
+                # Here we just reject the proposal
+                for i in 1:N
+                    copy!(S_prop[i], S_curr[i])
+                end 
+                return 0 
+            end 
 
             # tot_dels += d
             # println("       Deleting $d and adding $(δ_tmp-d)")
@@ -60,8 +70,9 @@ function imcmc_multinomial_edit_accept_reject!(
             mcmc.ind_update[j] = i # Store which interaction was updated
             
             # Add to log_ratio
-            log_prod_term += log(b - a + 1) - log(ub(m, δ_tmp) - lb(m, δ_tmp, model) +1)
-            len_diffs += m-n  # How much bigger the next interaction is 
+            # log_prod_term += log(b - a + 1) - log(ub(m, δ_tmp) - lb(m, δ_tmp, model) +1)
+            log_prod_term += log(min(n, δ_tmp)) - log(min(m, δ_tmp))
+            len_diffs += m-n  # How much bigger the new interaction is 
         end 
 
         # Update rem_edits
@@ -74,9 +85,9 @@ function imcmc_multinomial_edit_accept_reject!(
 
     end 
 
-    # Add final part of log_ratio term
-    log_dim_diff = log(length(model.V)) * len_diffs
-    log_ratio = log_dim_diff + log_prod_term
+    # # Add final part of log_ratio term
+    log_ratio = log(length(model.V)) * len_diffs + log_prod_term
+    # log_ratio = log_dim_diff + log_prod_term
     log_lik_ratio = -model.γ * (
         model.dist(model.mode, S_prop)-model.dist(model.mode, S_curr)
         )
@@ -86,8 +97,8 @@ function imcmc_multinomial_edit_accept_reject!(
     # Log acceptance probability
     log_α = log_lik_ratio + log_ratio
 
-    mean_len_prop = mean(length.(S_prop))
-    mean_len_curr = mean(length.(S_curr))
+    # mean_len_prop = mean(length.(S_prop))
+    # mean_len_curr = mean(length.(S_curr))
 
     # @show log_dim_diff, log_prod_term, log_lik_ratio, log_α, mean_len_curr, mean_len_prop
 
@@ -132,16 +143,15 @@ function imcmc_multi_insert_prop_sample!(
     prop_pointers = mcmc.prop_pointers
     ν_trans_dim = mcmc.ν_trans_dim
     N = length(S_curr)
-    K_outer = model.K_outer
     path_dist = mcmc.path_dist
 
-    log_ratio = 0 
+    log_ratio = 0.0 
     for i in ind 
         migrate!(S_prop, prop_pointers, i, 1)
         rand!(S_prop[i], path_dist)
         log_ratio += - logpdf(path_dist, S_prop[i])
     end 
-    log_ratio += log(min(ν_trans_dim, K_outer-N)) - log(min(ν_trans_dim,N-1)) 
+    log_ratio += log(ν_trans_dim) - log(min(ν_trans_dim,N)) 
     return log_ratio 
 
 end 
@@ -160,14 +170,14 @@ function imcmc_multi_delete_prop_sample!(
     K_outer = model.K_outer
     path_dist = mcmc.path_dist
 
-    log_ratio = 0 
+    log_ratio = 0.0
 
     for i in Iterators.reverse(ind)
         migrate!(prop_pointers, S_prop, 1, i)
         log_ratio += logpdf(path_dist, S_curr[i])
     end 
 
-    log_ratio += log(min(ν_trans_dim,N-1)) - log(min(ν_trans_dim, K_outer-N))
+    log_ratio += log(min(ν_trans_dim,N)) - log(ν_trans_dim)
     return log_ratio
 
 end 
@@ -184,27 +194,34 @@ function imcmc_trans_dim_accept_reject!(
     curr_pointers = mcmc.curr_pointers
     prop_pointers = mcmc.prop_pointers
 
+    log_ratio = 0.0
     # Decide whether to insert or delete. 
     # This is deterministic near boundaries, and so we must adjust log ratio
-    if length(S_curr) == 1 
-        is_insert =  true 
-        log_ratio = 0.5 
-    elseif length(S_prop) == K_outer
-        is_insert = false
-        log_ratio = 0.5 
-    else
-        log_ratio = 0.5 
-        if rand() < 0.5 
-            is_insert = true
-        else 
-            is_insert = false 
-        end 
-    end 
+    # if length(S_curr) == 1 
+    #     is_insert =  true 
+    #     log_ratio = 0.5 
+    # elseif length(S_prop) == K_outer
+    #     is_insert = false
+    #     log_ratio = 0.5 
+    # else
+    #     log_ratio = 0.0 
+    #     if rand() < 0.5 
+    #         is_insert = true
+    #     else 
+    #         is_insert = false 
+    #     end 
+    # end 
 
     # Enact insertion / deletion 
     N = length(S_curr)
+    is_insert = rand(Bernoulli(0.5))
     if is_insert
-        ε = rand(1:min(ν_trans_dim, K_outer - N)) # How many to insert 
+        ε = rand(1:ν_trans_dim) # How many to insert 
+        # Catch invalid proposal (ones which have zero probability)
+        if (N + ε) > K_outer
+            # Make no changes and imediately reject  
+            return 0  
+        end 
         ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage for where to insert 
         StatsBase.seqsample_a!(1:(N+ε), ind_tr_dim) # Sample where to insert 
         log_ratio += imcmc_multi_insert_prop_sample!(
@@ -213,9 +230,13 @@ function imcmc_trans_dim_accept_reject!(
             ind_tr_dim
             ) # Enact move and catch log ratio term 
     else 
-        ε = rand(1:min(ν_trans_dim, N - 1)) # How many to delete 
+        ε = rand(1:min(ν_trans_dim, N)) # How many to delete
+        # Catch invalid proposal (would go to empty inter seq)
+        if ε == N 
+            return 0 
+        end  
         ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage
-        StatsBase.seqsample_a!(1:N, ind_tr_dim) # Samplw which to delete 
+        StatsBase.seqsample_a!(1:N, ind_tr_dim) # Sample which to delete 
         log_ratio += imcmc_multi_delete_prop_sample!(
             S_curr, S_prop, 
             model, mcmc, 
@@ -252,6 +273,7 @@ function imcmc_trans_dim_accept_reject!(
         else 
             for i in ind_tr_dim
                 migrate!(S_prop, prop_pointers, i, 1)
+                copy!(S_prop[i], S_curr[i])
             end 
         end 
         return 0

@@ -136,6 +136,16 @@ SIS(
     V::Vector{T}
     ) where {T<:Union{Int,String}}= SIS(mode, γ, dist, V, Inf, Inf)
 
+# function logpdf_propto(
+#     model::Union{SIS{T}, SIM{T}},
+#     x::InteractionSequence{T}
+#     ) where {T<:Union{Int,String}}
+
+#     return - model.γ * (
+#         model.dist(x, model.mode)
+#     )
+# end 
+
 struct SIM{T<:Union{Int, String}}
     mode::Vector{Path{T}} # Mode
     γ::Real # Precision
