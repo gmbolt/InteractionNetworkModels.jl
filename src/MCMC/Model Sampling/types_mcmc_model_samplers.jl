@@ -1,5 +1,5 @@
 export SisInvolutiveMcmcMergeSplit, SimInvolutiveMcmcMergeSplit
-export SimInvolutiveMcmcInsertDelete, SisInvolutiveMcmcInsertDelete
+export SimInvolutiveMcmcInsertDeletS, SisMcmcInsertDeleteGibbs
 export SisMcmcInsertDeleteEdit
 export SpfMcmcSampler, SisMcmcSampler, SimMcmcSampler
 export SpfInvolutiveMcmcCentSubseq, SpfInvolutiveMcmcEdit
@@ -104,8 +104,9 @@ abstract type SimMcmcSampler end
 # Insert-Delete 
 # -------------
 
-struct SisInvolutiveMcmcInsertDelete{T<:Union{Int,String}} <: SisMcmcSampler
-    ν::Int   # Maximum number of edit ops
+struct SisMcmcInsertDeleteGibbs{T<:Union{Int,String}} <: SisMcmcSampler
+    ν_gibbs::Int   # Maximum number of edit ops
+    ν_trans_dim::Int  # Maximum increase or decrease in number of interactions
     path_dist::PathDistribution{T}  # Distribution used to introduce new interactions
     β::Real  # Extra probability of Gibbs move
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
@@ -118,45 +119,48 @@ struct SisInvolutiveMcmcInsertDelete{T<:Union{Int,String}} <: SisMcmcSampler
     ind_del::Vector{Int} # Storage for indexing of deletions in Gibbs scan
     ind_add::Vector{Int} # Storage for indexing of additions in Gibbs scan
     vals::Vector{T} # Storage for valuse to insert in Gibbs scan
-    function SisInvolutiveMcmcInsertDelete(
+    ind_trans_dim::Vector{Int} # Storage of where to insert/delete 
+    function SisMcmcInsertDeleteGibbs(
         path_dist::PathDistribution{S};
         K=100,
-        ν=4, β=0.0,
+        ν_gibbs=4, ν_trans_dim=2,  β=0.6,
         desired_samples=1000, lag=1, burn_in=0
         ) where {S<:Union{Int, String}}
         curr_pointers = [S[] for i in 1:K]
         prop_pointers = [S[] for i in 1:K]
-        ind_del = zeros(Int, ν)
-        ind_add = zeros(Int, ν)
-        vals = zeros(Int, ν)
+        ind_del = zeros(Int, ν_gibbs)
+        ind_add = zeros(Int, ν_gibbs)
+        vals = zeros(Int, ν_gibbs)
+        ind_trans_dim = zeros(Int, ν_trans_dim)
         par_info = Dict()
-        par_info[:ν] = "(maximum number of edit operations)"
+        par_info[:ν_gibbs] = "(maximum number of edit operations in iMCMC-within-Gibbs conditional updates)"
+        par_info[:ν_trans_dim] = "(maximum number of interaction insertions or deletions)"
         par_info[:path_dist] = "(path distribution for insertions)"
         par_info[:β] = "(extra probability of Gibbs scan)"
         par_info[:K] = "(maximum number of interactions, used to initialise storage)"
 
         new{S}(
-            ν, path_dist, β, K,
+            ν_gibbs, ν_trans_dim, path_dist, β, K,
             desired_samples, burn_in, lag, 
             par_info,
-            curr_pointers, prop_pointers, ind_del, ind_add, vals
+            curr_pointers, prop_pointers, ind_del, ind_add, vals, ind_trans_dim
             )
     end 
 end 
 
-SisInvolutiveMcmcInsertDelete(
+SisMcmcInsertDeleteGibbs(
     model::SIS;
     K=100,
     ν=4, β=0.0,
     desired_samples=1000, lag=1, burn_in=0
-    ) = SisInvolutiveMcmcInsertDelete(
+    ) = SisMcmcInsertDeleteGibbs(
         PathPseudoUniform(model.V, TrGeometric(0.8, 1, model.K_inner));
         K=K, ν=ν, β=β, desired_samples=desired_samples, lag=lag, burn_in=burn_in
         )
 
 
-function Base.show(io::IO, sampler::SisInvolutiveMcmcInsertDelete)
-    title = "MCMC Sampler for Spherical Interaction Sequence (SIS) Family via Insert-Delete Algorithm"
+function Base.show(io::IO, sampler::SisMcmcInsertDeleteGibbs)
+    title = "MCMC Sampler for Spherical Interaction Sequence (SIS) Family via iMCMC-within-Gibbs and Interaction Insertion/Deletion."
     n = length(title)
     println(io, title)
     println(io, "-"^n)
@@ -221,7 +225,7 @@ struct SisMcmcInsertDeleteEdit{T<:Union{Int,String}} <: SisMcmcSampler
 end 
 
 function Base.show(io::IO, sampler::SisMcmcInsertDeleteEdit)
-    title = "MCMC Sampler for Spherical Interaction Sequence (SIS) Family via Multi-Insert-Delete Algorithm with Multinomial Allocated Updates."
+    title = "MCMC Sampler for Spherical Interaction Sequence (SIS) Family via with Multinomial Allocated Updates and Interaction Insertion/Deletion."
     n = length(title)
     println(io, title)
     println(io, "-"^n)

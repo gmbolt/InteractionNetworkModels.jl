@@ -71,7 +71,7 @@ function imcmc_multinomial_edit_accept_reject!(
             
             # Add to log_ratio
             # log_prod_term += log(b - a + 1) - log(ub(m, δ_tmp) - lb(m, δ_tmp, model) +1)
-            log_prod_term += log(min(n, δ_tmp)) - log(min(m, δ_tmp))
+            log_prod_term += log(min(n, δ_tmp)+1) - log(min(m, δ_tmp)+1)
             len_diffs += m-n  # How much bigger the new interaction is 
         end 
 
@@ -132,154 +132,7 @@ function unif_multinomial_sample_tester(k, n)
 end 
 
 
-function imcmc_multi_insert_prop_sample!(
-    S_curr::InteractionSequence{T}, 
-    S_prop::InteractionSequence{T},
-    model::SIS{T},
-    mcmc::SisMcmcInsertDeleteEdit{T},
-    ind::AbstractVector{T}
-    ) where {T<:Union{Int, String}}
 
-    prop_pointers = mcmc.prop_pointers
-    ν_trans_dim = mcmc.ν_trans_dim
-    N = length(S_curr)
-    path_dist = mcmc.path_dist
-
-    log_ratio = 0.0 
-    for i in ind 
-        migrate!(S_prop, prop_pointers, i, 1)
-        rand!(S_prop[i], path_dist)
-        log_ratio += - logpdf(path_dist, S_prop[i])
-    end 
-    log_ratio += log(ν_trans_dim) - log(min(ν_trans_dim,N)) 
-    return log_ratio 
-
-end 
-
-function imcmc_multi_delete_prop_sample!(
-    S_curr::InteractionSequence{T}, 
-    S_prop::InteractionSequence{T}, 
-    model::SIS{T},
-    mcmc::SisMcmcInsertDeleteEdit{T},
-    ind::AbstractVector{T}
-    ) where {T<:Union{Int,String}}
-
-    prop_pointers = mcmc.prop_pointers
-    ν_trans_dim = mcmc.ν_trans_dim
-    N = length(S_curr)
-    K_outer = model.K_outer
-    path_dist = mcmc.path_dist
-
-    log_ratio = 0.0
-
-    for i in Iterators.reverse(ind)
-        migrate!(prop_pointers, S_prop, 1, i)
-        log_ratio += logpdf(path_dist, S_curr[i])
-    end 
-
-    log_ratio += log(min(ν_trans_dim,N)) - log(ν_trans_dim)
-    return log_ratio
-
-end 
-
-function imcmc_trans_dim_accept_reject!(
-    S_curr::InteractionSequence{T},
-    S_prop::InteractionSequence{T}, 
-    model::SIS{T}, 
-    mcmc::SisMcmcInsertDeleteEdit{T}
-    )  where {T<:Union{Int, String}}
-
-    K_outer = model.K_outer
-    ν_trans_dim = mcmc.ν_trans_dim
-    curr_pointers = mcmc.curr_pointers
-    prop_pointers = mcmc.prop_pointers
-
-    log_ratio = 0.0
-    # Decide whether to insert or delete. 
-    # This is deterministic near boundaries, and so we must adjust log ratio
-    # if length(S_curr) == 1 
-    #     is_insert =  true 
-    #     log_ratio = 0.5 
-    # elseif length(S_prop) == K_outer
-    #     is_insert = false
-    #     log_ratio = 0.5 
-    # else
-    #     log_ratio = 0.0 
-    #     if rand() < 0.5 
-    #         is_insert = true
-    #     else 
-    #         is_insert = false 
-    #     end 
-    # end 
-
-    # Enact insertion / deletion 
-    N = length(S_curr)
-    is_insert = rand(Bernoulli(0.5))
-    if is_insert
-        ε = rand(1:ν_trans_dim) # How many to insert 
-        # Catch invalid proposal (ones which have zero probability)
-        if (N + ε) > K_outer
-            # Make no changes and imediately reject  
-            return 0  
-        end 
-        ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage for where to insert 
-        StatsBase.seqsample_a!(1:(N+ε), ind_tr_dim) # Sample where to insert 
-        log_ratio += imcmc_multi_insert_prop_sample!(
-            S_curr, S_prop, 
-            model, mcmc, 
-            ind_tr_dim
-            ) # Enact move and catch log ratio term 
-    else 
-        ε = rand(1:min(ν_trans_dim, N)) # How many to delete
-        # Catch invalid proposal (would go to empty inter seq)
-        if ε == N 
-            return 0 
-        end  
-        ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage
-        StatsBase.seqsample_a!(1:N, ind_tr_dim) # Sample which to delete 
-        log_ratio += imcmc_multi_delete_prop_sample!(
-            S_curr, S_prop, 
-            model, mcmc, 
-            ind_tr_dim
-            ) # Enact move and catch log ratio 
-    end 
-
-
-    # Now do accept-reject step 
-    log_α = - model.γ * (
-        model.dist(model.mode, S_prop) - model.dist(model.mode, S_curr)
-    ) + log_ratio
-
-    # Note that we copy interactions between S_prop (resp. S_curr) and prop_pointers (resp .curr_pointers) by hand.
-    if log(rand()) < log_α
-        if is_insert
-            for i in ind_tr_dim
-                migrate!(S_curr, curr_pointers, i, 1)
-                copy!(S_curr[i], S_prop[i])
-            end 
-        else 
-            for i in Iterators.reverse(ind_tr_dim)
-            migrate!(curr_pointers , S_curr, 1, i)
-            end 
-        end 
-        return 1
-    else 
-        # Here we must delete the interactions which were added to S_prop
-        if is_insert
-            for i in Iterators.reverse(ind_tr_dim)
-                migrate!(prop_pointers, S_prop, 1, i)
-            end 
-        # Or reinsert the interactions which were deleted 
-        else 
-            for i in ind_tr_dim
-                migrate!(S_prop, prop_pointers, i, 1)
-                copy!(S_prop[i], S_curr[i])
-            end 
-        end 
-        return 0
-    end 
-
-end 
 
 function draw_sample!(
     sample_out::Union{InteractionSequenceSample{T}, SubArray},
@@ -313,8 +166,6 @@ function draw_sample!(
     i = 0 # Keeps track all samples (included lags and burn_ins) 
     upd_count = 0
     upd_acc_count = 0
-    tr_dim_count = 0
-    tr_dim_acc_count = 0
 
     while sample_count ≤ length(sample_out)
         i += 1 
