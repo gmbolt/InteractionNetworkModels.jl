@@ -6,4 +6,4 @@ using Documenter, InteractionNetworkModels
 makedocs(
     sitename="My Documentation",
     format = Documenter.HTML(prettyurls = false),
-    pages=["index.md", "model_sampling.md"] )
+    pages=["index.md", "model_sampling.md", "examples.md"] )
