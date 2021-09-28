@@ -1,6 +1,6 @@
-export SisInvolutiveMcmcMergeSplit, SimInvolutiveMcmcMergeSplit
-export SimInvolutiveMcmcInsertDeletS, SisMcmcInsertDeleteGibbs
+export SimInvolutiveMcmcInsertDelete, SisMcmcInsertDeleteGibbs
 export SisMcmcInsertDeleteEdit
+export SisMcmcInitialiser, SisInitMode, SisInitRandEdit, get_init
 export SpfMcmcSampler, SisMcmcSampler, SimMcmcSampler
 export SpfInvolutiveMcmcCentSubseq, SpfInvolutiveMcmcEdit
 # ====================
@@ -95,6 +95,97 @@ end
 #      SIS / SIM
 # =====================================
 
+# Initilisers 
+# -----------
+
+# These can be passed to mcmc samplers to determine the defualt initialisation scheme. 
+
+""" 
+Abstract type representing initialisation schemes for SIS model samplers. 
+"""
+abstract type SisMcmcInitialiser end
+
+"""
+`SisInitMode <: SisMcmcInitialiser` - this is a MCMC initialisation scheme for SIS model samplers which starts the MCMC chain at the model mode by default.
+"""
+struct SisInitMode <: SisMcmcInitialiser
+    function SisInitMode()
+        return new() 
+    end 
+end 
+
+function get_init(
+    model::SIS, 
+    initiliaser::SisInitMode
+    )
+    return model.mode
+end 
+
+struct SisInitRandEdit <: SisMcmcInitialiser
+    δ::Int
+    function SisInitRandEdit(δ::Int) 
+        return new(δ)
+    end 
+end 
+
+function get_init(
+    model::SIS, 
+    initialiser::SisInitRandEdit
+    )
+
+    δ = initialiser.δ 
+    S_init = deepcopy(model.mode)
+    N = length(S_init)
+    K_inner = model.K_inner
+
+    ind_del = zeros(Int, δ)
+    ind_add = zeros(Int, δ)
+    vals = zeros(Int, δ)
+
+    rem_edits = δ
+
+    for i in 1:N 
+        if i == N 
+            δ_tmp = rem_edits
+        else 
+            p = 1/(N=i+1)
+            δ_tmp = rand(Binomial(rem_edits, p))
+        end 
+
+        if δ_tmp == 0
+            continue 
+        else
+
+            
+            n = length(model.mode[i])
+            d = rand(max(0, δ_tmp + n - K_inner):min(n, δ_tmp))
+            @show d, n
+            m = n + δ_tmp - 2*d
+
+            ind_del_v = view(ind_del, 1:d)
+            ind_add_v = view(ind_add, 1:(δ_tmp-d))
+            vals_v = view(vals, 1:(δ_tmp-d))
+
+            StatsBase.seqsample_a!(1:n, ind_del_v)
+            StatsBase.seqsample_a!(1:m, ind_add_v)
+            sample!(model.V, vals)
+
+            delete_insert!(S_init[i], δ_tmp, d, ind_del_v, ind_add_v, vals_v)
+
+        end 
+
+        rem_edits -= δ_tmp 
+
+        if rem_edits == 0 
+            break 
+        end 
+    end 
+
+    return S_init
+
+end 
+
+
 
 abstract type SisMcmcSampler end 
 abstract type SimMcmcSampler end 
@@ -113,6 +204,7 @@ struct SisMcmcInsertDeleteGibbs{T<:Union{Int,String}} <: SisMcmcSampler
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
     lag::Int
+    init::SisMcmcInitialiser
     par_info::Dict
     curr_pointers::InteractionSequence{T} # Storage for prev value in MCMC
     prop_pointers::InteractionSequence{T} # Storage for curr value in MCMC
@@ -124,7 +216,8 @@ struct SisMcmcInsertDeleteGibbs{T<:Union{Int,String}} <: SisMcmcSampler
         path_dist::PathDistribution{S};
         K=100,
         ν_gibbs=4, ν_trans_dim=2,  β=0.6,
-        desired_samples=1000, lag=1, burn_in=0
+        desired_samples=1000, lag=1, burn_in=0,
+        init=SisInitMode()
         ) where {S<:Union{Int, String}}
         curr_pointers = [S[] for i in 1:K]
         prop_pointers = [S[] for i in 1:K]
@@ -136,12 +229,12 @@ struct SisMcmcInsertDeleteGibbs{T<:Union{Int,String}} <: SisMcmcSampler
         par_info[:ν_gibbs] = "(maximum number of edit operations in iMCMC-within-Gibbs conditional updates)"
         par_info[:ν_trans_dim] = "(maximum number of interaction insertions or deletions)"
         par_info[:path_dist] = "(path distribution for insertions)"
-        par_info[:β] = "(extra probability of Gibbs scan)"
+        par_info[:β] = "(probability of Gibbs scan)"
         par_info[:K] = "(maximum number of interactions, used to initialise storage)"
 
         new{S}(
             ν_gibbs, ν_trans_dim, path_dist, β, K,
-            desired_samples, burn_in, lag, 
+            desired_samples, burn_in, lag, init,
             par_info,
             curr_pointers, prop_pointers, ind_del, ind_add, vals, ind_trans_dim
             )
@@ -152,7 +245,7 @@ SisMcmcInsertDeleteGibbs(
     model::SIS;
     K=100,
     ν=4, β=0.0,
-    desired_samples=1000, lag=1, burn_in=0
+    desired_samples=1000, lag=1, burn_in=0, init=SisInitMode()
     ) = SisMcmcInsertDeleteGibbs(
         PathPseudoUniform(model.V, TrGeometric(0.8, 1, model.K_inner));
         K=K, ν=ν, β=β, desired_samples=desired_samples, lag=lag, burn_in=burn_in
@@ -165,12 +258,12 @@ function Base.show(io::IO, sampler::SisMcmcInsertDeleteGibbs)
     println(io, title)
     println(io, "-"^n)
     println(io, "Parameters:")
-    num_of_pars = 3
+    num_of_pars = 5
     for par in fieldnames(typeof(sampler))[1:num_of_pars]
         println(io, par, " = $(getfield(sampler, par))  ", sampler.par_info[par])
     end 
     println(io, "\nDefault output parameters:")
-    for par in fieldnames(typeof(sampler))[(num_of_pars+1):(num_of_pars+3)]
+    for par in fieldnames(typeof(sampler))[(num_of_pars+1):(num_of_pars+4)]
         println(io, par, " = $(getfield(sampler, par))  ")
     end 
 end 
@@ -185,6 +278,7 @@ struct SisMcmcInsertDeleteEdit{T<:Union{Int,String}} <: SisMcmcSampler
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
     lag::Int
+    init::SisMcmcInitialiser
     par_info::Dict
     curr_pointers::InteractionSequence{T} # Storage for prev value in MCMC
     prop_pointers::InteractionSequence{T} # Storage for curr value in MCMC
@@ -197,7 +291,7 @@ struct SisMcmcInsertDeleteEdit{T<:Union{Int,String}} <: SisMcmcSampler
         path_dist::PathDistribution{S};
         K=100,
         ν_edit=2, ν_trans_dim=2, β=0.4,
-        desired_samples=1000, lag=1, burn_in=0
+        desired_samples=1000, lag=1, burn_in=0, init=SisInitMode()
         ) where {S<:Union{Int, String}}
         curr_pointers = [S[] for i in 1:K]
         prop_pointers = [S[] for i in 1:K]
@@ -216,7 +310,7 @@ struct SisMcmcInsertDeleteEdit{T<:Union{Int,String}} <: SisMcmcSampler
         new{S}(
             ν_edit, ν_trans_dim, β, 
             path_dist, K,
-            desired_samples, burn_in, lag, 
+            desired_samples, burn_in, lag, init,
             par_info,
             curr_pointers, prop_pointers, ind_del, ind_add, vals,
             ind_update, ind_trans_dim
@@ -235,7 +329,7 @@ function Base.show(io::IO, sampler::SisMcmcInsertDeleteEdit)
         println(io, par, " = $(getfield(sampler, par))  ", sampler.par_info[par])
     end 
     println(io, "\nDefault output parameters:")
-    for par in fieldnames(typeof(sampler))[(num_of_pars+1):(num_of_pars+3)]
+    for par in fieldnames(typeof(sampler))[(num_of_pars+1):(num_of_pars+4)]
         println(io, par, " = $(getfield(sampler, par))  ")
     end 
 end 
@@ -292,91 +386,6 @@ function Base.show(io::IO, sampler::SimInvolutiveMcmcInsertDelete)
     end 
     println(io, "\nDefault output parameters:")
     for par in fieldnames(typeof(sampler))[(num_of_pars+1):(num_of_pars+3)]
-        println(io, par, " = $(getfield(sampler, par))  ")
-    end 
-end 
-
-# Merge-Split (Old method)
-# ------------------------
-
-struct SisInvolutiveMcmcMergeSplit <: SisMcmcSampler
-    p1::Real # Controls preserved subseq size 
-    p2::Real # Controls change in path length for merge/split moves
-    β::Real # Extra probability of doing a Gibbs move
-    ν_outer::Int # neighbourhood for uniform sampling of change in number of interactions
-    ν_kick::Int # neighbourhood for uniform sampling of kick in path lengths of merge/split moves
-    ν_gibbs::Int # neighbourhood for uniform sampling of path lengths in Gibbs entry updates
-    desired_samples::Int # We now have some fields which control ouput. These will be default values for resulitng sampler
-    burn_in::Int
-    lag::Int
-    par_info::Dict # Tag line describing each parameter
-    function SisInvolutiveMcmcMergeSplit(
-        ;p1=0.8, p2=0.8, β=0.0, ν_outer=2, ν_kick=2, ν_gibbs=4, desired_samples=1000, burn_in=0, lag=1
-        )
-        par_info = Dict()
-        par_info[:p1] = "(preserved subseq size)"
-        par_info[:p2] = "(diff in path length on merge/split moves)"
-        par_info[:β] = "(extra prob. of Gibbs move)"
-        par_info[:ν_outer] = "(neighbourhood for number of paths)"
-        par_info[:ν_kick] = "(neighbourhood for kick)"
-        par_info[:ν_gibbs] = "(neighbourhood for path length in Gibbs move)"  
-        new(p1, p2, β, ν_outer, ν_kick, ν_gibbs, desired_samples, burn_in, lag, par_info)
-    end 
-end 
-
-struct SimInvolutiveMcmcMergeSplit <: SisMcmcSampler
-    p1::Real # Controls preserved subseq size 
-    p2::Real # Controls change in path length for merge/split moves
-    β::Real # Extra probability of doing a Gibbs move
-    ν_outer::Int # neighbourhood for uniform sampling of change in number of interactions
-    ν_kick::Int # neighbourhood for uniform sampling of kick in path lengths of merge/split moves
-    ν_gibbs::Int # neighbourhood for uniform sampling of path lengths in Gibbs entry updates
-    desired_samples::Int # We now have some fields which control ouput. These will be default values for resulitng sampler
-    burn_in::Int
-    lag::Int
-    par_info::Dict # Tag line describing each parameter
-    function SimInvolutiveMcmcMergeSplit(
-        ;p1=0.8, p2=0.8, β=0.0, ν_outer=2, ν_kick=2, ν_gibbs=4, desired_samples=1000, burn_in=0, lag=1
-        )
-        par_info = Dict()
-        par_info[:p1] = "(preserved subseq size)"
-        par_info[:p2] = "(diff in path length on merge/split moves)"
-        par_info[:β] = "(extra prob. of Gibbs move)"
-        par_info[:ν_outer] = "(neighbourhood for number of paths)"
-        par_info[:ν_kick] = "(neighbourhood for kick)"
-        par_info[:ν_gibbs] = "(neighbourhood for path length in Gibbs move)"  
-        new(p1, p2, β, ν_outer, ν_kick, ν_gibbs, desired_samples, burn_in, lag, par_info)
-    end 
-end 
-
-
-
-function Base.show(io::IO, sampler::SisInvolutiveMcmcMergeSplit)
-    title = "MCMC Sampler for Spherical Interaction Sequence (SIS) Family"
-    n = length(title)
-    println(io, title)
-    println(io, "-"^n)
-    println(io, "Parameters:")
-    for par in fieldnames(typeof(sampler))[1:6]
-        println(io, par, " = $(getfield(sampler, par))  ", sampler.par_info[par])
-    end 
-    println(io, "\nDefault output parameters:")
-    for par in fieldnames(typeof(sampler))[7:9]
-        println(io, par, " = $(getfield(sampler, par))  ")
-    end 
-end 
-
-function Base.show(io::IO, sampler::SimInvolutiveMcmcMergeSplit)
-    title = "MCMC Sampler for Spherical Interaction Multiset (SIM) Family"
-    n = length(title)
-    println(io, title)
-    println(io, "-"^n)
-    println(io, "Parameters:")
-    for par in fieldnames(typeof(sampler))[1:6]
-        println(io, par, " = $(getfield(sampler, par))  ", sampler.par_info[par])
-    end 
-    println(io, "\nDefault output parameters:")
-    for par in fieldnames(typeof(sampler))[7:9]
         println(io, par, " = $(getfield(sampler, par))  ")
     end 
 end 
