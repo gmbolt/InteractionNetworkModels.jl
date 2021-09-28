@@ -159,7 +159,6 @@ function get_init(
             
             n = length(model.mode[i])
             d = rand(max(0, δ_tmp + n - K_inner):min(n, δ_tmp))
-            @show d, n
             m = n + δ_tmp - 2*d
 
             ind_del_v = view(ind_del, 1:d)

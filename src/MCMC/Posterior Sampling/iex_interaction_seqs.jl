@@ -7,6 +7,35 @@ export iex_mcmc_within_gibbs_update!, iex_mcmc_within_gibbs_scan!
 export rand_multivariate_bernoulli
 export get_informed_proposal_matrix
 
+
+# Functions for insertions/deletions
+# ----------------------------------
+
+function imcmc_insert_prop_sample(
+    S_curr, path_dist
+    )
+
+    i = rand(1:(length(S_curr)+1))
+    S_prop = copy(S_curr)
+    I′ = rand(path_dist)
+    insert!(S_prop, i, I′)
+    log_ratio = - logpdf(path_dist, I′)
+
+    return S_prop, log_ratio
+end 
+
+function imcmc_delete_prop_sample(
+    S_curr, path_dist
+    )
+
+    i = rand(1:length(S_curr))
+    S_prop = copy(S_curr)
+    deleteat!(S_prop, i)
+    log_ratio = logpdf(path_dist, S_curr[i])
+
+    return S_prop, log_ratio
+end 
+
 # const print_notes = false
 
 
@@ -161,7 +190,7 @@ function iex_mcmc_within_gibbs_update!(
     # println("Initialising at:", aux_data[end])
     # aux_data = draw_sample(mcmc_sampler, aux_model, init=deepcopy(aux_data[end])) # Initialise at last val of previous
     # draw_sample!(aux_data, mcmc_sampler, aux_model, init=deepcopy(aux_data[end]))
-    draw_sample!(aux_data, mcmc_sampler, aux_model, init=aux_model.mode)
+    draw_sample!(aux_data, mcmc_sampler, aux_model)
     # push!(all_aux_data, deepcopy(aux_data)...)
     # println("\n")
     # for x in aux_data
@@ -366,7 +395,7 @@ function iex_mcmc_mode(
     all_aux_data = InteractionSequence{T}[]
     # Initialise the aux_data with a large burn_in 
     aux_model = SIS(S_curr, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
-    draw_sample!(aux_data, mcmc_sampler, aux_model, burn_in=1000, init=aux_model.mode)
+    draw_sample!(aux_data, mcmc_sampler, aux_model, burn_in=1000)
     
     # tmp_inds = Int[]
     # Vertex distribution for proposal 
@@ -432,7 +461,7 @@ function iex_mcmc_mode(
             aux_model = SIS(S_prop, γ_curr, posterior.dist, posterior.V, posterior.K_inner, posterior.K_outer)
             # println("Initialising at:", aux_data[end])
             # aux_data = draw_sample(mcmc_sampler, aux_model, init=deepcopy(aux_data[end])) # Initialise at last val of previous
-            draw_sample!(aux_data, mcmc_sampler, aux_model, init=aux_model.mode)
+            draw_sample!(aux_data, mcmc_sampler, aux_model)
             # push!(all_aux_data, deepcopy(aux_data)...)
             # Accept reject
             log_lik_ratio = - γ_curr * (
