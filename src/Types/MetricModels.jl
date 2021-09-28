@@ -146,6 +146,21 @@ SIS(
 #     )
 # end 
 
+function Base.show(
+    io::IO, model::SIS{T}
+    ) where {T<:Union{Int,String}}
+
+    title = "SIS Model"
+    n = length(title)
+    println(io, title)
+    println(io, "-"^n)
+    println(io, "Parameters:")
+    for par in fieldnames(typeof(model))
+        println(io, par, " = $(getfield(model, par))")
+    end 
+
+end 
+
 struct SIM{T<:Union{Int, String}}
     mode::Vector{Path{T}} # Mode
     γ::Real # Precision

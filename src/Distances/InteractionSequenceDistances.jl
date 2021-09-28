@@ -86,6 +86,9 @@ struct FastGED{T<:InteractionDistance} <:InteractionSeqDistance
         new{S}(ground_dist, zeros(Float64, K), zeros(Float64, K))
     end 
 end
+function Base.show(io::IO, d::FastGED)
+    print(io, "GED (max num. interactions $(length(d.curr_row))) with $(d.ground_dist) ground distance.")
+end 
 
 struct FpGED{T<:InteractionDistance} <: InteractionSeqDistance
     ground_dist::T

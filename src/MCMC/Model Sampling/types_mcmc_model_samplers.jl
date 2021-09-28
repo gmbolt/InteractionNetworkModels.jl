@@ -252,7 +252,7 @@ SisMcmcInsertDeleteGibbs(
 
 
 function Base.show(io::IO, sampler::SisMcmcInsertDeleteGibbs)
-    title = "MCMC Sampler for Spherical Interaction Sequence (SIS) Family via iMCMC-within-Gibbs and Interaction Insertion/Deletion."
+    title = "MCMC Sampler for SIS Models via iMCMC-within-Gibbs and Interaction Insertion/Deletion."
     n = length(title)
     println(io, title)
     println(io, "-"^n)
@@ -318,7 +318,7 @@ struct SisMcmcInsertDeleteEdit{T<:Union{Int,String}} <: SisMcmcSampler
 end 
 
 function Base.show(io::IO, sampler::SisMcmcInsertDeleteEdit)
-    title = "MCMC Sampler for Spherical Interaction Sequence (SIS) Family via with Multinomial Allocated Updates and Interaction Insertion/Deletion."
+    title = "MCMC Sampler for SIS Models via with Multinomial Allocated Updates and Interaction Insertion/Deletion."
     n = length(title)
     println(io, title)
     println(io, "-"^n)
