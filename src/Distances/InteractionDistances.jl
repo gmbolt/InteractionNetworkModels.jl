@@ -15,6 +15,10 @@ struct FastLCS <: PathDistance
         new(zeros(Int,K), zeros(Int,K))
     end 
 end 
+
+function Base.show(io::IO, d::FastLCS)
+    println(io, "LCS (max interaction len. $(length(d.curr_row)))")
+end 
 struct FastNormLCS <: PathDistance
     curr_row::Vector{Int}
     prev_row::Vector{Int}
