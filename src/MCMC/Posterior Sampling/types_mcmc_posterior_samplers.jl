@@ -1,4 +1,4 @@
-export SisIexInsertDeleteEdit, SisIexInsertDeleteGibbs
+export SisIexInsertDeleteEdit, SisIexInsertDeleteGibbs, SisPosteriorSampler
 
 abstract type SisPosteriorSampler end 
 
