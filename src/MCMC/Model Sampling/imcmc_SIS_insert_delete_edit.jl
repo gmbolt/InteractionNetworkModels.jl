@@ -65,7 +65,7 @@ function imcmc_multinomial_edit_accept_reject!(
             StatsBase.seqsample_a!(1:m, ind_add)
             sample!(model.V, vals)
 
-            delete_insert!(S_prop[i], δ_tmp, d, ind_del, ind_add, vals)
+            delete_insert!(S_prop[i], ind_del, ind_add, vals)
 
             mcmc.ind_update[j] = i # Store which interaction was updated
             

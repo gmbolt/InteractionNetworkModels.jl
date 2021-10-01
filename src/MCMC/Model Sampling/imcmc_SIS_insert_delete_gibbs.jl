@@ -41,7 +41,7 @@ function imcmc_gibbs_update!(
     sample!(model.V, vals)
 
 
-    delete_insert!(S_prop[i], δ, d, ind_del, ind_add, vals)
+    delete_insert!(S_prop[i], ind_del, ind_add, vals)
 
     log_ratio = log(min(n, δ)+1) - log(min(m, δ)+1) + (m - n)*log(length(model.V))
 
@@ -95,7 +95,6 @@ end
 function imcmc_multi_insert_prop_sample!(
     S_curr::InteractionSequence{T}, 
     S_prop::InteractionSequence{T},
-    model::SIS{T},
     mcmc::Union{SisMcmcInsertDeleteGibbs{T},SisMcmcInsertDeleteEdit{T}},
     ind::AbstractVector{T}
     ) where {T<:Union{Int, String}}
@@ -119,7 +118,6 @@ end
 function imcmc_multi_delete_prop_sample!(
     S_curr::InteractionSequence{T}, 
     S_prop::InteractionSequence{T}, 
-    model::SIS{T},
     mcmc::Union{SisMcmcInsertDeleteGibbs{T}, SisMcmcInsertDeleteEdit{T}},
     ind::AbstractVector{T}
     ) where {T<:Union{Int,String}}
@@ -127,7 +125,6 @@ function imcmc_multi_delete_prop_sample!(
     prop_pointers = mcmc.prop_pointers
     ν_trans_dim = mcmc.ν_trans_dim
     N = length(S_curr)
-    K_outer = model.K_outer
     path_dist = mcmc.path_dist
 
     log_ratio = 0.0
@@ -170,7 +167,7 @@ function imcmc_trans_dim_accept_reject!(
         StatsBase.seqsample_a!(1:(N+ε), ind_tr_dim) # Sample where to insert 
         log_ratio += imcmc_multi_insert_prop_sample!(
             S_curr, S_prop, 
-            model, mcmc, 
+            mcmc, 
             ind_tr_dim
             ) # Enact move and catch log ratio term 
     else 
@@ -183,7 +180,7 @@ function imcmc_trans_dim_accept_reject!(
         StatsBase.seqsample_a!(1:N, ind_tr_dim) # Sample which to delete 
         log_ratio += imcmc_multi_delete_prop_sample!(
             S_curr, S_prop, 
-            model, mcmc, 
+            mcmc, 
             ind_tr_dim
             ) # Enact move and catch log ratio 
     end 

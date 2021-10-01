@@ -158,7 +158,7 @@ function get_init(
 
             
             n = length(model.mode[i])
-            d = rand(max(0, δ_tmp + n - K_inner):min(n, δ_tmp))
+            d = rand(max(0, ceil(Int, (n + δ_tmp + - K_inner)/2)):min(n, δ_tmp))
             m = n + δ_tmp - 2*d
 
             ind_del_v = view(ind_del, 1:d)
@@ -169,7 +169,7 @@ function get_init(
             StatsBase.seqsample_a!(1:m, ind_add_v)
             sample!(model.V, vals)
 
-            delete_insert!(S_init[i], δ_tmp, d, ind_del_v, ind_add_v, vals_v)
+            delete_insert!(S_init[i], ind_del_v, ind_add_v, vals_v)
 
         end 
 

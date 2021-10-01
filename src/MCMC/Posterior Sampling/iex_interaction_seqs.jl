@@ -45,7 +45,7 @@ end
 
 # NOTE μ_cusum must have 0.0 first entry, and for n bins μ_cusum must be of size n+1
 function rand_multivariate_bernoulli(μ_cusum::Vector{Float64})
-    @assert μ_cusum[1] == 0 "First entry must be 0.0 (for differencing to find probabilities)."
+    @assert μ_cusum[1] ≈ 0 "First entry must be 0.0 (for differencing to find probabilities)."
     β = rand()
     for i in 1:length(μ_cusum)
         if β < μ_cusum[i]
@@ -358,8 +358,6 @@ function plot_cooccurrence_graph(data::Vector{Vector{Path{Int}}})
     )
     display(fig)
 end 
-
-
 
 
 function iex_mcmc_mode(

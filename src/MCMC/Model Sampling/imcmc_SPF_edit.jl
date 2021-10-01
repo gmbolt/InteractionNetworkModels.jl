@@ -21,6 +21,23 @@ function delete_insert!(
 
 end 
 
+# Alternative which just ennacts via the vectors given *no indexing)
+function delete_insert!(
+    x::Path, 
+    ind_del::AbstractArray{Int}, 
+    ind_add::AbstractArray{Int}, 
+    vals::AbstractArray{Int})
+
+    @views for (i, index) in enumerate(ind_del)
+        deleteat!(x, index - i + 1)
+    end 
+    @views for (index, val) in zip(ind_add, vals)
+        # @show i, index, val
+        insert!(x, index, val)
+    end 
+
+end 
+
 function imcmc_prop_sample_edit!(
     I_curr::Path{T}, I_prop::Path{T},
     δ::Int, # Number of edits 
