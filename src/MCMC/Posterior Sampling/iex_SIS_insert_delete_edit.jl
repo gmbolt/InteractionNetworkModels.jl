@@ -359,13 +359,16 @@ function draw_sample_mode!(
     γ_fixed::Float64;
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist)
+    init::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist),
+    loading_bar::Bool=true
     ) where {T<:Union{Int,String}}
 
-    iter = Progress(
-        length(sample_out), # How many iters 
-        1,  # At which granularity to update loading bar
-        "Chain for γ = $(γ_fixed) and n = $(posterior.sample_size) (mode conditional)....")  # Loading bar. Minimum update interval: 1 second
+    if loading_bar
+        iter = Progress(
+            length(sample_out), # How many iters 
+            1,  # At which granularity to update loading bar
+            "Chain for γ = $(γ_fixed) and n = $(posterior.sample_size) (mode conditional)....")  # Loading bar. Minimum update interval: 1 second
+    end 
 
     # Define aliases for pointers to the storage of current vals and proposals
     curr_pointers = mcmc.curr_pointers
@@ -430,8 +433,9 @@ function draw_sample_mode!(
             )
             tr_dim_count += 1
         end 
-
-        next!(iter)
+        if loading_bar
+            next!(iter)
+        end 
     end 
     for i in 1:length(S_curr)
         migrate!(curr_pointers, S_curr, 1, 1)
@@ -450,11 +454,18 @@ function draw_sample_mode(
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist)
+    init::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist),
+    loading_bar::Bool=true
     ) where {T<:Union{Int,String}}
 
     sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
-    draw_sample_mode!(sample_out, mcmc, posterior, γ_fixed, burn_in=burn_in, lag=lag, init=init)
+    draw_sample_mode!(
+        sample_out, 
+        mcmc, posterior, 
+        γ_fixed, 
+        burn_in=burn_in, lag=lag, init=init,
+        loading_bar=loading_bar
+        )
     return sample_out
 
 end 
@@ -465,7 +476,8 @@ function (mcmc::SisIexInsertDeleteEdit{Int})(
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist)
+    init::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist),
+    loading_bar::Bool=true
     ) where {T<:Union{Int,String}}
     sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
 
@@ -478,7 +490,9 @@ function (mcmc::SisIexInsertDeleteEdit{Int})(
             posterior, γ_fixed, 
             burn_in=burn_in, 
             lag=lag, 
-            init=init)
+            init=init,
+            loading_bar=loading_bar
+            )
 
     p_measures = Dict(
             "Proportion Update Moves" => update_count/(update_count+trans_dim_count),
