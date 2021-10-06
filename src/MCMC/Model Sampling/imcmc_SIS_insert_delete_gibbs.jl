@@ -110,7 +110,7 @@ function imcmc_multi_insert_prop_sample!(
         rand!(S_prop[i], path_dist)
         log_ratio += - logpdf(path_dist, S_prop[i])
     end 
-    log_ratio += log(ν_trans_dim) - log(min(ν_trans_dim,N)) 
+    log_ratio += log(ν_trans_dim) - log(min(ν_trans_dim,N-1)) 
     return log_ratio 
 
 end 
@@ -134,7 +134,7 @@ function imcmc_multi_delete_prop_sample!(
         log_ratio += logpdf(path_dist, S_curr[i])
     end 
 
-    log_ratio += log(min(ν_trans_dim,N)) - log(ν_trans_dim)
+    log_ratio += log(min(ν_trans_dim,N-1)) - log(ν_trans_dim)
     return log_ratio
 
 end 
@@ -171,7 +171,7 @@ function imcmc_trans_dim_accept_reject!(
             ind_tr_dim
             ) # Enact move and catch log ratio term 
     else 
-        ε = rand(1:min(ν_trans_dim, N)) # How many to delete
+        ε = rand(1:min(ν_trans_dim, N-1)) # How many to delete
         # Catch invalid proposal (would go to empty inter seq)
         if ε == N 
             return 0 
