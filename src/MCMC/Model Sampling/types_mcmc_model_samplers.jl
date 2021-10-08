@@ -1,11 +1,16 @@
-export SimInvolutiveMcmcInsertDelete, SisMcmcInsertDeleteGibbs
-export SisMcmcInsertDeleteEdit
+export SisMcmcSampler, SimMcmcSampler, SpfMcmcSampler
+export SisMcmcInsertDeleteEdit, SisMcmcInsertDeleteGibbs
+export SimMcmcInsertDeleteEdit, SimMcmcInsertDeleteGibbs
 export SisMcmcInitialiser, SisInitMode, SisInitRandEdit, get_init
-export SpfMcmcSampler, SisMcmcSampler, SimMcmcSampler
+export SisMcmcInitialiser, SimInitMode
 export SpfInvolutiveMcmcCentSubseq, SpfInvolutiveMcmcEdit
+
+
 # ====================
 #   SPF 
 # ====================
+
+# Mcmc samplers for a metric-model for paths (sequences)
 
 # From Model
 abstract type SpfMcmcSampler end
@@ -92,7 +97,7 @@ end
 
 
 # =====================================
-#      SIS / SIM
+#      SIS 
 # =====================================
 
 # Initilisers 
@@ -104,6 +109,7 @@ end
 Abstract type representing initialisation schemes for SIS model samplers. 
 """
 abstract type SisMcmcInitialiser end
+
 
 """
 `SisInitMode <: SisMcmcInitialiser` - this is a MCMC initialisation scheme for SIS model samplers which starts the MCMC chain at the model mode by default.
@@ -187,7 +193,6 @@ end
 
 
 abstract type SisMcmcSampler end 
-abstract type SimMcmcSampler end 
 
 # From Models 
 
@@ -333,7 +338,115 @@ function Base.show(io::IO, sampler::SisMcmcInsertDeleteEdit)
     end 
 end 
 
-struct SimInvolutiveMcmcInsertDelete{T<:Union{Int,String}} <: SimMcmcSampler
+# ============================
+#  SIM 
+# ============================
+
+# Intialisers 
+# -----------
+
+# These are fed into samplers to define an intialisation scheme. Though in general we just intialise at the mode via SimInitMode(). 
+
+""" 
+Abstract type representing initialisation schemes for SIM model samplers. 
+"""
+abstract type SimMcmcInitialiser end
+
+"""
+`SisInitMode <: SisMcmcInitialiser` - this is a MCMC initialisation scheme for SIS model samplers which starts the MCMC chain at the model mode by default.
+"""
+struct SimInitMode <: SimMcmcInitialiser
+    function SimInitMode()
+        return new() 
+    end 
+end 
+
+function get_init(
+    model::SIM, 
+    initiliaser::SimInitMode
+    )
+    return model.mode
+end 
+
+# Samplers 
+# --------
+
+# Abstract type (all samplers are subtype of this)
+
+abstract type SimMcmcSampler end 
+
+# Edit Allocation Sampler 
+# -----------------------
+
+struct SimMcmcInsertDeleteEdit{T<:Union{Int,String}} <: SimMcmcSampler
+    ν_edit::Int  # Maximum number of edit operations
+    ν_trans_dim::Int  # Maximum change in outer dimension
+    β::Real  # Probability of trans-dimensional move
+    path_dist::PathDistribution{T}  # Distribution used to introduce new interactions
+    K::Int # Max number of interactions (used to determined how many pointers to store interactions)
+    desired_samples::Int  # Final three set default values for MCMC samplers 
+    burn_in::Int
+    lag::Int
+    init::SimMcmcInitialiser
+    par_info::Dict
+    curr_pointers::InteractionSequence{T} # Storage for prev value in MCMC
+    prop_pointers::InteractionSequence{T} # Storage for curr value in MCMC
+    ind_del::Vector{Int} # Storage for indexing of deletions of interactions
+    ind_add::Vector{Int} # Storage for indexing of additions of interactions
+    vals::Vector{T} # Storage for values to insert in interactions
+    ind_update::Vector{Int} # Storage of which values have been updated
+    ind_trans_dim::Vector{Int} # Storage of where to insert/delete 
+    function SimMcmcInsertDeleteEdit(
+        path_dist::PathDistribution{S};
+        K=100,
+        ν_edit=2, ν_trans_dim=2, β=0.4,
+        desired_samples=1000, lag=1, burn_in=0, init=SimInitMode()
+        ) where {S<:Union{Int, String}}
+        curr_pointers = [S[] for i in 1:K]
+        prop_pointers = [S[] for i in 1:K]
+        ind_del = zeros(Int, ν_edit)
+        ind_add = zeros(Int, ν_edit)
+        vals = zeros(Int, ν_edit)
+        ind_update = zeros(Int, ν_edit)
+        ind_trans_dim = zeros(Int, ν_trans_dim)
+        par_info = Dict()
+        par_info[:ν_edit] = "(maximum number of edit operations)"
+        par_info[:ν_trans_dim] = "(maximum increase/decrease in dimension)"
+        par_info[:path_dist] = "(path distribution for insertions)"
+        par_info[:β] = "(probability of update move)"
+        par_info[:K] = "(maximum number of interactions, used to initialise storage)"
+
+        new{S}(
+            ν_edit, ν_trans_dim, β, 
+            path_dist, K,
+            desired_samples, burn_in, lag, init,
+            par_info,
+            curr_pointers, prop_pointers, ind_del, ind_add, vals,
+            ind_update, ind_trans_dim
+            )
+    end  
+end 
+
+function Base.show(io::IO, sampler::SimMcmcInsertDeleteEdit)
+    title = "MCMC Sampler for SIM Models via Edit Allocation + Insert/Delete Moves"
+    n = length(title)
+    println(io, title)
+    println(io, "-"^n)
+    println(io, "Parameters:")
+    num_of_pars = 5
+    for par in fieldnames(typeof(sampler))[1:num_of_pars]
+        println(io, par, " = $(getfield(sampler, par))  ", sampler.par_info[par])
+    end 
+    println(io, "\nDefault output parameters:")
+    for par in fieldnames(typeof(sampler))[(num_of_pars+1):(num_of_pars+4)]
+        println(io, par, " = $(getfield(sampler, par))  ")
+    end 
+end 
+
+# Gibbs Scan Sampler
+# ------------------
+
+struct SimMcmcInsertDeleteGibbs{T<:Union{Int,String}} <: SimMcmcSampler
     ν::Int   # Maximum number of edit ops
     path_dist::PathDistribution{T}  # Distribution used to introduce new interactions
     β::Real  # Extra probability of Gibbs move
@@ -347,7 +460,7 @@ struct SimInvolutiveMcmcInsertDelete{T<:Union{Int,String}} <: SimMcmcSampler
     ind_del::Vector{Int} # Storage for indexing of deletions in Gibbs scan
     ind_add::Vector{Int} # Storage for indexing of additions in Gibbs scan
     vals::Vector{T} # Storage for valuse to insert in Gibbs scan
-    function SimInvolutiveMcmcInsertDelete(
+    function SimMcmcInsertDeleteGibbs(
         path_dist::PathDistribution{S};
         K=100,
         ν=4, β=0.0,
@@ -373,8 +486,8 @@ struct SimInvolutiveMcmcInsertDelete{T<:Union{Int,String}} <: SimMcmcSampler
     end 
 end 
 
-function Base.show(io::IO, sampler::SimInvolutiveMcmcInsertDelete)
-    title = "MCMC Sampler for Spherical Interaction Multiset (SIM) Family via Insert-Delete Algorithm"
+function Base.show(io::IO, sampler::SimMcmcInsertDeleteGibbs)
+    title = "MCMC Sampler for SIM Models via Gibbs + Insert/Delete Moves."
     n = length(title)
     println(io, title)
     println(io, "-"^n)

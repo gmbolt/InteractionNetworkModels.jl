@@ -116,17 +116,6 @@ struct SIS{T<:Union{Int, String}}
     V::Vector{T} # Vertex Set
     K_inner::Real # Maximum interaction sequence size
     K_outer::Real # Maximum path (interaction) length
-    # Inner constructor (to impose default value for K's).
-    # function SIS(
-    #     mode::Vector{Path{T}},
-    #     γ::Real,
-    #     dist::InteractionSeqDistance,
-    #     V::Vector{T};
-    #     K_inner::Real,
-    #     K_outer::Real
-    #     ) where {T<:Union{Int, String}}
-    #     new{T}(mode, γ, dist, V, K_inner, K_outer)
-    # end
 end
 
 SIS(
@@ -136,15 +125,6 @@ SIS(
     V::Vector{T}
     ) where {T<:Union{Int,String}}= SIS(mode, γ, dist, V, Inf, Inf)
 
-# function logpdf_propto(
-#     model::Union{SIS{T}, SIM{T}},
-#     x::InteractionSequence{T}
-#     ) where {T<:Union{Int,String}}
-
-#     return - model.γ * (
-#         model.dist(x, model.mode)
-#     )
-# end 
 
 function Base.show(
     io::IO, model::SIS{T}
@@ -168,18 +148,29 @@ struct SIM{T<:Union{Int, String}}
     V::Vector{T} # Vertex Set
     K_inner::Real # Maximum interaction sequence size
     K_outer::Real # Maximum path (interaction) length
-    # Inner constructor (to impose default value for K's).
-    function SIM(
-        mode::Vector{Path{T}},
-        γ::Real,
-        dist::InteractionSetDistance,
-        V::Vector{T};
-        K_inner::Real=Inf,
-        K_outer::Real=Inf
-        ) where {T<:Union{Int, String}}
-        new{T}(mode, γ, dist, V, K_inner, K_outer)
-    end
 end
+
+SIM(
+    mode::InteractionSequence{T}, 
+    γ::Real, 
+    dist::InteractionSeqDistance, 
+    V::Vector{T}
+    ) where {T<:Union{Int,String}}= SIM(mode, γ, dist, V, Inf, Inf)
+
+function Base.show(
+    io::IO, model::SIM{T}
+    ) where {T<:Union{Int,String}}
+
+    title = "SIM Model"
+    n = length(title)
+    println(io, title)
+    println(io, "-"^n)
+    println(io, "Parameters:")
+    for par in fieldnames(typeof(model))
+        println(io, par, " = $(getfield(model, par))")
+    end 
+
+end 
 
 # Sufficent staistics
 """

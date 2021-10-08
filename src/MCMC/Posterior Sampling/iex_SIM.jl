@@ -1,13 +1,9 @@
 using Distributions, StatsBase, ProgressMeter
 
-export draw_sample_mode!, draw_sample_mode
-
-
-
 function imcmc_multi_insert_prop_sample!(
     S_curr::InteractionSequence{T}, 
     S_prop::InteractionSequence{T},
-    mcmc::SisIexInsertDeleteEdit{T},
+    mcmc::SimIexInsertDeleteEdit{T},
     ind::AbstractVector{T}
     ) where {T<:Union{Int, String}}
 
@@ -30,7 +26,7 @@ end
 function imcmc_multi_delete_prop_sample!(
     S_curr::InteractionSequence{T}, 
     S_prop::InteractionSequence{T}, 
-    mcmc::SisIexInsertDeleteEdit{T},
+    mcmc::SimIexInsertDeleteEdit{T},
     ind::AbstractVector{T}
     ) where {T<:Union{Int,String}}
 
@@ -98,9 +94,9 @@ end
 function double_iex_multinomial_edit_accept_reject!(
     S_curr::InteractionSequence{T},
     S_prop::InteractionSequence{T},
-    posterior::SisPosterior{T},
+    posterior::SimPosterior{T},
     γ_curr::Float64,
-    mcmc::SisIexInsertDeleteEdit{T},
+    mcmc::SimIexInsertDeleteEdit{T},
     P::CumCondProbMatrix,
     aux_data::InteractionSequenceSample{T}
     ) where {T<:Int}
@@ -189,9 +185,8 @@ function double_iex_multinomial_edit_accept_reject!(
         end 
 
     end 
-    # *** MUST ADD AUX MODEL TERM ***
     
-    aux_model = SIS(
+    aux_model = SIM(
         S_prop, γ_curr, 
         dist, 
         V, 
@@ -215,8 +210,10 @@ function double_iex_multinomial_edit_accept_reject!(
         dist(S_prop, mode_prior) - dist(S_curr, mode_prior)
     )
 
+    log_multinom_term = log_multinomial_ratio(S_curr, S_prop)
+
     # Log acceptance probability
-    log_α = log_lik_ratio + log_prior_ratio + aux_log_lik_ratio + log_ratio 
+    log_α = log_lik_ratio + log_prior_ratio + aux_log_lik_ratio + log_ratio + log_multinom_term
 
     # @show log_dim_diff, log_prod_term, log_lik_ratio, log_α, mean_len_curr, mean_len_prop
 
@@ -234,13 +231,12 @@ function double_iex_multinomial_edit_accept_reject!(
     end 
 end 
 
-
 function double_iex_trans_dim_accept_reject!(
     S_curr::InteractionSequence{T},
     S_prop::InteractionSequence{T},
-    posterior::SisPosterior{T}, 
+    posterior::SimPosterior{T}, 
     γ_curr::Float64,
-    mcmc::SisIexInsertDeleteEdit{T},
+    mcmc::SimIexInsertDeleteEdit{T},
     aux_data::InteractionSequenceSample{T}
     )  where {T<:Union{Int, String}}
     
@@ -293,7 +289,7 @@ function double_iex_trans_dim_accept_reject!(
     end 
 
     # Now do accept-reject step (**THIS IS WHERE WE DIFFER FROM MODEL SAMPLER***)
-    aux_model = SIS(
+    aux_model = SIM(
         S_prop, γ_curr, 
         dist, 
         V, 
@@ -350,7 +346,6 @@ function double_iex_trans_dim_accept_reject!(
     end 
 
 end 
-
 
 function draw_sample_mode!(
     sample_out::Union{InteractionSequenceSample{T}, SubArray},

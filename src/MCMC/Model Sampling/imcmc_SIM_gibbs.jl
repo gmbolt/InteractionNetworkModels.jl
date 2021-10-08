@@ -5,7 +5,7 @@ function InteractionNetworkModels.imcmc_gibbs_update!(
     S_prop::InteractionSequence{T},
     i::Int,
     model::SIM{T}, 
-    mcmc::SimInvolutiveMcmcInsertDelete{T}
+    mcmc::SimMcmcInsertDeleteGibbs{T}
     ) where {T<:Union{Int, String}}
 
     @inbounds n = length(S_curr[i])
@@ -58,7 +58,7 @@ function InteractionNetworkModels.imcmc_gibbs_scan!(
     S_curr::InteractionSequence{T},
     S_prop::InteractionSequence{T},
     model::SIM{T}, 
-    mcmc::SimInvolutiveMcmcInsertDelete
+    mcmc::SimMcmcInsertDeleteGibbs
     ) where {T<:Union{Int, String}} 
     count = 0
     N = length(S_curr)
@@ -70,7 +70,7 @@ end
 
 function InteractionNetworkModels.draw_sample!(
     sample_out::InteractionSequenceSample{T},
-    mcmc::SimInvolutiveMcmcInsertDelete,
+    mcmc::SimMcmcInsertDeleteGibbs,
     model::SIM{T};
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
@@ -211,7 +211,7 @@ function InteractionNetworkModels.draw_sample!(
 end 
 
 function InteractionNetworkModels.draw_sample(
-    mcmc::SimInvolutiveMcmcInsertDelete{T},
+    mcmc::SimMcmcInsertDeleteGibbs{T},
     model::SIM{T};
     desired_samples::Int=mcmc.desired_samples, 
     burn_in::Int=mcmc.burn_in,
