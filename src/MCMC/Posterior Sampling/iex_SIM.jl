@@ -349,8 +349,8 @@ end
 
 function draw_sample_mode!(
     sample_out::Union{InteractionSequenceSample{T}, SubArray},
-    mcmc::SisIexInsertDeleteEdit{T},
-    posterior::SisPosterior{T},
+    mcmc::SimIexInsertDeleteEdit{T},
+    posterior::SimPosterior{T},
     γ_fixed::Float64;
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
@@ -443,8 +443,8 @@ function draw_sample_mode!(
 end 
 
 function draw_sample_mode(
-    mcmc::SisIexInsertDeleteEdit{T},
-    posterior::SisPosterior{T},
+    mcmc::SimIexInsertDeleteEdit{T},
+    posterior::SimPosterior{T},
     γ_fixed::Float64;
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,
@@ -465,8 +465,8 @@ function draw_sample_mode(
 
 end 
 
-function (mcmc::SisIexInsertDeleteEdit{Int})(
-    posterior::SisPosterior{T}, 
+function (mcmc::SimIexInsertDeleteEdit{T})(
+    posterior::SimPosterior{T}, 
     γ_fixed;
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,
@@ -494,7 +494,7 @@ function (mcmc::SisIexInsertDeleteEdit{Int})(
             "Update Move Acceptance Probability" => update_acc_count / update_count,
             "Trans-Dimensional Move Acceptance Probability" => trans_dim_acc_count / trans_dim_count
         )
-    output = SisPosteriorModeConditionalMcmcOutput(
+    output = SimPosteriorModeConditionalMcmcOutput(
             γ_fixed, 
             sample_out, 
             posterior.dist, 

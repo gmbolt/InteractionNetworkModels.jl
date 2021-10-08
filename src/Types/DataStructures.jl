@@ -37,7 +37,10 @@ end
 # Sample Frechet Means
 # =======================================================
 
-function sample_frechet_mean(data::InteractionSequenceSample{T}, d::InteractionSeqDistance) where T <:Union{Int, String}
+function sample_frechet_mean(
+    data::InteractionSequenceSample{T}, 
+    d::Union{InteractionSeqDistance,InteractionSetDistance}
+    ) where T <:Union{Int, String}
     z_best = Inf
     ind_best = 1
     n = length(data)
