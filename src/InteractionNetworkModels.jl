@@ -43,6 +43,7 @@ include("MCMC/Posterior Sampling/iex_paths.jl")
 include("MCMC/Posterior Sampling/iex_interaction_seqs.jl")
 include("MCMC/Posterior Sampling/iex_interaction_sets.jl")
 include("MCMC/Posterior Sampling/iex_SIS.jl")
+include("MCMC/Posterior Sampling/iex_SIM.jl")
 # include("MCMC/Posterior Sampling/parallel_iex_interaction_seqs.jl")
 include("MCMC/Posterior Sampling/parallel_helpers.jl")
 

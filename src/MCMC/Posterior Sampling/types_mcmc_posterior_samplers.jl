@@ -52,6 +52,7 @@ struct SisIexInsertDeleteEdit{T<:Union{Int,String}} <: SisPosteriorSampler
     β::Real  # Probability of trans-dimensional move
     α::Float64  # How much vertex proposal is informed by data (0.0 max and ∞ is uniform over vertice)
     path_dist::PathDistribution{T}  # Distribution used to introduce new interactions
+    ε::Float64 # Neighborhood for sampling γ
     aux_mcmc::SisMcmcSampler
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
     desired_samples::Int  # Final three set default values for MCMC samplers 
@@ -70,6 +71,7 @@ struct SisIexInsertDeleteEdit{T<:Union{Int,String}} <: SisPosteriorSampler
         aux_mcmc::SisMcmcSampler;
         K=100,
         ν_edit=2, ν_trans_dim=1 , β=0.7, α=0.0,
+        ε=0.05,
         desired_samples=1000, lag=1, burn_in=0
         ) where {S<:Union{Int, String}}
         curr_pointers = [S[] for i in 1:K]
@@ -87,10 +89,13 @@ struct SisIexInsertDeleteEdit{T<:Union{Int,String}} <: SisPosteriorSampler
         par_info[:aux_mcmc] = "(mcmc sampler from auxiliary data)"
         par_info[:β] = "(probability of update move)"
         par_info[:K] = "(maximum number of interactions, used to initialise storage)"
+        par_info[:ε] = "(neighborhood for γ proposals)"
 
         new{S}(
             ν_edit, ν_trans_dim, β, α,
-            path_dist, aux_mcmc, K,
+            path_dist, 
+            ε,
+            aux_mcmc, K,
             desired_samples, burn_in, lag, 
             par_info,
             curr_pointers, prop_pointers, ind_del, ind_add, vals,
@@ -110,6 +115,7 @@ struct SimIexInsertDeleteEdit{T<:Union{Int,String}} <: SimPosteriorSampler
     β::Real  # Probability of trans-dimensional move
     α::Float64  # How much vertex proposal is informed by data (0.0 max and ∞ is uniform over vertice)
     path_dist::PathDistribution{T}  # Distribution used to introduce new interactions
+    ε::Float64
     aux_mcmc::SimMcmcSampler
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
     desired_samples::Int  # Final three set default values for MCMC samplers 
@@ -128,6 +134,7 @@ struct SimIexInsertDeleteEdit{T<:Union{Int,String}} <: SimPosteriorSampler
         aux_mcmc::SimMcmcSampler;
         K=100,
         ν_edit=2, ν_trans_dim=1 , β=0.7, α=0.0,
+        ε=0.1,
         desired_samples=1000, lag=1, burn_in=0
         ) where {S<:Union{Int, String}}
         curr_pointers = [S[] for i in 1:K]
@@ -145,10 +152,13 @@ struct SimIexInsertDeleteEdit{T<:Union{Int,String}} <: SimPosteriorSampler
         par_info[:aux_mcmc] = "(mcmc sampler from auxiliary data)"
         par_info[:β] = "(probability of update move)"
         par_info[:K] = "(maximum number of interactions, used to initialise storage)"
+        par_info[:ε] = "(neighborhood for γ proposals)"
 
         new{S}(
             ν_edit, ν_trans_dim, β, α,
-            path_dist, aux_mcmc, K,
+            path_dist, 
+            ε,
+            aux_mcmc, K,
             desired_samples, burn_in, lag, 
             par_info,
             curr_pointers, prop_pointers, ind_del, ind_add, vals,

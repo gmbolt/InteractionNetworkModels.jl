@@ -1,6 +1,7 @@
 using Distributions, StatsBase, ProgressMeter
 
 export draw_sample_mode!, draw_sample_mode
+export draw_sample_gamma!, draw_sample_gamma
 
 function imcmc_multi_insert_prop_sample!(
     S_curr::InteractionSequence{T}, 
@@ -348,6 +349,12 @@ function double_iex_trans_dim_accept_reject!(
 
 end 
 
+# =========================
+# Samplers 
+# =========================
+
+# Mode conditional 
+# ----------------
 
 function draw_sample_mode!(
     sample_out::Union{InteractionSequenceSample{T}, SubArray},
@@ -469,7 +476,7 @@ end
 
 function (mcmc::SisIexInsertDeleteEdit{Int})(
     posterior::SisPosterior{T}, 
-    γ_fixed;
+    γ_fixed::Float64;
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
@@ -508,3 +515,155 @@ function (mcmc::SisIexInsertDeleteEdit{Int})(
     return output
 
 end 
+
+# Dispersion Conditional 
+# ----------------------
+
+function draw_sample_gamma!(
+    sample_out::Union{Vector{Float64}, SubArray},
+    mcmc::SisIexInsertDeleteEdit{T},
+    posterior::SisPosterior{T},
+    S_fixed::InteractionSequence{T};
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    init::Float64=4.0,
+    loading_bar::Bool=true
+    ) where {T<:Union{Int,String}}
+
+    if loading_bar
+        iter = Progress(
+            length(sample_out), # How many iters 
+            1,  # At which granularity to update loading bar
+            "Chain for n = $(posterior.sample_size) (dispersion conditional)....")  # Loading bar. Minimum update interval: 1 second
+    end 
+
+    # Define aliases for pointers to the storage of current vals and proposals
+    ε = mcmc.ε
+    aux_mcmc = mcmc.aux_mcmc
+
+    acc_count = 0
+    i = 1 # Which iteration we are on 
+    sample_count = 1  # Which sample we are working to get 
+
+    S_curr = deepcopy(S_fixed)
+    γ_curr = init
+    aux_data = [[T[]] for i in 1:posterior.sample_size]
+
+    # Evaluate sufficient statistic
+    suff_stat = mapreduce(
+        x -> posterior.dist(S_curr, x), 
+        +, 
+        posterior.data
+        )
+
+    # Initialise the aux_data 
+    aux_model = SIS(
+        S_curr, γ_curr, 
+        posterior.dist, 
+        posterior.V, 
+        posterior.K_inner, 
+        posterior.K_outer)
+    draw_sample!(aux_data, aux_mcmc, aux_model)
+
+    while sample_count ≤ length(sample_out)
+        # Store value 
+        if (i > burn_in) & (((i-1) % lag)==0)
+            sample_out[sample_count] = γ_curr
+            sample_count += 1
+        end 
+
+        γ_prop = rand_reflect(γ_curr, ε, 0.0, Inf)
+
+        aux_model = SIS(
+            S_curr, γ_prop, 
+            posterior.dist, 
+            posterior.V, 
+            posterior.K_inner, posterior.K_outer
+            )
+        draw_sample!(aux_data, aux_mcmc, aux_model)
+
+        # Accept reject
+
+        log_lik_ratio = (γ_curr - γ_prop) * suff_stat
+        aux_log_lik_ratio = (γ_prop - γ_curr) * sum_of_dists(aux_data, S_curr, posterior.dist)
+
+        log_α = (
+            logpdf(posterior.γ_prior, γ_prop) 
+            - logpdf(posterior.γ_prior, γ_curr)
+            + log_lik_ratio + aux_log_lik_ratio 
+        )
+        if log(rand()) < log_α
+            γ_curr = γ_prop
+            acc_count += 1
+        end 
+        if loading_bar
+            next!(iter)
+        end 
+        i += 1
+
+    end 
+    return acc_count
+end 
+
+function draw_sample_gamma(
+    mcmc::SisIexInsertDeleteEdit{T},
+    posterior::SisPosterior{T},
+    S_fixed::InteractionSequence{T};
+    desired_samples::Int=mcmc.desired_samples,
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    init::Float64,
+    loading_bar::Bool=true
+    ) where {T<:Union{Int,String}}
+
+    sample_out = Vector{Float64}(undef, desired_samples)
+    draw_sample_gamme!(
+        sample_out, 
+        mcmc, posterior, 
+        S_fixed, 
+        burn_in=burn_in, lag=lag, init=init,
+        loading_bar=loading_bar
+        )
+    return sample_out
+
+end 
+
+
+function (mcmc::SisIexInsertDeleteEdit{T})(
+    posterior::SisPosterior{T}, 
+    S_fixed::InteractionSequence{T};
+    desired_samples::Int=mcmc.desired_samples,
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    init::Float64=5.0,
+    loading_bar::Bool=true
+    ) where {T<:Union{Int,String}}
+
+    sample_out = Vector{Float64}(undef, desired_samples)
+
+    
+    acc_count = draw_sample_gamma!(
+            sample_out, 
+            mcmc, 
+            posterior, S_fixed, 
+            burn_in=burn_in, 
+            lag=lag, 
+            init=init,
+            loading_bar=loading_bar
+            )
+
+    p_measures = Dict(
+            "Acceptance Probability" => acc_count/desired_samples
+        )
+
+    output = SisPosteriorDispersionConditionalMcmcOutput(
+            S_fixed, 
+            sample_out, 
+            posterior.γ_prior,
+            posterior.data,
+            p_measures
+            )
+
+    return output
+
+end
