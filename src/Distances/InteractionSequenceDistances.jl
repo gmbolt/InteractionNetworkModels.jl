@@ -1,4 +1,4 @@
-using PythonOT, StatsBase, Distances, Hungarian
+using StatsBase, Distances, Hungarian
 
 export InteractionSetDistance, InteractionSeqDistance, LengthDistance, MatchingDist
 export FastMatchingDist, FpMatchingDist, FpMatchingDist2, NormFpMatchingDist, GED, FastGED, FpGED, NormFpGED, get_matching
@@ -17,26 +17,6 @@ function (d::AbsoluteDiff)(N::Int, M::Int)
 end
 function (d::SquaredDiff)(N::Int, M::Int)
     return (N-M)^2
-end 
-
-# idea: I want a way to define the EMD for general multisets (of any s)
-# It will only be valid, however, if the ground_dist is defined for
-# objects of the desired type.
-
-struct EMD{T<:InteractionDistance} <: InteractionSetDistance
-    ground_dist::T
-end
-# EMD composed with a distance of the number of interactions
-struct sEMD{T<:InteractionDistance, G<:LengthDistance} <: InteractionSetDistance
-    ground_dist::T
-    length_dist::G
-    τ::Real # Relative weighting term (a proportion weighting EMD vs length distance, high τ => high EMD weighting)
-end 
-
-struct sEMD2{T<:InteractionDistance, G<:LengthDistance} <:InteractionSetDistance 
-    ground_dist::T
-    length_dist::G
-    τ::Real
 end 
 
 struct MatchingDist{T<:InteractionDistance} <: InteractionSetDistance
@@ -104,53 +84,6 @@ struct NormFpGED{T<:InteractionDistance} <: InteractionSeqDistance
     ρ::Real # Penalty
 end
 
-function (d::EMD)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
-
-    a = countmap(S1)
-    b = countmap(S2)
-
-    C = zeros(Float64, length(a), length(b))
-
-    for (j, val_b) in enumerate(keys(b))
-        for (i, val_a) in enumerate(keys(a))
-            C[i, j] = d.ground_dist(val_a, val_b)
-        end
-    end
-    p_a::Array{Float64,1} = collect(values(a))
-    p_b::Array{Float64,1} = collect(values(b))
-    p_a /= sum(p_a)
-    p_b /= sum(p_b)
-
-    TransPlan::Array{Float64,2} = PythonOT.emd(p_a, p_b, C)
-
-    # Verify not nonsense output
-    @assert(abs(sum(TransPlan) - 1.0) < 10e-5 , "Invalid transport plan, check code.")
-
-    return sum(TransPlan .* C)
-end
-
-function (d::sEMD)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int, String}}
-    
-    d₁ = EMD(d.ground_dist)(S1, S2)
-    d₂ = d.length_dist(length(S1), length(S2))
-    # @show d₁, d₂
-
-    return d₁ + d.τ * d₂
-    
-
-end 
-
-function (d::sEMD2)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
-    
-    d₁ = EMD(d.ground_dist)(S1, S2)
-    d₂ = d.length_dist(sum(length.(S1)), sum(length.(S2)))
-    # @show d₁, d₂
-
-    return d.τ * d₁ + (1-d.τ) * d₂
-    
-
-end 
-
 function (d::MatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int, String}}
     if length(S1) < length(S2)  # Ensure first is seq longest
         d(S2,S1)
@@ -194,73 +127,73 @@ function (d::FastMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequen
     end
 end
 
-function (d::FpMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
-    if length(S1) < length(S2)
-        d(S2,S1)
-    else
-        C = fill(d.penalty, length(S1), length(S1))
-        # @show C
-        @views Distances.pairwise!(C, d.ground_dist, S1, S2)
-        # @show C
-        TransPlan = PythonOT.emd([], [], C)
-        matching_cost = sum(C[(x -> x > 0).(TransPlan)])
+# function (d::FpMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+#     if length(S1) < length(S2)
+#         d(S2,S1)
+#     else
+#         C = fill(d.penalty, length(S1), length(S1))
+#         # @show C
+#         @views Distances.pairwise!(C, d.ground_dist, S1, S2)
+#         # @show C
+#         TransPlan = PythonOT.emd([], [], C)
+#         matching_cost = sum(C[(x -> x > 0).(TransPlan)])
 
-        # for i = 1:length(S1)
-        #     j = findfirst(TransPlan[i,:] .> 0)
-        #     if j > length(S2)
-        #         println("$(S1[i]) ---> Nothing, at cost $(C[i,j])")
-        #     else
-        #         println("$(S1[i]) ---> $(S2[j]), at cost $(C[i,j])")
-        #     end
-        # end
+#         # for i = 1:length(S1)
+#         #     j = findfirst(TransPlan[i,:] .> 0)
+#         #     if j > length(S2)
+#         #         println("$(S1[i]) ---> Nothing, at cost $(C[i,j])")
+#         #     else
+#         #         println("$(S1[i]) ---> $(S2[j]), at cost $(C[i,j])")
+#         #     end
+#         # end
 
 
-        return matching_cost, TransPlan, sum( (PythonOT.emd([], [], C)[:,1:length(S2)].*length(S1)) .* C[:,1:length(S2)] ) + d.penalty*(length(S1) - length(S2))
-    end
-end
+#         return matching_cost, TransPlan, sum( (PythonOT.emd([], [], C)[:,1:length(S2)].*length(S1)) .* C[:,1:length(S2)] ) + d.penalty*(length(S1) - length(S2))
+#     end
+# end
 
-# This is a more general approach which should be able to provide solutions for any 
-# choice of penatly. 
-function (d::FpMatchingDist2)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+# # This is a more general approach which should be able to provide solutions for any 
+# # choice of penatly. 
+# function (d::FpMatchingDist2)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
 
-    C = fill(d.penalty, length(S1)+length(S2), length(S1)+length(S2))
+#     C = fill(d.penalty, length(S1)+length(S2), length(S1)+length(S2))
 
-    @views MyPkg.pairwise!(C[1:length(S1), 1:length(S2)], d.ground_dist, S1, S2)
-    @views fill!(C[(end-length(S2)+1):end, (end-length(S1)+1):end], 0.0) 
-    TransPlan = PythonOT.emd([], [], C)
-    matching_cost = sum(C[(x -> x > 0).(TransPlan)])
-    for i = 1:(length(S1)+length(S2))
-        j = findfirst(TransPlan[i,:] .> 0)
-        if (j > length(S2)) & (i > length(S1)) 
-            println("Nothing ---> Nothing, at cost $(C[i,j])")
-        elseif (j > length(S2))
-            println("$(S1[i]) ---> Nothing, at cost $(C[i,j])")
-        elseif (i > length(S1) )
-            println("Nothing ---> $(S2[j]), at cost $(C[i,j])")
-        else
-            println("$(S1[i]) ---> $(S2[j]), at cost $(C[i,j])")
-        end
-    end
-    return matching_cost, TransPlan, C
+#     @views MyPkg.pairwise!(C[1:length(S1), 1:length(S2)], d.ground_dist, S1, S2)
+#     @views fill!(C[(end-length(S2)+1):end, (end-length(S1)+1):end], 0.0) 
+#     TransPlan = PythonOT.emd([], [], C)
+#     matching_cost = sum(C[(x -> x > 0).(TransPlan)])
+#     for i = 1:(length(S1)+length(S2))
+#         j = findfirst(TransPlan[i,:] .> 0)
+#         if (j > length(S2)) & (i > length(S1)) 
+#             println("Nothing ---> Nothing, at cost $(C[i,j])")
+#         elseif (j > length(S2))
+#             println("$(S1[i]) ---> Nothing, at cost $(C[i,j])")
+#         elseif (i > length(S1) )
+#             println("Nothing ---> $(S2[j]), at cost $(C[i,j])")
+#         else
+#             println("$(S1[i]) ---> $(S2[j]), at cost $(C[i,j])")
+#         end
+#     end
+#     return matching_cost, TransPlan, C
 
-end 
+# end 
 
-function (d::AvgSizeFpMatchingDist)(S1::Vector{Path{T}}, S2::Vector{Path{T}}) where {T<:Union{Int, String}}
+# function (d::AvgSizeFpMatchingDist)(S1::Vector{Path{T}}, S2::Vector{Path{T}}) where {T<:Union{Int, String}}
 
-    d_m = FpMatchingDist(d.ground_dist, d.penalty)(S1, S2)[1]
+#     d_m = FpMatchingDist(d.ground_dist, d.penalty)(S1, S2)[1]
 
-    return d_m + (mean(length.(S1)) - mean(length.(S2)))^2
-end 
+#     return d_m + (mean(length.(S1)) - mean(length.(S2)))^2
+# end 
 
-function (d::NormFpMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
-    if length(S1) < length(S2)
-        d(S2,S1)
-    else
-        tmp_d = FpMatchingDist(d.ground_dist, d.penalty)(S1,S2)
-        # @show tmp_d
-        return 2*tmp_d / ( d.penalty*(length(S1) + length(S2)) + tmp_d )
-    end
-end
+# function (d::NormFpMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+#     if length(S1) < length(S2)
+#         d(S2,S1)
+#     else
+#         tmp_d = FpMatchingDist(d.ground_dist, d.penalty)(S1,S2)
+#         # @show tmp_d
+#         return 2*tmp_d / ( d.penalty*(length(S1) + length(S2)) + tmp_d )
+#     end
+# end
 
 
 # GEDs
@@ -488,37 +421,37 @@ end
 
 # Get MatchingDist matching
 
-function get_matching(d::MatchingDist, S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
-    C = Distances.pairwise(d.ground_dist, S1, S2)
-    if length(S1) == length(S2)
-        ext_C = copy(C)
-        Tplan = PythonOT.emd([], [], ext_C)
-    elseif length(S1) > length(S2)
-        # ext_C = hcat(C, hcat(fill([d.ground_dist(Path([]), p) for p in S1], length(S1)-length(S2))...)) # Extend the cost matrix
-        ext_C = hcat(C, [d.ground_dist(Path([]), S1[i]) for i=1:length(S1), j=1:(length(S1)-length(S2))])
-        Tplan = PythonOT.emd([], [], ext_C)
-    else
-        ext_C = vcat(C, [d.ground_dist(Path([]), S2[j]) for i=1:(length(S2)-length(S1)), j=1:length(S2)])
-        Tplan = PythonOT.emd([], [], ext_C)
-    end
-    for i in 1:size(ext_C)[1]
-        if i ≤ length(S1)
-            j = findfirst(Tplan[i,:].>0.0)
-            if j > length(S2)
-                println("$(S1[i]) --> Nothing")
-            else 
-                println("$(S1[i]) --> $(S2[j])")
-            end 
-        else 
-            j = findfirst(Tplan[i,:].>0.0)
-            if j > length(S2)
-                println("Nothing --> Nothing")
-            else 
-                println("Nothing --> $(S2[j])")
-            end 
-        end
-    end 
-end 
+# function get_matching(d::MatchingDist, S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+#     C = Distances.pairwise(d.ground_dist, S1, S2)
+#     if length(S1) == length(S2)
+#         ext_C = copy(C)
+#         Tplan = PythonOT.emd([], [], ext_C)
+#     elseif length(S1) > length(S2)
+#         # ext_C = hcat(C, hcat(fill([d.ground_dist(Path([]), p) for p in S1], length(S1)-length(S2))...)) # Extend the cost matrix
+#         ext_C = hcat(C, [d.ground_dist(Path([]), S1[i]) for i=1:length(S1), j=1:(length(S1)-length(S2))])
+#         Tplan = PythonOT.emd([], [], ext_C)
+#     else
+#         ext_C = vcat(C, [d.ground_dist(Path([]), S2[j]) for i=1:(length(S2)-length(S1)), j=1:length(S2)])
+#         Tplan = PythonOT.emd([], [], ext_C)
+#     end
+#     for i in 1:size(ext_C)[1]
+#         if i ≤ length(S1)
+#             j = findfirst(Tplan[i,:].>0.0)
+#             if j > length(S2)
+#                 println("$(S1[i]) --> Nothing")
+#             else 
+#                 println("$(S1[i]) --> $(S2[j])")
+#             end 
+#         else 
+#             j = findfirst(Tplan[i,:].>0.0)
+#             if j > length(S2)
+#                 println("Nothing --> Nothing")
+#             else 
+#                 println("Nothing --> $(S2[j])")
+#             end 
+#         end
+#     end 
+# end 
 
 
 
