@@ -168,8 +168,8 @@ function double_iex_multinomial_edit_accept_reject!(
             # The delete_insert_informed() function does the sampling + editing 
             log_ratio += delete_insert_informed!(
                 S_prop[i],
-                 ind_del, ind_add, vals_del, 
-                 P)
+                ind_del, ind_add, vals_del, 
+                P)
 
             mcmc.ind_update[j] = i # Store which interaction was updated
             
@@ -409,8 +409,7 @@ function draw_sample_mode!(
         posterior.K_outer)
     draw_sample!(aux_data, aux_mcmc, aux_model)
 
-    P, vmap, vmap_inv = get_informed_proposal_matrix(posterior.data, mcmc.α)
-
+    P, vmap, vmap_inv = get_informed_proposal_matrix(posterior, mcmc.α)
     while sample_count ≤ length(sample_out)
         i += 1
         # Store value 
