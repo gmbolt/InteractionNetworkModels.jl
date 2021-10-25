@@ -1,6 +1,6 @@
 using PythonOT, StatsBase, Distances, Hungarian
 
-export InteractionSetDistance, InteractionSeqDistance, LengthDistance, EMD, sEMD, sEMD2, MatchingDist
+export InteractionSetDistance, InteractionSeqDistance, LengthDistance, MatchingDist
 export FastMatchingDist, FpMatchingDist, FpMatchingDist2, NormFpMatchingDist, GED, FastGED, FpGED, NormFpGED, get_matching
 export AbsoluteDiff, SquaredDiff, AvgSizeFpGED, AvgSizeFpMatchingDist
 
