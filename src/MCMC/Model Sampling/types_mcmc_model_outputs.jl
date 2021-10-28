@@ -21,7 +21,7 @@ end
 
 
 function Base.show(io::IO, output::T) where {T<:SisMcmcOutput}
-    title = "MCMC Sample for Spherical Interaction Sequence (SIS) Model"
+    title = "MCMC Sample for SIS Model"
     n = length(title)
     println(io, title)
     println(io, "-"^n)
@@ -31,7 +31,7 @@ function Base.show(io::IO, output::T) where {T<:SisMcmcOutput}
 end 
 
 function Base.show(io::IO, output::T) where {T<:SimMcmcOutput}
-    title = "MCMC Sample for Spherical Interaction Multiset (SIM) Model"
+    title = "MCMC Sample for SIM Model"
     n = length(title)
     println(io, title)
     println(io, "-"^n)

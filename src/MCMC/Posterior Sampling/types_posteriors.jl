@@ -1,6 +1,6 @@
 using Distributions, StatsBase
 
-export SisPosterior, SisPosterior
+export SisPosterior, SimPosterior
 export SpfPosterior, log_eval, get_length_dist
 
 # SIS 
