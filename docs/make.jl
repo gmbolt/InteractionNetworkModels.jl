@@ -1,5 +1,5 @@
 using Pkg
-Pkg.activate("C:/users/boltg/.julia/environments/doc_writing")
+Pkg.activate("C:/users/boltg/.julia/enviroments/doc_writing")
 
 using Documenter, InteractionNetworkModels
 
