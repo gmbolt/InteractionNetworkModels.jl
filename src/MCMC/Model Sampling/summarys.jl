@@ -1,4 +1,4 @@
-using RecipesBase, Distances, Multisets, StatsBase
+using RecipesBase, Distances, Multisets, StatsBase, Measures
 export get_dist_dict, KL_error, SummaryPlot, get_inner_len_dist, get_outer_len_dist
 
 # # Plot Recipes 
@@ -9,7 +9,8 @@ export get_dist_dict, KL_error, SummaryPlot, get_inner_len_dist, get_outer_len_d
     xguide --> "Sample"
     yguide --> "Distance from Mode"
     legend --> false
-    size --> (800, 400)
+    size --> (800, 300)
+    margin --> 5mm
     x
 end 
 
@@ -20,7 +21,8 @@ end
     xguide --> "Sample"
     yguide --> "Distance from Mode"
     legend --> false
-    size --> (800, 400)
+    size --> (800, 300)
+    margin --> 5mm
     x
 end 
 
@@ -31,7 +33,8 @@ end
     xguide --> "Sample"
     yguide --> "Distance from Mode"
     legend --> false
-    size --> (800, 400)
+    size --> (800, 300)
+    margin --> 5mm
     x
 end 
 
@@ -65,6 +68,7 @@ end
     legend --> false
     xguide := "Sample"
     size --> (800, 600)
+    margin --> 5mm
 
     @series begin
         seriestype := :line

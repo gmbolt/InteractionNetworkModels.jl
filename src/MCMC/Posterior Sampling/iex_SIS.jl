@@ -2,6 +2,21 @@ using Distributions, StatsBase, ProgressMeter
 
 export draw_sample_mode!, draw_sample_mode
 export draw_sample_gamma!, draw_sample_gamma
+export rand_multivariate_bernoulli
+
+
+# NOTE μ_cusum must have 0.0 first entry, and for n bins μ_cusum must be of size n+1
+function rand_multivariate_bernoulli(μ_cusum::Vector{Float64})
+    @assert μ_cusum[1] ≈ 0 "First entry must be 0.0 (for differencing to find probabilities)."
+    β = rand()
+    for i in 1:length(μ_cusum)
+        if β < μ_cusum[i]
+            return i-1, μ_cusum[i]-μ_cusum[i-1]
+        else 
+            continue 
+        end 
+    end 
+end 
 
 function imcmc_multi_insert_prop_sample!(
     S_curr::InteractionSequence{T}, 
@@ -666,3 +681,23 @@ function (mcmc::SisIexInsertDeleteEdit{T})(
     return output
 
 end
+
+# Joint Distribution 
+# ------------------
+
+function draw_sample!(
+    sample_out_S::Union{InteractionSequenceSample{T},SubArray},
+    sample_out_gamma::Union{Vector{Float64},SubArray},
+    mcmc::SisIexInsertDeleteEdit{T},
+    posterior::SisPosterior{T};
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    init_S::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist),
+    init_gamma::Float64=5.0,
+    loading_bar::Bool=true
+    ) where {T<:Union{Int,String}}
+
+
+    # To Do ....
+
+end 
