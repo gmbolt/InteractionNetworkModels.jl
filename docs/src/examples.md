@@ -15,13 +15,35 @@ Now we define sampler
 
 ```@example model_sampling
 path_proposal = PathPseudoUniform(model.V, TrGeometric(0.5, 1, model.K_inner))
-mcmc_sampler_gibbs = SisMcmcInsertDeleteGibbs(
+mcmc_sampler = SisMcmcInsertDeleteEdit(
     path_proposal, 
-    K=100, 
-    ν_gibbs=1, ν_trans_dim=1, β=0.6,
-    init=SisInitRandEdit(5)
+    K=model.K_inner, 
+    ν_edit=1, ν_trans_dim=1, β=0.7
     )
 
 ```
 
 And call it 
+
+```@example model_sampling
+using Plots
+mcmc_out = mcmc_sampler(model)
+```
+
+And plot it 
+
+```@example model_sampling
+plot(mcmc_out)
+```
+
+...increase lag and burn-in for better samples...
+
+
+```@example model_sampling
+mcmc_out = mcmc_sampler(
+    model, 
+    desired_samples=1000, 
+    burn_in=1000, lag=50
+    )
+plot(mcmc_out)
+```
