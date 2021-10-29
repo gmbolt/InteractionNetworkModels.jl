@@ -1,7 +1,7 @@
 using RecipesBase
 
 export SpfPosteriorMcmcOutput, SpfPosteriorModeConditionalMcmcOutput, SpfPosteriorDispersionConditionalMcmcOutput
-export SisPosteriorModeConditionalMcmcOutput, SisPosteriorDispersionConditionalMcmcOutput
+export SisPosteriorMcmcOutput, SisPosteriorModeConditionalMcmcOutput, SisPosteriorDispersionConditionalMcmcOutput
 export SimPosteriorModeConditionalMcmcOutput, SimPosteriorDispersionConditionalMcmcOutput
 export print_map_est
 
@@ -9,6 +9,12 @@ export print_map_est
 #    SIS 
 # ==========
 
+struct SisPosteriorMcmcOutput{T<:Union{Int,String}}
+    S_sample::Vector{InteractionSequence{T}}
+    γ_sample::Vector{Float64}
+    posterior::SisPosterior{T}
+    performace_measures::Dict
+end 
 
 struct SisPosteriorModeConditionalMcmcOutput{T<:Union{Int,String}}
     γ_fixed::Float64

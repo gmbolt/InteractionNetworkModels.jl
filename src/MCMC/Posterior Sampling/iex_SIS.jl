@@ -685,6 +685,84 @@ end
 # Joint Distribution 
 # ------------------
 
+# Mode accept-reject 
+
+function accept_reject_mode!(
+    S_curr::InteractionSequence{T},
+    S_prop::InteractionSequence{T},
+    posterior::SisPosterior{T},
+    γ_curr::Float64, 
+    mcmc::SisIexInsertDeleteEdit{T},
+    P::CumCondProbMatrix,
+    aux_data::InteractionSequenceSample{T},
+    acc_count::Vector{Int},
+    count::Vector{Int}
+    ) where {T<:Union{Int,String}}
+    
+    β = mcmc.β
+    if rand() < β
+        was_accepted = double_iex_multinomial_edit_accept_reject!(
+            S_curr, S_prop, 
+            posterior, γ_curr, 
+            mcmc, P, 
+            aux_data
+        )
+        acc_count[1] += was_accepted
+        count[1] += 1
+    else 
+        was_accepted = double_iex_trans_dim_accept_reject!(
+            S_curr, S_prop, 
+            posterior, γ_curr, 
+            mcmc, 
+            aux_data
+        )
+        acc_count[2] += was_accepted 
+        count[2] += 1
+    end 
+    return Bool(was_accepted)
+end 
+
+function accept_reject_gamma!(
+    γ_curr::Float64,
+    S_curr::InteractionSequence{T},
+    posterior::SisPosterior{T},
+    suff_stat::Float64, 
+    mcmc::SisIexInsertDeleteEdit{T},
+    aux_data::InteractionSequenceSample{T}
+    ) where {T<:Union{Int,String}}
+
+    ε = mcmc.ε
+    aux_mcmc = mcmc.aux_mcmc
+
+    γ_prop = rand_reflect(γ_curr, ε, 0.0, Inf)
+
+    aux_model = SIS(
+        S_curr, γ_prop, 
+        posterior.dist, 
+        posterior.V, 
+        posterior.K_inner, posterior.K_outer
+        )
+    draw_sample!(aux_data, aux_mcmc, aux_model)
+
+    # Accept reject
+
+    log_lik_ratio = (γ_curr - γ_prop) * suff_stat
+    aux_log_lik_ratio = (γ_prop - γ_curr) * sum_of_dists(aux_data, S_curr, posterior.dist)
+
+    log_α = (
+        logpdf(posterior.γ_prior, γ_prop) 
+        - logpdf(posterior.γ_prior, γ_curr)
+        + log_lik_ratio + aux_log_lik_ratio 
+    )
+    if log(rand()) < log_α
+        return γ_prop, 1
+    else 
+        return γ_curr, 0
+    end 
+end 
+
+
+
 function draw_sample!(
     sample_out_S::Union{InteractionSequenceSample{T},SubArray},
     sample_out_gamma::Union{Vector{Float64},SubArray},
@@ -692,12 +770,173 @@ function draw_sample!(
     posterior::SisPosterior{T};
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init_S::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist),
-    init_gamma::Float64=5.0,
+    S_init::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist),
+    gamma_init::Float64=5.0,
     loading_bar::Bool=true
     ) where {T<:Union{Int,String}}
 
+    if loading_bar
+        iter = Progress(
+            length(sample_out_S), # How many iters 
+            1,  # At which granularity to update loading bar
+            "Chain for n = $(posterior.sample_size) (joint)....")  # Loading bar. Minimum update interval: 1 second
+    end 
 
-    # To Do ....
+    # Define aliases for pointers to the storage of current vals and proposals
+    curr_pointers = mcmc.curr_pointers
+    prop_pointers = mcmc.prop_pointers
+    aux_mcmc = mcmc.aux_mcmc
 
+    S_curr = InteractionSequence{Int}()
+    S_prop = InteractionSequence{Int}()
+    for i in 1:length(S_init)
+        migrate!(S_curr, curr_pointers, i, 1)
+        migrate!(S_prop, prop_pointers, i, 1)
+        copy!(S_curr[i], S_init[i])
+        copy!(S_prop[i], S_init[i])
+    end 
+    γ_curr = copy(gamma_init)
+
+    sample_count = 1 # Keeps which sample to be stored we are working to get 
+    i = 1 # Keeps track all samples (included lags and burn_ins) 
+
+    acc_count = [0,0]
+    count = [0,0]
+    γ_acc_count = 0
+    γ_count = 0
+
+    aux_data = [[T[]] for i in 1:posterior.sample_size]
+    # Initialise the aux_data 
+    aux_model = SIS(
+        S_curr, γ_curr, 
+        posterior.dist, 
+        posterior.V, 
+        posterior.K_inner, 
+        posterior.K_outer)
+    draw_sample!(aux_data, aux_mcmc, aux_model)
+    # Initialise sufficient statistic
+    suff_stat = mapreduce(
+        x -> posterior.dist(S_curr, x), 
+        +, 
+        posterior.data
+        )
+    # Get informed proposal matrix
+    P, vmap, vmap_inv = get_informed_proposal_matrix(posterior, mcmc.α)
+
+    while sample_count ≤ length(sample_out_S)
+        # Store values
+        if (i > burn_in) & (((i-1) % lag)==0)
+            sample_out_S[sample_count] = deepcopy(S_curr)
+            sample_out_gamma[sample_count] = copy(γ_curr)
+            sample_count += 1
+        end 
+
+        # Update mode
+        # ----------- 
+        was_accepted = accept_reject_mode!(
+            S_curr, S_prop, 
+            posterior, γ_curr, 
+            mcmc, P, 
+            aux_data, 
+            acc_count, count
+        )
+        # Update gamma 
+        # ------------
+        # N.B. - if we reject mode proposal, we no not need to re-evaluate 
+        # the sufficient statistic. Hence we have the following step.
+        if was_accepted 
+            suff_stat = mapreduce(
+                x -> posterior.dist(S_curr, x), 
+                +, 
+                posterior.data
+                )
+        end 
+        
+        γ_curr, tmp =  accept_reject_gamma!(
+            γ_curr,
+            S_curr,
+            posterior, 
+            suff_stat, 
+            mcmc, 
+            aux_data
+        )
+        γ_acc_count += tmp
+        next!(iter)
+        i += 1
+    end 
+
+    for i in 1:length(S_curr)
+        migrate!(curr_pointers, S_curr, 1, 1)
+        migrate!(prop_pointers, S_prop, 1, 1)
+    end 
+
+    ed_acc_prob = acc_count[1]/count[1]
+    td_acc_prob = acc_count[2]/count[2]
+    γ_acc_prob = γ_acc_count / sum(count)
+    return ed_acc_prob, td_acc_prob, γ_acc_prob
+end 
+
+function draw_sample(
+    mcmc::SisIexInsertDeleteEdit{T},
+    posterior::SisPosterior{T};
+    desired_samples::Int=mcmc.desired_samples,
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    S_init::InteractionSequence{T}=sample_frechet_mean(posterior.data, posterior.dist),
+    gamma_init::Float64=5.0,
+    loading_bar::Bool=true
+    ) where {T<:Union{Int,String}}
+
+    sample_out_S = Vector{InteractionSequence{T}}(undef, desired_samples)
+    sample_out_gamma = Vector{Float64}(undef, desired_samples)
+
+    draw_sample!(
+        sample_out_S,
+        sample_out_gamma, 
+        mcmc, 
+        posterior, 
+        burn_in=burn_in, lag=lag, 
+        S_init=S_init, gamma_init=gamma_init,
+        loading_bar=loading_bar
+    )
+
+    return (S=sample_out_S, gamma=sample_out_gamma)
+end 
+
+function (mcmc::SisIexInsertDeleteEdit)(
+    posterior::SisPosterior{T};
+    desired_samples::Int=mcmc.desired_samples,
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    S_init::InteractionSequence{T}=sample_frechet_mean(posterior.data, posterior.dist),
+    gamma_init::Float64=5.0,
+    loading_bar::Bool=true
+    ) where {T<:Union{Int,String}}
+
+    sample_out_S = Vector{InteractionSequence{T}}(undef, desired_samples)
+    sample_out_gamma = Vector{Float64}(undef, desired_samples)
+
+    ed_acc_prob, td_acc_prob, γ_acc_prob = draw_sample!(
+        sample_out_S,
+        sample_out_gamma, 
+        mcmc, 
+        posterior, 
+        burn_in=burn_in, lag=lag, 
+        S_init=S_init, gamma_init=gamma_init,
+        loading_bar=loading_bar
+    )
+
+    p_measures = Dict(
+            "Dipsersion acceptance probability" => γ_acc_prob,
+            "Edit allocation acceptance probability" => ed_acc_prob,
+            "Trans-dimensional acceptance probability" => td_acc_prob
+        )
+
+    return SisPosteriorMcmcOutput(
+        sample_out_S, 
+        sample_out_gamma, 
+        posterior,
+        p_measures
+    )
+    
 end 

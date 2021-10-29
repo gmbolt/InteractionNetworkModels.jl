@@ -3,6 +3,26 @@ using RecipesBase, Measures
 # =======
 #   SIS
 # =======
+
+@recipe function f(
+    output::SisPosteriorMcmcOutput{T},
+    S_true::InteractionSequence{T}
+    ) where {T<:Union{Int, String}}
+
+    S_sample = output.S_sample
+    γ_sample = output.γ_sample
+    layout := (2,1)
+    legend --> false
+    xguide --> "Index"
+    yguide --> ["Distance from True Mode" "γ"]
+    size --> (800, 600)
+    margin --> 5mm
+    y1 = map(x->output.posterior.dist(S_true,x), S_sample)
+    y2 = γ_sample 
+    hcat(y1,y2)
+end 
+
+
 @recipe function f(output::SisPosteriorModeConditionalMcmcOutput{T}, S_true::Vector{Path{T}}) where {T<:Union{Int, String}}
     S_sample = output.S_sample
     xguide --> "Index"
@@ -15,7 +35,7 @@ end
 
 @recipe function f(output::SisPosteriorDispersionConditionalMcmcOutput{T}) where {T<:Union{Int,String}}
     xguide --> "Index"
-    yguide --> "Distance from Truth"
+    yguide --> "γ"
     size --> (800, 300)
     label --> nothing
     margin --> 5mm
@@ -38,7 +58,7 @@ end
 
 @recipe function f(output::SimPosteriorDispersionConditionalMcmcOutput{T}) where {T<:Union{Int,String}}
     xguide --> "Index"
-    yguide --> "Distance from Truth"
+    yguide --> "γ"
     size --> (800, 300)
     label --> nothing
     margin --> 5mm
