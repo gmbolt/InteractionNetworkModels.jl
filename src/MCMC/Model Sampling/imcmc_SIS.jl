@@ -276,7 +276,20 @@ end
 
 # Sampler Functions 
 # -----------------
+"""
+`draw_sample!(
+    sample_out::InteractionSequenceSample, 
+    mcmc::SisMcmcInsertDeleteEdit, 
+    model::SIS;
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    init::InteractionSequence=get_init(model, mcmc.init)
+    )`
 
+Draw sample in-place from given SIS model `model::SIS` via MCMC algorithm with edit allocation and interaction insertion/deletion, storing output in `sample_out::InteractionSequenceSample`. 
+
+Accepts keyword arguments to change MCMC output, including burn-in, lag and initial values. If not given, these are set to the default values of the passed MCMC sampler `mcmc::SisMcmcInsertDeleteEdit`.
+"""
 function draw_sample!(
     sample_out::Union{InteractionSequenceSample{T}, SubArray},
     mcmc::SisMcmcInsertDeleteEdit{T},
