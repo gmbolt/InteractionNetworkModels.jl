@@ -4,6 +4,6 @@ Pkg.activate("C:/users/boltg/.julia/enviroments/doc_writing")
 using Documenter, InteractionNetworkModels
 
 makedocs(
-    sitename="My Documentation",
+    sitename="InteractionNetworkModels.jl",
     format = Documenter.HTML(prettyurls = false),
-    pages=["index.md", "model_sampling.md", "examples.md"] )
+    pages=["index.md", "model_sampling.md", "posterior_sampling.md", "examples.md"] )
