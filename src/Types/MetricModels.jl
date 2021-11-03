@@ -1,7 +1,9 @@
-using ProgressMeter, Multisets
+using ProgressMeter, Multisets, StatsBase, ProgressMeter
 export SPF, SIS, SIM, sum_of_dists, cardinality
 export get_normalising_const, get_sample_space, eachpath, eachinterseq
+export get_entropy, get_entropy_nieve, get_dist_counts, get_ball_counts, get_uniform_avg_dist
 export pmf_unormalised, get_true_dist_vec, get_true_dist_dict
+
 
 struct SPF{T<:Union{Int, String}}
     mode::Path{T} # Mode
@@ -60,9 +62,50 @@ function cardinality(
         return Inf
     else 
         V = length(model.V)
-        return V * (V^model.K - 1) / (V - 1)
+        return Int(V * (V^model.K - 1) / (V - 1))
     end 
 end 
+
+function Base.iterate(model::SPF{Int})
+    return [1,1], [1,1]
+end 
+
+function Base.iterate(model::SPF{Int}, state::Vector{Int})
+
+
+    next = copy(state)
+    # if state[end]==model.V
+    V = length(model.V)
+    ind = findlast(!isequal(V), state)
+    if isnothing(ind)
+        is_reset = false 
+    else 
+        ind += 1
+        is_reset = mapreduce(x->isequal(x,V), * , view(state, ind:length(state)))
+    end 
+    println(ind, is_reset)
+    if is_reset
+        num_max = mapreduce(x->isequal(x,V), + , state)
+        if num_max == model.K
+            return nothing 
+        elseif num_max == length(state)
+            for i in 1:length(next)
+                next[i] = 1
+            end 
+            push!(next, 1)
+        else 
+            for i in ind:length(state)
+                next[i] = 1
+            end 
+            next[ind-1] += 1
+        end 
+    else 
+        next[end] += 1
+    end 
+
+    return next, next 
+
+end
 
 function eachpath(V,K::Int)
     return Base.Iterators.flatten(
@@ -102,6 +145,70 @@ function get_sample_space(
     return z
 
 end
+
+function get_entropy_nieve(
+    model::SPF;
+    show_progress::Bool=true
+    )
+
+    ss = get_sample_space(model)
+
+    f(x) = exp( - model.γ * model.dist(x, model.mode)) # (Un-normlised likelihood)
+    probs = map(f, ss)
+    probs /= sum(probs) # Normalise
+    
+    return StatsBase.entropy(probs)
+end 
+
+function get_entropy(
+    model::SPF;
+    show_progress::Bool=true
+    )
+
+    if show_progress 
+        iter = Progress(
+            cardinality(model), # How many iters 
+            1,  # At which granularity to update loading bar
+            "Evaluating entropy....")  # Loading bar. Minimum update interval: 1 second
+    end 
+    d, γ, V, K = (model.dist, model.γ, model.V, model.K) # Aliases
+    Z, H = (0.0,0.0) 
+    for P in eachpath(V, K)
+        d_tmp = d([P...], model.mode)
+        Z += exp(-γ * d_tmp)
+        H += - model.γ * d_tmp * exp(-γ * d_tmp)
+        if show_progress
+            next!(iter)
+        end 
+    end 
+    return log(Z) - H/Z 
+
+end
+
+function get_dist_counts(
+    model::SPF
+    )
+
+    dists = Int.(map(x -> model.dist(x, model.mode), get_sample_space(model)))
+    return countmap(dists)
+
+end 
+
+function get_ball_counts(
+    model::SPF
+    )
+
+    dists = Int.(map(x -> model.dist(x, model.mode), get_sample_space(model)))
+    dist_counts = counts(dists, 1:maximum(dists))
+    return cumsum(dist_counts)
+end 
+
+function get_uniform_avg_dist(
+    model::SPF
+    )
+    dists = map(x -> model.dist(x, model.mode), get_sample_space(model))
+    return mean(dists)
+end 
 
 # ===============================================================
 # Interaction Sequences/Sets
