@@ -36,6 +36,23 @@ function Distances.pairwise!(
 end
 
 """
+In-place distance matrix calculation between elements of Vectors. (For SubArray)
+"""
+function Distances.pairwise!(
+    A::AbstractMatrix,
+    metric::Metric,
+    a::Vector{T} where T,
+    b::Vector{T} where T
+    )
+
+    for j in 1:length(b)
+        for i in 1:length(a)
+            A[i,j] = metric(a[i],b[j])
+        end
+    end
+end
+
+"""
 Distance matrix calculation between elements of Vectors. This is a custom extension
 of the function in the Distances.jl package to allow vectors of general type. The
 function in Distances.jl is designed for univariate/multivariate data and so takes
