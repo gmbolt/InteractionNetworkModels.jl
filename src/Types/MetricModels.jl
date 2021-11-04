@@ -1,7 +1,8 @@
 using ProgressMeter, Multisets, StatsBase, ProgressMeter
 export SPF, SIS, SIM, sum_of_dists, cardinality
 export get_normalising_const, get_sample_space, eachpath, eachinterseq
-export get_entropy, get_entropy_nieve, get_dist_counts, get_ball_counts, get_uniform_avg_dist
+export get_entropy, get_entropy_nieve, get_dist_counts, get_ball_counts, get_ball_count
+export get_uniform_avg_dist, get_uniform_var_dist
 export pmf_unormalised, get_true_dist_vec, get_true_dist_dict
 
 
@@ -203,13 +204,27 @@ function get_ball_counts(
     return cumsum(dist_counts)
 end 
 
+function get_ball_count(
+    model::SPF,
+    ε::Real
+    )
+    dists = Int.(map(x -> model.dist(x, model.mode), get_sample_space(model)))
+    return sum(dists .≤ ε)
+end 
+
+
 function get_uniform_avg_dist(
     model::SPF
     )
     dists = map(x -> model.dist(x, model.mode), get_sample_space(model))
     return mean(dists)
 end 
-
+function get_uniform_var_dist(
+    model::SPF
+    )
+    dists = map(x -> model.dist(x, model.mode), get_sample_space(model))
+    return var(dists)
+end 
 # ===============================================================
 # Interaction Sequences/Sets
 # ===============================================================

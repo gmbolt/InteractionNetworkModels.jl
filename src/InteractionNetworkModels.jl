@@ -3,13 +3,16 @@ module InteractionNetworkModels
 using Distributed
 
 # Write your package code here.
-# Define some type aliases
+# Alises for referring to Paths/Interaction Sequences/Samples of Interaction Sequences
+# (purely for code readability)
+include("aliases.jl")
 
 # Distances
-include("aliases.jl")
-include("Distances/Distances.jl")
-include("Distances/InteractionDistances.jl")
-include("Distances/InteractionSequenceDistances.jl")
+include("Distances/helpers.jl")
+include("Distances/interactions.jl")
+include("Distances/interaction_sequences.jl")
+include("Distances/interaction_multisets.jl")
+include("Distances/graph_distances.jl")
 
 # Types
 include("Types/PathDistributions.jl")
