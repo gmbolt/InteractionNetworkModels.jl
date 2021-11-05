@@ -79,3 +79,10 @@ function get_prediction(
     H = entropy(predictive.p) # Evaluate entropy 
     return pred, H
 end 
+
+function get_truth(
+    predictive::SingleMissingPredictive
+    )   
+    i,j = predictive.ind
+    return predictive.S[i][j]
+end 
