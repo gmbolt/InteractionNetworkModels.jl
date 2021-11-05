@@ -118,7 +118,7 @@ function double_iex_multinomial_edit_accept_reject!(
     P::CumCondProbMatrix,
     aux_data::InteractionSequenceSample{T}
     ) where {T<:Int}
-
+    # Hello
     N = length(S_curr)  
     dist = posterior.dist
     V = posterior.V
