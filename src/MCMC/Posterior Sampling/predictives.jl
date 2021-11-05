@@ -1,6 +1,6 @@
 using StatsBase
 
-export pred_missing, get_prediction
+export SinlgeMissingPredictive, pred_missing, get_prediction, get_truth
 
 struct SingleMissingPredictive
     S::InteractionSequence{Int}
