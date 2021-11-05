@@ -116,9 +116,10 @@ function double_iex_multinomial_edit_accept_reject!(
     γ_curr::Float64,
     mcmc::SisIexInsertDeleteEdit{T},
     P::CumCondProbMatrix,
-    aux_data::InteractionSequenceSample{T}
+    aux_data::InteractionSequenceSample{T},
+    suff_stat_curr::Float64
     ) where {T<:Int}
-    # Hello
+    
     N = length(S_curr)  
     dist = posterior.dist
     V = posterior.V
@@ -164,7 +165,7 @@ function double_iex_multinomial_edit_accept_reject!(
                 for i in 1:N
                     copy!(S_prop[i], S_curr[i])
                 end 
-                return 0 
+                return 0, suff_stat_curr
             end 
 
             # tot_dels += d
@@ -219,9 +220,9 @@ function double_iex_multinomial_edit_accept_reject!(
         - mapreduce(x -> dist(x, S_prop), +, aux_data)
     )
 
+    suff_stat_prop = mapreduce(x -> dist(x, S_prop), + , data)
     log_lik_ratio = -γ_curr * (
-        mapreduce(x -> dist(x, S_prop), + , data)
-        - mapreduce(x -> dist(x, S_curr), +, data)
+        suff_stat_prop - suff_stat_curr
     )
 
     log_prior_ratio = -γ_prior * (
@@ -238,12 +239,12 @@ function double_iex_multinomial_edit_accept_reject!(
         for i in view(mcmc.ind_update, 1:j)
             copy!(S_curr[i], S_prop[i])
         end
-        return 1 
+        return 1, suff_stat_prop
     else 
         for i in view(mcmc.ind_update, 1:j)
             copy!(S_prop[i], S_curr[i])
         end 
-        return 0 
+        return 0, suff_stat_curr
     end 
 end 
 
@@ -254,7 +255,8 @@ function double_iex_trans_dim_accept_reject!(
     posterior::SisPosterior{T}, 
     γ_curr::Float64,
     mcmc::SisIexInsertDeleteEdit{T},
-    aux_data::InteractionSequenceSample{T}
+    aux_data::InteractionSequenceSample{T},
+    suff_stat_curr::Float64
     )  where {T<:Union{Int, String}}
     
     K_inner = posterior.K_inner
@@ -320,10 +322,9 @@ function double_iex_trans_dim_accept_reject!(
         mapreduce(x -> dist(x, S_curr), + , aux_data)
         - mapreduce(x -> dist(x, S_prop), +, aux_data)
     )
-
+    suff_stat_prop = mapreduce(x -> dist(x, S_prop), + , data)
     log_lik_ratio = -γ_curr * (
-        mapreduce(x -> dist(x, S_prop), + , data)
-        - mapreduce(x -> dist(x, S_curr), +, data)
+        suff_stat_prop - suff_stat_curr
     )
 
     log_prior_ratio = -γ_prior * (
@@ -345,7 +346,7 @@ function double_iex_trans_dim_accept_reject!(
             migrate!(curr_pointers , S_curr, 1, i)
             end 
         end 
-        return 1
+        return 1, suff_stat_prop
     else 
         # Here we must delete the interactions which were added to S_prop
         if is_insert
@@ -359,7 +360,7 @@ function double_iex_trans_dim_accept_reject!(
                 copy!(S_prop[i], S_curr[i])
             end 
         end 
-        return 0
+        return 0, suff_stat_curr
     end 
 
 end 
@@ -423,6 +424,13 @@ function draw_sample_mode!(
         posterior.K_inner, 
         posterior.K_outer)
     draw_sample!(aux_data, aux_mcmc, aux_model)
+    
+    # Evaluate sufficient statistic
+    suff_stat_curr = mapreduce(
+        x -> posterior.dist(S_curr, x), 
+        +, 
+        posterior.data
+        )
 
     P, vmap, vmap_inv = get_informed_proposal_matrix(posterior, mcmc.α)
     while sample_count ≤ length(sample_out)
@@ -434,21 +442,25 @@ function draw_sample_mode!(
         end 
         # W.P. do update move (accept-reject done internally by function call)
         if rand() < β
-            upd_acc_count += double_iex_multinomial_edit_accept_reject!(
+            was_acc, suff_stat_curr = double_iex_multinomial_edit_accept_reject!(
                 S_curr, S_prop, 
                 posterior, γ_curr,
                 mcmc, P, 
-                aux_data
+                aux_data,
+                suff_stat_curr
             )
+            upd_acc_count += was_acc
             upd_count += 1
         # Else do trans-dim move. We will do accept-reject move here 
         else 
-            tr_dim_acc_count += double_iex_trans_dim_accept_reject!(
+            was_acc, suff_stat_curr = double_iex_trans_dim_accept_reject!(
                 S_curr, S_prop, 
                 posterior, γ_curr,
                 mcmc,
-                aux_data
+                aux_data,
+                suff_stat_curr
             )
+            tr_dim_acc_count += was_acc
             tr_dim_count += 1
         end 
         if loading_bar
@@ -696,37 +708,40 @@ function accept_reject_mode!(
     P::CumCondProbMatrix,
     aux_data::InteractionSequenceSample{T},
     acc_count::Vector{Int},
-    count::Vector{Int}
+    count::Vector{Int},
+    suff_stat_curr::Float64
     ) where {T<:Union{Int,String}}
     
     β = mcmc.β
     if rand() < β
-        was_accepted = double_iex_multinomial_edit_accept_reject!(
+        was_accepted, suff_stat_curr = double_iex_multinomial_edit_accept_reject!(
             S_curr, S_prop, 
             posterior, γ_curr, 
             mcmc, P, 
-            aux_data
+            aux_data,
+            suff_stat_curr
         )
         acc_count[1] += was_accepted
         count[1] += 1
     else 
-        was_accepted = double_iex_trans_dim_accept_reject!(
+        was_accepted, suff_stat_curr = double_iex_trans_dim_accept_reject!(
             S_curr, S_prop, 
             posterior, γ_curr, 
             mcmc, 
-            aux_data
+            aux_data,
+            suff_stat_curr
         )
         acc_count[2] += was_accepted 
         count[2] += 1
     end 
-    return Bool(was_accepted)
+    return suff_stat_curr
 end 
 
 function accept_reject_gamma!(
     γ_curr::Float64,
     S_curr::InteractionSequence{T},
     posterior::SisPosterior{T},
-    suff_stat::Float64, 
+    suff_stat_curr::Float64, 
     mcmc::SisIexInsertDeleteEdit{T},
     aux_data::InteractionSequenceSample{T}
     ) where {T<:Union{Int,String}}
@@ -746,7 +761,7 @@ function accept_reject_gamma!(
 
     # Accept reject
 
-    log_lik_ratio = (γ_curr - γ_prop) * suff_stat
+    log_lik_ratio = (γ_curr - γ_prop) * suff_stat_curr
     aux_log_lik_ratio = (γ_prop - γ_curr) * sum_of_dists(aux_data, S_curr, posterior.dist)
 
     log_α = (
@@ -815,7 +830,7 @@ function draw_sample!(
         posterior.K_outer)
     draw_sample!(aux_data, aux_mcmc, aux_model)
     # Initialise sufficient statistic
-    suff_stat = mapreduce(
+    suff_stat_curr = mapreduce(
         x -> posterior.dist(S_curr, x), 
         +, 
         posterior.data
@@ -833,30 +848,21 @@ function draw_sample!(
 
         # Update mode
         # ----------- 
-        was_accepted = accept_reject_mode!(
+        suff_stat_curr = accept_reject_mode!(
             S_curr, S_prop, 
             posterior, γ_curr, 
             mcmc, P, 
             aux_data, 
-            acc_count, count
+            acc_count, count,
+            suff_stat_curr
         )
         # Update gamma 
         # ------------
-        # N.B. - if we reject mode proposal, we no not need to re-evaluate 
-        # the sufficient statistic. Hence we have the following step.
-        if was_accepted 
-            suff_stat = mapreduce(
-                x -> posterior.dist(S_curr, x), 
-                +, 
-                posterior.data
-                )
-        end 
-        
         γ_curr, tmp =  accept_reject_gamma!(
             γ_curr,
             S_curr,
             posterior, 
-            suff_stat, 
+            suff_stat_curr, 
             mcmc, 
             aux_data
         )
