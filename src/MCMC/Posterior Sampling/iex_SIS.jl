@@ -867,7 +867,9 @@ function draw_sample!(
             aux_data
         )
         γ_acc_count += tmp
-        next!(iter)
+        if loading_bar 
+            next!(iter)
+        end 
         i += 1
     end 
 
