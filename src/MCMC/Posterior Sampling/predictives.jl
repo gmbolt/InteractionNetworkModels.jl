@@ -47,8 +47,7 @@ function pred_missing(
         μ += μ_tmp
     end 
 
-    m = length(mcmc_post_out.S_sample)
-    μ ./= m
+    μ /= sum(μ)
 
     return SingleMissingPredictive(S, ind, μ)
 end
