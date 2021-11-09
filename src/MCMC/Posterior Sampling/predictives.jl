@@ -1,7 +1,7 @@
 using StatsBase
 
 export SingleMissingPredictive
-export pred_missing, get_prediction, get_truth
+export pred_missing, get_prediction, get_truth, was_correct, get_pred_accuracy
 
 struct SingleMissingPredictive
     S::InteractionSequence{Int}
@@ -85,4 +85,12 @@ function get_truth(
     )   
     i,j = predictive.ind
     return predictive.S[i][j]
+end 
+
+was_correct(predictive::SingleMissingPredictive) = (get_prediction(predictive)[1] == get_truth(predictive))
+
+function get_pred_accuracy(
+    predictives::Vector{SingleMissingPredictive}
+    )
+    return sum(was_correct.(predictives))/length(predictives)
 end 

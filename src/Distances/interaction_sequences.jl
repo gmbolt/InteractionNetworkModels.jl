@@ -1,7 +1,7 @@
-using StatsBase, Distances
+using StatsBase, Distances, Printf
 
 export InteractionSeqDistance
-export GED, FastGED, FpGED, NormFpGED, AvgSizeFpGED, DTW
+export GED, FastGED, FpGED, NormFpGED, AvgSizeFpGED, DTW, FpDTW
 export print_matching
 
 abstract type InteractionSeqDistance <: Metric end
@@ -239,8 +239,10 @@ function (d::NormFpGED)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) 
 end
 
 # Dynamic Time Warping (DTW)
-# --------------------------
+# ==========================
 
+# Standard 
+# --------
 struct DTW{T<:InteractionDistance} <:InteractionSeqDistance
     ground_dist::T
 end
@@ -251,7 +253,7 @@ function (d::DTW)(
     if length(S1) < length(S2)  # This ensures first seq is longest
         d(S2, S1)
     else
-        d = d.ground_dist
+        d_g = d.ground_dist
         prev_row = pushfirst!(fill(Inf, length(S2)), 0.0);
         curr_row = fill(Inf, length(S2) + 1);
 
@@ -259,7 +261,7 @@ function (d::DTW)(
             # curr_row[1] = prev_row[1]
             for j = 1:(length(S2))
                 # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
-                cost = d(S1[i],S2[j])
+                cost = d_g(S1[i],S2[j])
                 curr_row[j+1] = cost + min(prev_row[j], prev_row[j+1], curr_row[j])
             end
             # @show curr_row
@@ -286,26 +288,122 @@ function print_matching(
             C[i+1,j+1] = cost + min(C[i+1,j], C[i,j+1], C[i,j])
         end 
     end
-    println(C)
     # Now retrace steps to determine an optimal matching
     i, j = size(C)
-    outputs = Vector{String}()
-    pushfirst!(outputs, "$(S1[end]) ---> $(S2[end])")
+    pairs = Tuple{Int,Int}[]
+    pushfirst!(pairs, (i-1,j-1))
     while (i ≠ 2) | (j ≠ 2)
         i_tmp, j_tmp = argmin(view(C, (i-1):i, (j-1):j)).I
         i = i - 2 + i_tmp
         j = j - 2 + j_tmp
-        pushfirst!(outputs, "$(S1[i-1]) ---> $(S2[j-1])")
+        pushfirst!(pairs, (i-1,j-1))
     end
     # @show outputs
-    title = "\nDTW Print-out for $d Distance"
+    title = "DTW Print-out with $d Ground Distance"
     println(title)
     println("-"^length(title), "\n")
     println("The cheapest way to do the tranformation...\n")
     println(S1, "---->", S2)
     println("\n...is the following series of edits...\n")
-    for statement in outputs
-        println(statement)
+    # for statement in outputs
+    #     println(statement)
+    # end
+    i_tmp,j_tmp = (0,0)
+    for (i,j) in pairs 
+        if i == i_tmp 
+            println(" "^length(@sprintf("%s",S1[i])) * " ↘ $(S2[j])")
+        elseif j == j_tmp
+            println("$(S1[i]) ↗ " * " "^length(@sprintf("%s",S2[j])))
+        else 
+            println("$(S1[i]) → $(S2[j])")
+        end 
+        i_tmp, j_tmp = (i,j)
+    end 
+
+end 
+
+# Penalised 
+# ---------
+
+struct FpDTW{T<:InteractionDistance} <:InteractionSeqDistance
+    ground_dist::T
+    ρ::Real
+end
+
+function (d::FpDTW)(
+    S1::InteractionSequence{T}, S2::InteractionSequence{T}
+    ) where {T<:Union{Int,String}}
+    if length(S1) < length(S2)  # This ensures first seq is longest
+        d(S2, S1)
+    else
+        d_g = d.ground_dist
+        prev_row = pushfirst!(fill(Inf, length(S2)), 0.0);
+        curr_row = fill(Inf, length(S2) + 1);
+
+        for i = 1:length(S1)
+            # curr_row[1] = prev_row[1]
+            for j = 1:(length(S2))
+                # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
+                cost = d_g(S1[i],S2[j])
+                curr_row[j+1] = cost + min(
+                    prev_row[j], # New pair (no warping)
+                    prev_row[j+1] + d.ρ, # Warping 
+                    curr_row[j] + d.ρ)  # Warping
+            end
+            # @show curr_row
+            copy!(prev_row, curr_row)
+        end
+        return curr_row[end]
     end
+end
+
+function print_matching(
+    d::FpDTW, 
+    S1::InteractionSequence{T}, S2::InteractionSequence{T}
+    ) where {T<:Union{Int,String}}
+    
+    d_g = d.ground_dist
+    # First find the substitution matrix
+    C = fill(Inf, length(S1)+1, length(S2)+1)
+    C[1,1] = 0.0
+
+    for j in 1:length(S2)
+        for i in 1:length(S1)
+            cost = d_g(S1[i], S2[j])
+            C[i+1,j+1] = cost + min(C[i+1,j] + d.ρ, C[i,j+1] + d.ρ, C[i,j])
+        end 
+    end
+    # Now retrace steps to determine an optimal matching
+    i, j = size(C)
+    pairs = Tuple{Int,Int}[]
+    warp_shift_mat = [0 d.ρ; d.ρ 0] # Extra bit here different from DTW
+    pushfirst!(pairs, (i-1,j-1))
+    while (i ≠ 2) | (j ≠ 2)
+        i_tmp, j_tmp = argmin(view(C, (i-1):i, (j-1):j) + warp_shift_mat).I
+        i = i - 2 + i_tmp
+        j = j - 2 + j_tmp
+        pushfirst!(pairs, (i-1,j-1))
+    end
+    # @show outputs
+    title = "Fixed Penalty DTW Print-out with $d_g Ground Distance and ρ=$(d.ρ)"
+    println(title)
+    println("-"^length(title), "\n")
+    println("The cheapest way to do the tranformation...\n")
+    println(S1, "---->", S2)
+    println("\n...is the following series of edits...\n")
+    # for statement in outputs
+    #     println(statement)
+    # end
+    i_tmp,j_tmp = (0,0)
+    for (i,j) in pairs 
+        if i == i_tmp 
+            println(" "^length(@sprintf("%s",S1[i])) * " ↘ $(S2[j])")
+        elseif j == j_tmp
+            println("$(S1[i]) ↗ " * " "^length(@sprintf("%s",S2[j])))
+        else 
+            println("$(S1[i]) → $(S2[j])")
+        end 
+        i_tmp, j_tmp = (i,j)
+    end 
 
 end 
