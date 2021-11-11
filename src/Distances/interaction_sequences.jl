@@ -1,18 +1,18 @@
 using StatsBase, Distances, Printf
 
 export InteractionSeqDistance
-export GED, FastGED, FpGED, NormFpGED, AvgSizeFpGED, DTW, FpDTW
+export EditDistance, FastEditDistance, FpEditDistance, NormFpEditDistance, AvgSizeFpEditDistance, DTW, PenalisedDTW
 export print_matching
 
 abstract type InteractionSeqDistance <: Metric end
 
-# GED
+# EditDistance
 # ---
-struct GED{T<:InteractionDistance} <:InteractionSeqDistance
+struct EditDistance{T<:InteractionDistance} <:InteractionSeqDistance
     ground_dist::T
 end
 
-function (d::GED)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+function (d::EditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
     if length(S1) < length(S2)  # This ensures first seq is longest
         d(S2, S1)
     else
@@ -35,7 +35,7 @@ function (d::GED)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where 
     end
 end
 
-function print_matching(d::GED, S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+function print_matching(d::EditDistance, S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
     
     d₀ = d.ground_dist
     # First find the substitution matrix
@@ -82,22 +82,22 @@ function print_matching(d::GED, S1::InteractionSequence{T}, S2::InteractionSeque
 
 end 
 
-# GED with Memory
+# EditDistance with Memory
 # ---------------
 
-struct FastGED{T<:InteractionDistance} <:InteractionSeqDistance
+struct FastEditDistance{T<:InteractionDistance} <:InteractionSeqDistance
     ground_dist::T
     curr_row::Vector{Float64}
     prev_row::Vector{Float64}
-    function FastGED(ground_dist::S, K::Int) where {S<:InteractionDistance}
+    function FastEditDistance(ground_dist::S, K::Int) where {S<:InteractionDistance}
         new{S}(ground_dist, zeros(Float64, K), zeros(Float64, K))
     end 
 end
-function Base.show(io::IO, d::FastGED)
-    print(io, "GED (max num. interactions $(length(d.curr_row))) with $(d.ground_dist) ground distance.")
+function Base.show(io::IO, d::FastEditDistance)
+    print(io, "EditDistance (max num. interactions $(length(d.curr_row))) with $(d.ground_dist) ground distance.")
 end
 
-function (d::FastGED)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+function (d::FastEditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
     if length(S1) < length(S2)  # This ensures first seq is longest
         d(S2, S1)
     else
@@ -133,12 +133,12 @@ function (d::FastGED)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) wh
 end
 
 
-struct FpGED{T<:InteractionDistance} <: InteractionSeqDistance
+struct FpEditDistance{T<:InteractionDistance} <: InteractionSeqDistance
     ground_dist::T
     ρ::Real
 end
 
-function (d::FpGED)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+function (d::FpEditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
     if length(S1) < length(S2)  # This ensures first seq is longest
         d(S2, S1)
     else
@@ -161,7 +161,7 @@ function (d::FpGED)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) wher
 end
 
 
-function print_matching(d::FpGED, S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+function print_matching(d::FpEditDistance, S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
 
     # First find the substitution matricx
     C = zeros(Float64, length(S1)+1, length(S2)+1)
@@ -195,7 +195,7 @@ function print_matching(d::FpGED, S1::InteractionSequence{T}, S2::InteractionSeq
         end
     end
     # @show outputs
-    title = "\nOptimal Matching Print-out for Fixed-Penalty GED"
+    title = "\nOptimal Matching Print-out for Fixed-Penalty EditDistance"
     println(title)
     println("-"^length(title), "\n")
     println("The cheapest way to do the tranformation...\n")
@@ -209,31 +209,31 @@ end
 
 
 
-struct AvgSizeFpGED{T<:InteractionDistance} <: InteractionSeqDistance
+struct AvgSizeFpEditDistance{T<:InteractionDistance} <: InteractionSeqDistance
     ground_dist::T
     ρ::Real
 end 
 
-function (d::AvgSizeFpGED)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+function (d::AvgSizeFpEditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
 
-    d_ged = FpGED(d.ground_dist, d.ρ)(S1, S2)
+    d_ed = FpEditDistance(d.ground_dist, d.ρ)(S1, S2)
 
-    return d_ged + (mean(length.(S1)) - mean(length.(S2)))^2
+    return d_ed + (mean(length.(S1)) - mean(length.(S2)))^2
 
 end 
 
-# Normed GED
+# Normed EditDistance
 
-struct NormFpGED{T<:InteractionDistance} <: InteractionSeqDistance
+struct NormFpEditDistance{T<:InteractionDistance} <: InteractionSeqDistance
     ground_dist::T
     ρ::Real # Penalty
 end
 
-function (d::NormFpGED)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
+function (d::NormFpEditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
     if length(S1) < length(S2)
         d(S2, S1)
     else
-        tmp_d = FpGED(d.ground_dist, d.ρ)(S1, S2)
+        tmp_d = FpEditDistance(d.ground_dist, d.ρ)(S1, S2)
         return 2*tmp_d / ( d.ρ*(length(S1) + length(S2)) + tmp_d )
     end
 end
@@ -325,12 +325,12 @@ end
 # Penalised 
 # ---------
 
-struct FpDTW{T<:InteractionDistance} <:InteractionSeqDistance
+struct PenalisedDTW{T<:InteractionDistance} <:InteractionSeqDistance
     ground_dist::T
     ρ::Real
 end
 
-function (d::FpDTW)(
+function (d::PenalisedDTW)(
     S1::InteractionSequence{T}, S2::InteractionSequence{T}
     ) where {T<:Union{Int,String}}
     if length(S1) < length(S2)  # This ensures first seq is longest
@@ -358,7 +358,7 @@ function (d::FpDTW)(
 end
 
 function print_matching(
-    d::FpDTW, 
+    d::PenalisedDTW, 
     S1::InteractionSequence{T}, S2::InteractionSequence{T}
     ) where {T<:Union{Int,String}}
     

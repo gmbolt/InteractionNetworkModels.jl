@@ -2,6 +2,7 @@ using StatsBase, Distances, Hungarian
 
 export InteractionSetDistance, LengthDistance
 export MatchingDist, FastMatchingDist, FpMatchingDist, print_matching
+export CouplingDistance, PenalisedCouplingDistance
 export AvgSizeFpMatchingDist, NormFpMatchingDist
 
 abstract type InteractionSetDistance <: Metric end
@@ -63,42 +64,8 @@ function print_matching(
             println("Null ---> $(S2[j])")
         end 
     end 
-
 end
 
-# Get MatchingDist matching
-
-# function get_matching(d::MatchingDist, S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
-#     C = Distances.pairwise(d.ground_dist, S1, S2)
-#     if length(S1) == length(S2)
-#         ext_C = copy(C)
-#         Tplan = PythonOT.emd([], [], ext_C)
-#     elseif length(S1) > length(S2)
-#         # ext_C = hcat(C, hcat(fill([d.ground_dist(Path([]), p) for p in S1], length(S1)-length(S2))...)) # Extend the cost matrix
-#         ext_C = hcat(C, [d.ground_dist(Path([]), S1[i]) for i=1:length(S1), j=1:(length(S1)-length(S2))])
-#         Tplan = PythonOT.emd([], [], ext_C)
-#     else
-#         ext_C = vcat(C, [d.ground_dist(Path([]), S2[j]) for i=1:(length(S2)-length(S1)), j=1:length(S2)])
-#         Tplan = PythonOT.emd([], [], ext_C)
-#     end
-#     for i in 1:size(ext_C)[1]
-#         if i ≤ length(S1)
-#             j = findfirst(Tplan[i,:].>0.0)
-#             if j > length(S2)
-#                 println("$(S1[i]) --> Nothing")
-#             else 
-#                 println("$(S1[i]) --> $(S2[j])")
-#             end 
-#         else 
-#             j = findfirst(Tplan[i,:].>0.0)
-#             if j > length(S2)
-#                 println("Nothing --> Nothing")
-#             else 
-#                 println("Nothing --> $(S2[j])")
-#             end 
-#         end
-#     end 
-# end 
 
 
 struct FastMatchingDist <: InteractionSetDistance
@@ -114,11 +81,7 @@ function (d::FastMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequen
         d(S2,S1)
     else
         C = view(d.C, 1:length(S1), 1:length(S1)) # S1 is the longest
-        for j in 1:length(S2)
-            for i in 1:length(S1)
-                @views C[i,j] = d.ground_dist(S1[i], S2[j])
-            end 
-        end 
+        pairwise!(C, d.ground_dist, S1, S2)
         if length(S1) == length(S2)
             return hungarian(C)[2]
         else 
@@ -221,6 +184,123 @@ function (d::NormFpMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequ
         # @show tmp_d
         return 2*tmp_d / ( d.penalty*(length(S1) + length(S2)) + tmp_d )
     end
+end
+
+# One-sided Coupling Distance(s)
+# ------------------------------
+
+struct CouplingDistance{T<:InteractionDistance} <: InteractionSetDistance
+    ground_dist::T
+end 
+
+function (d::CouplingDistance)(
+    S1::InteractionSequence{T}, S2::InteractionSequence{T}
+    ) where {T<:Union{Int,String}}
+
+    if length(S1) < length(S2)  # Ensure first is seq longest
+        d(S2,S1)
+    else
+        C = Distances.pairwise(d.ground_dist, S1, S2)
+        if length(S1) == length(S2)
+            return hungarian(C)[2]
+        else 
+            min_dists = minimum(C, dims=2)
+            size_diff = length(S1)-length(S2)
+            # C = [C [x for x∈min_dists, j=1:size_diff]]
+            C = [C hcat([min_dists for i in 1:size_diff]...)]
+            return hungarian(C)[2]
+        end 
+    end
+end 
+
+struct PenalisedCouplingDistance{T<:InteractionDistance} <: InteractionSetDistance
+    ground_dist::T
+    ρ::Real
+end 
+
+function (d::PenalisedCouplingDistance)(
+    S1::InteractionSequence{T}, S2::InteractionSequence{T}
+    ) where {T<:Union{Int,String}}
+
+    d_tmp = CouplingDistance(d.ground_dist)(S1,S2)
+    return d_tmp + d.ρ * abs(length(S1)-length(S2))
+
+end 
+
+function print_matching(
+    d::Union{CouplingDistance, PenalisedCouplingDistance}, 
+    S1::InteractionSequence{T}, S2::InteractionSequence{T}
+    ) where {T<:Union{Int,String}}
+
+    C = Distances.pairwise(d.ground_dist, S1, S2)
+    N,M = (length(S1), length(S2))
+    size_diff = N-M
+    if size_diff > 0 # S1 is longer
+        min_dists = minimum(C, dims=2)
+        C = [C hcat([min_dists for i in 1:size_diff]...)]
+    else 
+        min_dists = minimum(C, dims=1)
+        C = [C ;vcat([min_dists for i in 1:(-size_diff)]...)]
+    end 
+    assignment, cost = hungarian(C)
+    
+    # We line all arrows up with the longest path, so must find this length (as a string)
+    argmax_len = argmax(length.(S1))
+    max_len = length(@sprintf("%s", S1[argmax_len]))
+
+    # Print title 
+    title = "Optimal Coupling"
+    println(title)
+    println("-"^length(title))
+
+    if N ≤ M # First path is shortest (so interactions on left may pair with more than one on right)
+        edge_list = [Int[] for i in 1:N]
+        for i in 1:N 
+            j = assignment[i]
+            push!(edge_list[i], j)
+        end 
+        for i in (N+1):M
+            j = assignment[i]
+            map_from = argmin(view(C, 1:N, j))
+            push!(edge_list[map_from], j)
+        end 
+        for i in 1:N 
+            for j in 1:length(edge_list[i])
+                if j == 1
+                    tmp = "$(S1[i])"
+                    pad = max_len - length(tmp) 
+                    println(tmp * " "^pad * " → $(S2[edge_list[i][1]])")
+                else 
+                    println(" "^max_len * " ↘ $(S2[edge_list[i][j]])")
+                end 
+            end 
+        end 
+    else # First path is longest (so interactions on right may pair with more than one on left)
+        edge_list = [Int[] for i in 1:M]
+        for i in 1:N
+            j = assignment[i]
+            if j > M 
+                map_from = argmin(view(C, i, 1:M))
+                push!(edge_list[map_from], i)
+            else 
+                push!(edge_list[j], i)
+            end 
+        end 
+        for i in 1:M 
+            for j in 1:length(edge_list[i])
+                if j == 1
+                    tmp = "$(S1[edge_list[i][1]])" 
+                    pad = max_len - length(tmp) 
+                    println(tmp * " "^pad * " → $(S2[i])")
+                else   
+                    tmp = "$(S1[edge_list[i][j]])" 
+                    pad = max_len - length(tmp) 
+                    println(tmp * " "^pad * " ↗ ")
+                end 
+            end 
+        end 
+    end 
+
 end
 
 # Optimal Transport (OT) Distances 
