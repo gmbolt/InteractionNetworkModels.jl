@@ -1,4 +1,4 @@
-using InvertedIndices, StatsBase, Printf
+using InvertedIndices, StatsBase, Printf, ProgressMeter
 
 export CondProbMatrix, CumCondProbMatrix, vertices, vertex_countmap, vertex_counts
 export sample_frechet_mean, BoundedInteractionSequence
@@ -39,8 +39,12 @@ end
 
 function sample_frechet_mean(
     data::InteractionSequenceSample{T}, 
-    d::Union{InteractionSeqDistance,InteractionSetDistance}
+    d::Union{InteractionSeqDistance,InteractionSetDistance};
+    show_progress::Bool=false
     ) where T <:Union{Int, String}
+    if show_progress
+        iter = Progress(length(data), 1)
+    end 
     z_best = Inf
     ind_best = 1
     n = length(data)
@@ -55,8 +59,11 @@ function sample_frechet_mean(
             z_best = copy(z)
             ind_best = i
         end 
+        if show_progress
+            next!(iter)
+        end 
     end 
-    return data[ind_best]
+    return data[ind_best], ind_best
 end 
 
 # Probability Matrices - Used in informed proposal for SIS/SIM posterior sampling
