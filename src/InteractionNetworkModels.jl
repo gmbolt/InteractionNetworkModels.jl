@@ -27,6 +27,7 @@ include("Types/hollywood_model.jl")
 include("Data Processing/VertexCounts.jl")
 include("Data Processing/PathSequences.jl")
 include("Data Processing/Multigraphs.jl")
+include("Data Processing/string_to_int.jl")
 
 # MCMC files
 include("MCMC/Model Sampling/types_mcmc_model_samplers.jl")
