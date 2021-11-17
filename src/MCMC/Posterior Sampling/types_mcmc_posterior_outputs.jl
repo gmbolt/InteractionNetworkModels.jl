@@ -38,6 +38,13 @@ end
 #    SIM 
 # ==========
 
+struct SimPosteriorMcmcOutput{T<:Union{Int,String}}
+    S_sample::Vector{InteractionSequence{T}}
+    γ_sample::Vector{Float64}
+    posterior::SimPosterior{T}
+    performace_measures::Dict
+end 
+
 struct SimPosteriorModeConditionalMcmcOutput{T<:Union{Int,String}}
     γ_fixed::Float64
     S_sample::Vector{Vector{Path{T}}}
@@ -54,8 +61,6 @@ struct SimPosteriorDispersionConditionalMcmcOutput{T<:Union{Int,String}}
     data::Vector{Vector{Path{T}}}
     performance_measures::Dict
 end 
-
-
 
 # ==========
 #    SPF 
