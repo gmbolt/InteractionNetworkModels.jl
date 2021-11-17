@@ -35,53 +35,6 @@ function (d::EditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence{T
     end
 end
 
-function print_matching(d::EditDistance, S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
-    
-    d₀ = d.ground_dist
-    # First find the substitution matrix
-    C = zeros(Float64, length(S1)+1, length(S2)+1)
-    C[:,1] = pushfirst!(cumsum([d₀(Path(), p) for p in S1]), 0.0);
-    C[1,:] = pushfirst!(cumsum([d₀(Path(), p) for p in S2]), 0.0);
-
-    for j in 1:length(S2)
-        for i in 1:length(S1)
-            C[i+1,j+1] = minimum([
-                C[i,j] + d₀(S1[i], S2[j]),
-                C[i,j+1] + d₀(Path(), S2[j]),
-                C[i+1,j] + d₀(Path(), S1[i])
-            ])
-        end 
-    end
-
-    # Now retrace steps to determine an optimal matching
-    i, j = size(C)
-    outputs = Vector{String}()
-    while (i ≠ 1) | (j ≠ 1)
-        if C[i,j] == (C[i-1,j] + d₀(Path(), S1[i-1]) )
-            pushfirst!(outputs, "$(S1[i-1]) --> Nothing")
-            i = i-1
-        elseif C[i,j] == (C[i,j-1] + d₀(Path(), S2[j-1]))
-            pushfirst!(outputs, "Nothing --> $(S2[j-1])")
-            j = j-1
-        else
-            pushfirst!(outputs, "$(S1[i-1]) ---> $(S2[j-1])")
-            i = i-1; j = j-1
-        end
-    end
-    # @show outputs
-    title = "\nOptimal Matching Print-out for $d Distance"
-    println(title)
-    println("-"^length(title), "\n")
-    println("The cheapest way to do the tranformation...\n")
-    println(S1, "---->", S2)
-    println("\n...is the following series of edits...\n")
-    for statement in outputs
-        println(statement)
-    end
-    return C
-
-end 
-
 # EditDistance with Memory
 # ---------------
 
@@ -133,6 +86,70 @@ function (d::FastEditDistance)(S1::InteractionSequence{T}, S2::InteractionSequen
 end
 
 
+function print_matching(
+    d::Union{EditDistance,FastEditDistance}, 
+    S1::InteractionSequence{T}, S2::InteractionSequence{T}
+    ) where {T<:Union{Int,String}}
+    
+    d₀ = d.ground_dist
+    # First find the substitution matrix
+    C = zeros(Float64, length(S1)+1, length(S2)+1)
+    Λ = T[]
+    C[:,1] = pushfirst!(cumsum([d₀(Λ, p) for p in S1]), 0.0);
+    C[1,:] = pushfirst!(cumsum([d₀(Λ, p) for p in S2]), 0.0);
+
+    for j in 1:length(S2)
+        for i in 1:length(S1)
+            C[i+1,j+1] = minimum([
+                C[i,j] + d₀(S1[i], S2[j]),
+                C[i,j+1] + d₀(Λ, S2[j]),
+                C[i+1,j] + d₀(Λ, S1[i])
+            ])
+        end 
+    end
+    # Now retrace steps to determine an optimal matching
+    i, j = size(C)
+    pairs = Tuple{Int,Int}[]
+    while (i ≠ 1) & (j ≠ 1)
+        if C[i,j] == (C[i,j-1] + d₀(Λ, S2[j-1]))
+            pushfirst!(pairs, (0,j-1))
+            j = j-1
+        elseif C[i,j] == (C[i-1,j] + d₀(Λ, S1[i-1]))
+            pushfirst!(pairs, (i-1,0))
+            i = i-1
+        else
+            pushfirst!(pairs,(i-1,j-1))
+            i = i-1; j = j-1
+        end
+    end
+    for k in Iterators.reverse(1:(i-1))
+        pushfirst!(pairs, (k,0))
+    end 
+    for k in Iterators.reverse(1:(j-1))
+        pushfirst!(pairs, (0,k))
+    end 
+    max_len = maximum(map(x->length(@sprintf("%s",x)), S1))
+    # @show outputs
+    title = "\nOptimal Matching"
+    println(title)
+    println("-"^length(title), "\n")
+    for (k,l) in pairs 
+        if k == 0 
+            tmp_S1 = "Λ"
+            tmp_S2 = S2[l] 
+        elseif l == 0 
+            tmp_S2 = "Λ"
+            tmp_S1 = S1[k]
+        else 
+            tmp_S1, tmp_S2 = (S1[k], S2[l])
+        end 
+        pad = max_len - length(@sprintf("%s", tmp_S1))
+        println("$tmp_S1" * " "^pad, " → $tmp_S2")
+    end
+
+end 
+
+
 struct FpEditDistance{T<:InteractionDistance} <: InteractionSeqDistance
     ground_dist::T
     ρ::Real
@@ -159,6 +176,7 @@ function (d::FpEditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence
         return curr_row[end]
     end
 end
+
 
 
 function print_matching(d::FpEditDistance, S1::InteractionSequence{T}, S2::InteractionSequence{T}) where {T<:Union{Int,String}}
@@ -299,12 +317,9 @@ function print_matching(
         pushfirst!(pairs, (i-1,j-1))
     end
     # @show outputs
-    title = "DTW Print-out with $d Ground Distance"
+    title = "Optimal Coupling"
     println(title)
     println("-"^length(title), "\n")
-    println("The cheapest way to do the tranformation...\n")
-    println(S1, "---->", S2)
-    println("\n...is the following series of edits...\n")
     # for statement in outputs
     #     println(statement)
     # end

@@ -245,8 +245,7 @@ function print_matching(
     assignment, cost = hungarian(C)
     
     # We line all arrows up with the longest path, so must find this length (as a string)
-    argmax_len = argmax(length.(S1))
-    max_len = length(@sprintf("%s", S1[argmax_len]))
+    max_len = maximum(map(x -> length(@sprintf("%s", x)), S1))
 
     # Print title 
     title = "Optimal Coupling"
