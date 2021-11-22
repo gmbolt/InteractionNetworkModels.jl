@@ -23,7 +23,7 @@ where in this case we have observed `n` interaction sequences. Now, our methodol
 1. What is the **average** of the data points?
 2. Can we quantify the **variability** of the data about this average?
 
-This package contains code which can used to implement our methodology. Notably, with this code you can
+This package contains code which can be used to implement our methodology. Notably, with this code you can
 1. Define Spherical Interaction Sequence (SIS) and Spherical Interaction Multisets (SIM) models and sample from them via MCMC;
 2. Define Hollywood models of Crane et al. (2018) and sample from them;
 3. Construct posteriors for SIS and SIM model paramters, and sample from them via MCMC schemes to conduct Bayesian inference;
