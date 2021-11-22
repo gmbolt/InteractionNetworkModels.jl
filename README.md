@@ -4,7 +4,7 @@ This package contains code relating to my PhD project. In particular, regarding 
 ```
 S = [[1,2,1,2],[3,4,3,2][1,2,1,3],[4,5,2,4]]
 ```
-where here the entries (here given by integers) are assumed to denote some collection of entities. The motivating example is *clickstream data*, where each integer denotes a webpage (or subset thereof), and each path represents as single online session of a user. Thus `S` above represents the observed sessions of a single user over some time period. We refer to `S` as an *interaction sequence*.
+where here the entries (here given by integers) are assumed to denote some entities. The motivating example is *clickstream data*, where each integer denotes a webpage (or subset thereof), and each path represents a single online session of a user. Thus `S` above represents the observed sessions of a single user over some time period. We refer to `S` as an *interaction sequence*.
 
 Now, viewing `S` as a data point, we assume that not just one but many of these are observed, for example 
 
