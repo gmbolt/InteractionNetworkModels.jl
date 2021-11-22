@@ -1,6 +1,6 @@
 # InteractionNetworkModels
 
-This package contains code relating to my PhD project. In particular, regarding the modelling framework we have been developing to analyse so-called *multiple interaction network data*. Here, we observe data consisting of sequences of paths, for example
+This package contains code relating to my PhD project (**Note**: this is not a registered Julia package). In particular, regarding the modelling framework we have been developing to analyse so-called *multiple interaction network data*. Here, we observe data consisting of sequences of paths, for example
 ```
 S = [[1,2,1,2],[3,4,3,2][1,2,1,3],[4,5,2,4]]
 ```
