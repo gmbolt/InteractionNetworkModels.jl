@@ -58,7 +58,7 @@ function double_iex_multinomial_edit_accept_reject!(
     γ_curr::Float64,
     mcmc::SimIexInsertDeleteEdit{T},
     P::CumCondProbMatrix,
-    aux_data::InteractionSequenceSample{T}
+    aux_data::InteractionSequenceSample{T},
     suff_stat_curr::Float64
     ) where {T<:Int}
 

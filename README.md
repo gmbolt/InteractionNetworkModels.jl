@@ -1,11 +1,39 @@
 # InteractionNetworkModels
 
-This package contains supporting code of Bolt et al. (2021) *Temporary reference*. Features include 
-1. Model types for Spherical Interaction Sequence (SIS) and Spherical Interaction Multisets (SIM) models, and the Hollywood model of Crane et al. (2018);
-2. Samplers for models;
-3. Samplers SIS/SIM posterior distributions.
+This package contains code relating to my PhD project. In particular, regarding the modelling framework we have been developing to analyse so-called *multiple interaction network data*. Here, we observe data consisting of sequences of paths, for example
+```
+S = [[1,2,1,2],[3,4,3,2][1,2,1,3],[4,5,2,4]]
+```
+where here the entries are assumed to denote some collection of entities, here taken to be integers. The motivating example is *clickstream data*, where each integer denotes a webpage (or subset thereof), and each path represents as single online session of a user. Thus `S` above represents the observed sessions of a single user over some time period. We refer to `S` as an *interaction sequence*.
 
-## Installation Note
+Now, viewing `S` as a data point, we assume that not just one but many of these are observed, for example 
+
+```
+S_1 = [[1,2,1,2],[3,4,3,2][1,2,1,3],[4,5,2,4]]
+
+S_2 = [[3,3,3,1],[2,4,2,2][1,2,2,3]]
+
+                    .
+                    .
+                    .
+
+S_n = [[3,3,3,1],[2,4,2,2][1,2,2,3],[4,4,5,4,5],[1,2,3,1],[5,5,5,5]]
+```
+where in this case we have observed `n` interaction sequences. Now, our methodology is looking to answer two questions of such data 
+1. What is the **average** of the data points?
+2. Can we quantify the **variability** of the data about this average?
+
+This package contains code which can used to implement our methodology. Notably, with this code you can
+1. Define Spherical Interaction Sequence (SIS) and Spherical Interaction Multisets (SIM) models and sample from them via MCMC;
+2. Define Hollywood models of Crane et al. (2018) and sample from them;
+3. Construct posteriors for SIS and SIM model paramters, and sample from them via MCMC schemes to conduct Bayesian inference;
+4. Define distance metrics usable within the SIS and SIM models, or more generally for clustering/data visualisation. These are made subtypes of the `Metric` type of the `Distances.jl` package.
+
+
+# References 
+Crane, H. and Dempsey, W. (2018).  Edge exchangeable models for interaction networks. *Journal of the American Statistical Association* 113:1311–1326
+
+<!-- ## Installation Note
 
 This package contains `PythonOT.jl` in its dependencies, which itself calls python code (specifically, the Python Optimal Transport (POT) library). Thus one will clearly need a Python installation for this package to work. Thankfully, `PythonOT.jl` will sort this for you, installing python in a Julia-specific folder by making use of the `Conda.jl` package. However, the `Conda.jl` package defaults to python version 3.9, and at the moment of writing this led to issues. If this is the case for you then a solution is to specify `Conda.jl` to use Python 3.8, the approach of which we now outline. 
 
@@ -15,9 +43,9 @@ For now, you can do the following in your root Julia enviroment. If you have nev
 3. Install `Conda.jl` via `Pkg.add("Conda")`
 4. Build `PyCall` via `Pkg.build("PyCall")`
 
-When we did these steps above the package seemd to install fine. 
+When we did these steps above the package seemd to install fine.  -->
 
-## Data Structures
+<!-- ## Data Structures
 
 We represent a path with a vector of `Int` or `String` values. That is, if `x` is to store a path then we can have 
 1. `x::Vector{Int}` - when we denote vertices with integers
@@ -37,24 +65,17 @@ For readability we define the following aliases
 
 that is, we can use `Path{T}` and `InteractionSequence{T}` as we would `Vector{T}` or `Vector{Vector{T}}`. This is purely out of convenience. 
 
-Note there is no separate representation of interaction multisets. The reason being this seemed an unnecessary complication, since one can simply interpret two interaction sequences as equal up a permutation of interaction order. Furthermore, one can can make use of the `Multisets.jl` package to convert any interaction sequence into an interaction multiset. For example, one could convert any vector `x::Vector{InteractionSequence{T}}` to type `Vector{Multiset{Path{T}}}` via the following
-
-```julia 
-using Multisets 
-x = Multiset.(x) 
-```
-
 
 ## Distance Metrics
 
-A key feature of the models proposed in Bolt et al. (2021) are distance metrics. This includes distances between
+A key feature of our models are distance metrics. This includes distances between
 1. Interactions, that is, paths;
 2. Interaction sequences 
 3. Interaction multisets 
 
-We have defined some custom types to denote the various distance metrics. These have all been made subtypes of the `Metric` type of the `Distances.jl` package. 
+We have defined some custom types to denote the various distance metrics. These have all been made subtypes of the `Metric` type of the `Distances.jl` package.  -->
 
-### Interaction Distances 
+<!-- ### Interaction Distances 
 
 Here we introduce the abstract type `InteractionDistance`, intended to cover distances between any type of interaction (e.g. if perhaps you would like to extend this beyond interactions being paths). We then have a further abstract subtype `PathDistance<:InteractionDistance`, which is to cover specifically distances between paths. Current supported path distances are a follows 
 
@@ -97,4 +118,4 @@ These are instantiated as follows
 
 ### Defining Posterior Distributions 
 
-### Samplers 
+### Samplers  -->

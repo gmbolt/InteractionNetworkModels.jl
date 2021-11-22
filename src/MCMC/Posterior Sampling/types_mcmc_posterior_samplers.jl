@@ -1,5 +1,5 @@
 export SisIexInsertDeleteEdit, SisIexInsertDeleteGibbs, SisPosteriorSampler
-export SimIexInsertDeleteEdit
+export SimIexInsertDeleteEdit, SimPosteriorSampler
 
 # SIS Model 
 # ---------
