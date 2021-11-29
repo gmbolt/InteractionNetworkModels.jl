@@ -26,8 +26,6 @@ struct FastNormLCS <: PathDistance
         new(zeros(Int,K), zeros(Int,K))
     end 
 end 
-struct InflatedLCS <: PathDistance end 
-struct ACS <: PathDistance end 
 
 
 # LCS
@@ -36,10 +34,7 @@ function (dist::LCS)(X::AbstractVector,Y::AbstractVector)::Float64
     n = length(X)
     m = length(Y)
 
-    # If one or more is empty string return 0 or length of nonzero
-    if (n == 0) || (m == 0)
-        return n + m
-    end
+    @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
 
     # Code only needs previous row to update next row using the rule from
     # Wagner-Fisher algorithm
@@ -64,50 +59,7 @@ function (dist::LCS)(X::AbstractVector,Y::AbstractVector)::Float64
     return currRow[end]
 end
 
-# LCS with storage (save allocations)
-
-function (dist::LCS)(
-    X::AbstractVector,Y::AbstractVector,
-    curr_row::Vector{Int}, prev_row::Vector{Int}
-    )::Float64
-
-    n = length(X)
-    m = length(Y)
-
-    # If one or more is empty string return 0 or length of nonzero
-    if (n == 0) || (m == 0)
-        return n + m
-    end
-
-    # Code only needs previous row to update next row using the rule from
-    # Wagner-Fisher algorithm
-
-    #            Y
-    #       0 1 2   ...
-    #    X  1 0
-    #       2
-
-
-    @views prev_row[1:(m+1)] = 0:m
-    @views curr_row[1:(m+1)] .= 0
-
-    # @show prev_row, curr_row
-
-    @views for i = 1:n
-        curr_row[1] = i
-        for j = 1:m
-            if X[i] == Y[j]
-                curr_row[j+1] = prev_row[j]
-            else
-                curr_row[j+1] = min(curr_row[j], prev_row[j+1]) + 1
-            end
-        end
-        copy!(prev_row,curr_row)
-    end
-    return curr_row[m+1]
-end
-
-# With storage (as a field of the metric type)
+# With storage 
 function (d::FastLCS)(
     X::AbstractVector,Y::AbstractVector
     )::Float64
@@ -115,11 +67,7 @@ function (d::FastLCS)(
     n = length(X)
     m = length(Y)
 
-    # If one or more is empty string return 0 or length of nonzero
-    if (n == 0) || (m == 0)
-        return n + m
-    end
-
+    @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
     # Code only needs previous row to update next row using the rule from
     # Wagner-Fisher algorithm
 
@@ -150,6 +98,27 @@ function (d::FastLCS)(
     return curr_row[m+1]
 end
 
+# Distances to the null 
+function (dist::Union{LCS,FastLCS})(X::Nothing, Y::Path{T})::Float64 where {T<:Union{Int,String}}
+    return length(Y)
+end 
+function (dist::Union{LCS,FastLCS})(X::Path{T}, Y::Nothing)::Float64 where {T<:Union{Int,String}}
+    return length(X)
+end
+function (dist::Union{LCS,FastLCS})(X::Nothing, Y::Nothing)::Float64 where {T<:Union{Int,String}}
+    return 0.0
+end 
+
+
+
+# Normalised LCS
+function (dist::NormLCS)(X::AbstractVector,Y::AbstractVector)
+    n = length(X)
+    m = length(Y)
+    d_lcs = lcs(X, Y)
+    return 2 * d_lcs / (n + m + d_lcs)
+end
+
 function (d::FastNormLCS)(
     X::AbstractVector,Y::AbstractVector
     )::Float64
@@ -157,10 +126,7 @@ function (d::FastNormLCS)(
     n = length(X)
     m = length(Y)
 
-    # If one or more is empty string return 0 or length of nonzero
-    if (n == 0) || (m == 0)
-        return n + m
-    end
+    @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
 
     # Code only needs previous row to update next row using the rule from
     # Wagner-Fisher algorithm
@@ -192,6 +158,16 @@ function (d::FastNormLCS)(
     d_lcs = curr_row[m+1]
     return 2 * d_lcs / (n + m + d_lcs)
 end
+
+function (dist::Union{NormLCS,FastNormLCS})(X::Nothing, Y::Path{T}) where {T<:Union{Int,String}}
+    return 1.0
+end 
+function (dist::Union{NormLCS,FastNormLCS})(X::Path{T}, Y::Nothing) where {T<:Union{Int,String}}
+    return 1.0
+end 
+function (dist::Union{NormLCS,FastNormLCS})(X::Nothing, Y::Nothing) where {T<:Union{Int,String}}
+    return 0.0
+end 
 
 
 # Get locations of longest common subseq (for visuals)
@@ -234,52 +210,4 @@ function get_lcs_locations(X::AbstractVector, Y::AbstractVector)
 
     return indx, indy
 end
-
-
-
-# Normalised LCS
-function (dist::NormLCS)(X::AbstractVector,Y::AbstractVector)
-    n = length(X)
-    m = length(Y)
-    if (n == 0) & (m == 0)
-        return 0
-    end
-    d_lcs = lcs(X, Y)
-    return 2 * d_lcs / (n + m + d_lcs)
-end
-
-
-
-
-lcs(X::AbstractVector,Y::AbstractVector) = LCS()(X,Y)
-lcs_norm(X::AbstractVector, Y::AbstractVector) = NormLCS()(X,Y)
-
-get_lcs(X::AbstractVector, Y::AbstractVector)::Int =  (length(X) + length(Y) - LCS()(X,Y))/2
-
-
-# ACS 
-function (dist::ACS)(X::AbstractVector, Y::AbstractVector)
-    # Dynamic programming approach
-    if length(X) < length(Y)  # Ensures first seq is longest
-        ACS()(Y,X)
-    else
-        prev_row = fill(1, length(Y)+1)
-        curr_row = fill(1, length(Y)+1)
-        for i = 1:length(X)
-            for j = 1:length(Y)
-                if X[i] == Y[j]
-                    # v = prev_row[j] + log(2
-                    # println("match")
-                    curr_row[j+1] = prev_row[j] * 2
-                else
-                    # println("no match")
-                    curr_row[j+1] = prev_row[j+1] + curr_row[j] - prev_row[j]
-                end
-            end
-            prev_row = copy(curr_row)
-        end
-        return 2^length(X) + 2^length(Y) - 2*curr_row[end]
-    end
-end
-
 

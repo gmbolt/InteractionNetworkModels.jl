@@ -3,6 +3,7 @@ using StatsBase, Distances, Printf
 export InteractionSeqDistance
 export EditDistance, FastEditDistance, FpEditDistance, NormFpEditDistance, AvgSizeFpEditDistance, DTW, PenalisedDTW
 export print_matching
+export NormPenalisedDTW
 
 abstract type InteractionSeqDistance <: Metric end
 
@@ -25,8 +26,8 @@ function (d::EditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence{T
             for j = 1:(length(S2))
                 # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
                 curr_row[j+1] = min(prev_row[j] + d₀(S1[i], S2[j]),
-                                        prev_row[j+1] + d₀(T[], S1[i]),
-                                        curr_row[j] + d₀(T[], S2[j]))
+                                        prev_row[j+1] + d₀(nothing, S1[i]),
+                                        curr_row[j] + d₀(nothing, S2[j]))
             end
             # @show curr_row
             copy!(prev_row, curr_row)
@@ -59,11 +60,10 @@ function (d::FastEditDistance)(S1::InteractionSequence{T}, S2::InteractionSequen
         curr_row = view(d.curr_row, 1:(length(S2)+1))
         # prev_row = d.prev_row
         # curr_row = d.curr_row
-        Λ = T[]
 
         prev_row[1] = 0.0
         for i in 1:length(S2)
-            prev_row[i+1] = prev_row[i] + d₀(Λ, S2[i])
+            prev_row[i+1] = prev_row[i] + d₀(nothing, S2[i])
         end 
         curr_row .= 0.0
         
@@ -74,8 +74,8 @@ function (d::FastEditDistance)(S1::InteractionSequence{T}, S2::InteractionSequen
                 # @show i, j, prev_row[j], d.ground_dist(S1[i], S2[j])
                 curr_row[j+1] = min(
                     prev_row[j] + d₀(S1[i], S2[j]), 
-                    prev_row[j+1] + d₀(Λ, S1[i]), 
-                    curr_row[j] + d₀(Λ, S2[j])
+                    prev_row[j+1] + d₀(nothing, S1[i]), 
+                    curr_row[j] + d₀(nothing, S2[j])
                     )
             end
             # @show curr_row
@@ -94,7 +94,6 @@ function print_matching(
     d₀ = d.ground_dist
     # First find the substitution matrix
     C = zeros(Float64, length(S1)+1, length(S2)+1)
-    Λ = T[]
     C[:,1] = pushfirst!(cumsum([d₀(Λ, p) for p in S1]), 0.0);
     C[1,:] = pushfirst!(cumsum([d₀(Λ, p) for p in S2]), 0.0);
 
@@ -102,8 +101,8 @@ function print_matching(
         for i in 1:length(S1)
             C[i+1,j+1] = minimum([
                 C[i,j] + d₀(S1[i], S2[j]),
-                C[i,j+1] + d₀(Λ, S2[j]),
-                C[i+1,j] + d₀(Λ, S1[i])
+                C[i,j+1] + d₀(nothing, S2[j]),
+                C[i+1,j] + d₀(nothing, S1[i])
             ])
         end 
     end
@@ -261,8 +260,8 @@ end
 
 # Standard 
 # --------
-struct DTW{T<:InteractionDistance} <:InteractionSeqDistance
-    ground_dist::T
+struct DTW <:InteractionSeqDistance
+    ground_dist::InteractionSeqDistance
 end
 
 function (d::DTW)(
@@ -271,6 +270,7 @@ function (d::DTW)(
     if length(S1) < length(S2)  # This ensures first seq is longest
         d(S2, S1)
     else
+        @assert (length(S1)>0) & (length(S2)>0) "both args must be either of type Nothing or of nonzero length."
         d_g = d.ground_dist
         prev_row = pushfirst!(fill(Inf, length(S2)), 0.0);
         curr_row = fill(Inf, length(S2) + 1);
@@ -288,6 +288,21 @@ function (d::DTW)(
         return curr_row[end]
     end
 end
+
+function (d::DTW)(
+    S1::Nothing, S2::InteractionSequence{T}
+    ) where {T<:Union{Int,String}}
+
+    d_g = d.ground_dist
+    z = 0.0
+    for x in S2
+        z += d_g(x, nothing) 
+    end 
+    return z + length(S2) 
+
+end 
+(d::DTW)(S1::InteractionSequence{T}, S2::Nothing) where {T<:Union{Int,String}} = d(S2,S1)
+(d::DTW)(S1::Nothing, S2::Nothing) where {T<:Union{Int,String}} = 0.0
 
 
 function print_matching(
@@ -340,8 +355,8 @@ end
 # Penalised 
 # ---------
 
-struct PenalisedDTW{T<:InteractionDistance} <:InteractionSeqDistance
-    ground_dist::T
+struct PenalisedDTW <:InteractionSeqDistance
+    ground_dist::InteractionDistance
     ρ::Real
 end
 
@@ -372,8 +387,47 @@ function (d::PenalisedDTW)(
     end
 end
 
+function (d::PenalisedDTW)(
+    S1::Nothing, S2::InteractionSequence{T}
+    ) where {T<:Union{Int,String}}
+
+    d_g = d.ground_dist
+    z = 0.0
+    for x in S2
+        z += d_g(x, nothing) 
+    end 
+    return z + length(S2) * d.ρ
+
+end 
+(d::PenalisedDTW)(S1::InteractionSequence{T}, S2::Nothing) where {T<:Union{Int,String}} = d(S2,S1)
+(d::PenalisedDTW)(S1::Nothing, S2::Nothing) where {T<:Union{Int,String}} = 0.0#
+
+struct NormPenalisedDTW <:InteractionSeqDistance
+    ground_dist::InteractionDistance
+    ρ::Real
+    d_unnorm::PenalisedDTW
+    function NormPenalisedDTW(d::InteractionDistance, ρ::Real)
+        new(d, ρ, PenalisedDTW(d, ρ))
+    end 
+end
+
+function (d::NormPenalisedDTW)(
+    S1::InteractionSequence{T}, S2::InteractionSequence{T}
+    ) where {T<:Union{Int,String}}
+
+    d_tmp = d.d_unnorm(S1,S2)
+    d_01 = d.d_unnorm(S1, nothing)
+    d_02 = d.d_unnorm(S2, nothing)
+    return 2 * d_tmp / (d_01 + d_02 + d_tmp)
+end 
+
+(d::NormPenalisedDTW)(S1::InteractionSequence{T}, S2::Nothing) where {T<:Union{Int,String}} = 1.0
+(d::NormPenalisedDTW)(S1::Nothing, S2::InteractionSequence{T}) where {T<:Union{Int,String}} = 1.0
+(d::NormPenalisedDTW)(S1::Nothing, S2::Nothing) where {T<:Union{Int,String}} = 0.0
+
+
 function print_matching(
-    d::PenalisedDTW, 
+    d::Union{PenalisedDTW,NormPenalisedDTW}, 
     S1::InteractionSequence{T}, S2::InteractionSequence{T}
     ) where {T<:Union{Int,String}}
     

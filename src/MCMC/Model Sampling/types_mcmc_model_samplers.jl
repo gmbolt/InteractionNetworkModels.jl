@@ -135,14 +135,15 @@ struct SisInitRandEdit <: SisMcmcInitialiser
 end 
 
 function get_init(
-    model::SIS, 
-    initialiser::SisInitRandEdit
+    initialiser::SisInitRandEdit,
+    S::InteractionSequence,
+    V::AbstractArray,
+    K_inner::Int
     )
 
     δ = initialiser.δ 
-    S_init = deepcopy(model.mode)
-    N = length(S_init)
-    K_inner = model.K_inner
+    S_init = S
+    N = length(S)
 
     ind_del = zeros(Int, δ)
     ind_add = zeros(Int, δ)
@@ -173,7 +174,7 @@ function get_init(
 
             StatsBase.seqsample_a!(1:n, ind_del_v)
             StatsBase.seqsample_a!(1:m, ind_add_v)
-            sample!(model.V, vals)
+            sample!(V, vals)
 
             delete_insert!(S_init[i], ind_del_v, ind_add_v, vals_v)
 
@@ -189,7 +190,12 @@ function get_init(
     return S_init
 
 end 
-
+function get_init(
+    initialiser::SisInitRandEdit,
+    model::SIS
+    )
+    return get_init(initialiser, model.mode, model.V, model.K_inner)
+end 
 
 
 abstract type SisMcmcSampler end 

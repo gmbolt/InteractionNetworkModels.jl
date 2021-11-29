@@ -396,7 +396,7 @@ function draw_sample_mode!(
 
     S_curr = InteractionSequence{Int}()
     S_prop = InteractionSequence{Int}()
-    for i in 1:length(init)
+    for i in 1:length(S_init)
         migrate!(S_curr, curr_pointers, i, 1)
         migrate!(S_prop, prop_pointers, i, 1)
         copy!(S_curr[i], S_init[i])

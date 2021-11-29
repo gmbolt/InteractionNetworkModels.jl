@@ -37,11 +37,13 @@ function make_labels(X::AbstractDataFrame, cols::Int; nan="NaN")
     return make_labels(X, [cols], nan=nan)
 end
 
-function add_page_column!(X::AbstractDataFrame, cols::Vector{Int}; level::Int=length(cols), nan="NaN")
+function add_page_column!(
+    X::AbstractDataFrame, 
+    cols::Vector{Int}; 
+    level::Int=length(cols), nan="NaN")
     # @show level
     X.page = make_labels(X, cols[1:level], nan=nan)
 end
-
 
 
 ## Splitting into sessions
