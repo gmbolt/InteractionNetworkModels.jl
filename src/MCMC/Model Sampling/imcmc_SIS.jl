@@ -296,7 +296,7 @@ function draw_sample!(
     model::SIS{T};
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::InteractionSequence{T}=get_init(model, mcmc.init)
+    init::InteractionSequence{T}=get_init(mcmc.init, model)
     ) where {T<:Union{Int,String}}
 
 
@@ -372,7 +372,7 @@ function draw_sample(
     desired_samples::Int=mcmc.desired_samples, 
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=get_init(model, mcmc.init)
+    init::Vector{Path{T}}=get_init(mcmc.init, model)
     ) where {T<:Union{Int,String}} 
 
     sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
@@ -387,7 +387,7 @@ function (mcmc::SisMcmcInsertDeleteEdit{T})(
     desired_samples::Int=mcmc.desired_samples, 
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=get_init(model, mcmc.init)
+    init::Vector{Path{T}}=get_init(mcmc.init, model)
     ) where {T<:Union{Int,String}}
 
     sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)

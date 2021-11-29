@@ -121,8 +121,8 @@ struct SisInitMode <: SisMcmcInitialiser
 end 
 
 function get_init(
+    initiliaser::SisInitMode,
     model::SIS, 
-    initiliaser::SisInitMode
     )
     return model.mode
 end 
@@ -164,7 +164,7 @@ function get_init(
         else
 
             
-            n = length(model.mode[i])
+            n = length(S[i])
             d = rand(max(0, ceil(Int, (n + δ_tmp + - K_inner)/2)):min(n, δ_tmp))
             m = n + δ_tmp - 2*d
 
