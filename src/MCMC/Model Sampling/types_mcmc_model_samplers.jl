@@ -142,7 +142,7 @@ function get_init(
     )
 
     δ = initialiser.δ 
-    S_init = S
+    S_init = deepcopy(S)
     N = length(S)
 
     ind_del = zeros(Int, δ)
@@ -155,7 +155,7 @@ function get_init(
         if i == N 
             δ_tmp = rem_edits
         else 
-            p = 1/(N=i+1)
+            p = 1/(N-i+1)
             δ_tmp = rand(Binomial(rem_edits, p))
         end 
 
@@ -165,7 +165,7 @@ function get_init(
 
             
             n = length(S[i])
-            d = rand(max(0, ceil(Int, (n + δ_tmp + - K_inner)/2)):min(n, δ_tmp))
+            d = rand(max(0, ceil(Int, (n + δ_tmp + - K_inner)/2)):min(n-1, δ_tmp))
             m = n + δ_tmp - 2*d
 
             ind_del_v = view(ind_del, 1:d)
