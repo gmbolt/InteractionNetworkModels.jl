@@ -22,8 +22,7 @@ function (d::MatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence{T
         if length(S1) == length(S2)
             return hungarian(C)[2]
         else 
-            Λ = T[]
-            null_dists = [d.ground_dist(Λ, p) for p in S1]
+            null_dists = [d.ground_dist(nothing, p) for p in S1]
             size_diff = length(S1)-length(S2)
             C = [C [x for x∈null_dists, j=1:size_diff]]
             return hungarian(C)[2]
@@ -40,12 +39,10 @@ function print_matching(
     C = Distances.pairwise(d.ground_dist, S1, S2)
     size_diff = length(S1)-length(S2)
     if size_diff > 0 
-        Λ = T[]
-        null_dists = [d.ground_dist(Λ, p) for p in S1]
+        null_dists = [d.ground_dist(nothing, p) for p in S1]
         C = [C [x for x∈null_dists, j=1:size_diff]]
     else 
-        Λ = T[]
-        null_dists = [d.ground_dist(Λ, p) for p in S2]
+        null_dists = [d.ground_dist(nothing, p) for p in S2]
         C = [C ;[x for j=1:(-size_diff), x∈null_dists]]
         # @show C, ext_C
     end 
@@ -85,9 +82,8 @@ function (d::FastMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequen
         if length(S1) == length(S2)
             return hungarian(C)[2]
         else 
-            Λ = T[]
             for i in 1:length(S1)
-                C[i,length(S2)+1] = d.ground_dist(Λ, S1[i])
+                C[i,length(S2)+1] = d.ground_dist(nothing, S1[i])
             end 
             for j in (length(S2)+2):length(S1)
                 for i in 1:length(S1)
