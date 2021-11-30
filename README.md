@@ -2,7 +2,7 @@
 
 This package contains code relating to my PhD project (**Note**: this is not a registered Julia package). In particular, regarding the modelling framework we have been developing to analyse so-called *multiple interaction network data*. Here, we observe data consisting of sequences of paths, for example
 ```
-S = [[1,2,1,2],[3,4,3,2][1,2,1,3],[4,5,2,4]]
+S = [[1,2,1,2],[3,4,3,2],[1,2,1,3],[4,5,2,4]]
 ```
 where here the entries (here given by integers) are assumed to denote some entities. The motivating example is *clickstream data*, where each integer denotes a webpage (or subset thereof), and each path represents a single online session of a user. Thus `S` above represents the observed sessions of a single user over some time period. We refer to `S` as an *interaction sequence*.
 
