@@ -9,15 +9,15 @@ where here the entries (here given by integers) are assumed to denote some entit
 Now, viewing `S` as a data point, we assume that not just one but many of these are observed, for example 
 
 ```
-S_1 = [[1,2,1,2],[3,4,3,2][1,2,1,3],[4,5,2,4]]
+S_1 = [[1,2,1,2],[3,4,3,2],[1,2,1,3],[4,5,2,4]]
 
-S_2 = [[3,3,3,1],[2,4,2,2][1,2,2,3]]
+S_2 = [[3,1],[2,4,2,2],[1,2,2,3]]
 
                     .
                     .
                     .
 
-S_n = [[3,3,3,1],[2,4,2,2][1,2,2,3],[4,4,5,4,5],[1,2,3,1],[5,5,5,5]]
+S_n = [[3,3,3,1],[2],[1,2,2,3],[4,4,5,4,5,1],[1,2,3,1],[5,5,5]]
 ```
 where in this case we have observed `n` interaction sequences. Now, our methodology is looking to answer two questions of such data 
 1. What is the **average** of the data points?
