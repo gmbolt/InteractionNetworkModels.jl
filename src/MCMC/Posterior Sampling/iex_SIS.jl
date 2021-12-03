@@ -736,6 +736,7 @@ function draw_sample_mode!(
         +, 
         posterior.data
         )
+    suff_stats = Float64[suff_stat_curr] # Storage for all sufficient stats (for diagnostics)
 
     P, vmap, vmap_inv = get_informed_proposal_matrix(posterior, mcmc.α)
     while sample_count ≤ length(sample_out)
@@ -757,6 +758,7 @@ function draw_sample_mode!(
                 )
                 ed_acc_count += was_acc
                 ed_count += 1
+                push!(suff_stats, suff_stat_curr)
             else 
                 was_acc, suff_stat_curr = double_iex_flip_accept_reject!(
                     S_curr, S_prop, 
@@ -767,6 +769,7 @@ function draw_sample_mode!(
                 )
                 flp_acc_count += was_acc
                 flp_count += 1
+                push!(suff_stats, suff_stat_curr)
             end 
         # Else do trans-dim move. We will do accept-reject move here 
         else 
@@ -779,6 +782,7 @@ function draw_sample_mode!(
             )
             tr_dim_acc_count += was_acc
             tr_dim_count += 1
+            push!(suff_stats, suff_stat_curr)
         end 
         if loading_bar
             next!(iter)
@@ -791,7 +795,8 @@ function draw_sample_mode!(
     return (
                 ed_count, ed_acc_count,
                 flp_count, flp_acc_count,
-                tr_dim_count, tr_dim_acc_count
+                tr_dim_count, tr_dim_acc_count,
+                suff_stats
             )
 end 
 
@@ -832,7 +837,8 @@ function (mcmc::SisIexInsertDeleteEdit{Int})(
     (
         edit_count, edit_acc_count, 
         flip_count, flip_acc_count,
-        trans_dim_count, trans_dim_acc_count
+        trans_dim_count, trans_dim_acc_count,
+        suff_stats
         ) = draw_sample_mode!(
             sample_out, 
             mcmc, 
@@ -852,9 +858,8 @@ function (mcmc::SisIexInsertDeleteEdit{Int})(
     output = SisPosteriorModeConditionalMcmcOutput(
             γ_fixed, 
             sample_out, 
-            posterior.dist, 
-            posterior.S_prior, 
-            posterior.data,
+            posterior, 
+            suff_stats,
             p_measures
             )
 
@@ -901,7 +906,6 @@ function draw_sample_gamma!(
         +, 
         posterior.data
         )
-
     # Initialise the aux_data 
     aux_model = SIS(
         S_curr, γ_curr, 
@@ -1005,8 +1009,7 @@ function (mcmc::SisIexInsertDeleteEdit{T})(
     output = SisPosteriorDispersionConditionalMcmcOutput(
             S_fixed, 
             sample_out, 
-            posterior.γ_prior,
-            posterior.data,
+            posterior,
             p_measures
             )
 
@@ -1168,6 +1171,7 @@ function draw_sample!(
         +, 
         posterior.data
         )
+    suff_stats = Float64[suff_stat_curr]
     # Get informed proposal matrix
     P, vmap, vmap_inv = get_informed_proposal_matrix(posterior, mcmc.α)
 
@@ -1189,6 +1193,7 @@ function draw_sample!(
             acc_count, count,
             suff_stat_curr
         )
+        push!(suff_stats, suff_stat_curr)
         # Update gamma 
         # ------------
         γ_curr, tmp =  accept_reject_gamma!(
@@ -1215,7 +1220,7 @@ function draw_sample!(
     flip_acc_prob = acc_count[2]/count[2]
     td_acc_prob = acc_count[3]/count[3]
     γ_acc_prob = γ_acc_count / sum(count)
-    return ed_acc_prob, flip_acc_prob, td_acc_prob, γ_acc_prob
+    return ed_acc_prob, flip_acc_prob, td_acc_prob, γ_acc_prob, suff_stats
 end 
 
 function draw_sample(
@@ -1258,7 +1263,7 @@ function (mcmc::SisIexInsertDeleteEdit)(
     sample_out_S = Vector{InteractionSequence{T}}(undef, desired_samples)
     sample_out_gamma = Vector{Float64}(undef, desired_samples)
 
-    ed_acc_prob, flip_acc_prob, td_acc_prob, γ_acc_prob = draw_sample!(
+    ed_acc_prob, flip_acc_prob, td_acc_prob, γ_acc_prob, suff_stats = draw_sample!(
         sample_out_S,
         sample_out_gamma, 
         mcmc, 
@@ -1279,6 +1284,7 @@ function (mcmc::SisIexInsertDeleteEdit)(
         sample_out_S, 
         sample_out_gamma, 
         posterior,
+        suff_stats,
         p_measures
     )
     

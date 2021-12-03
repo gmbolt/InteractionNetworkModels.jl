@@ -13,23 +13,22 @@ struct SisPosteriorMcmcOutput{T<:Union{Int,String}}
     S_sample::Vector{InteractionSequence{T}}
     γ_sample::Vector{Float64}
     posterior::SisPosterior{T}
+    suff_stat_trace::Vector{Float64}
     performace_measures::Dict
 end 
 
 struct SisPosteriorModeConditionalMcmcOutput{T<:Union{Int,String}}
     γ_fixed::Float64
     S_sample::Vector{Vector{Path{T}}}
-    dist::InteractionSeqDistance
-    S_prior::SIS{T}
-    data::Vector{Vector{Path{T}}}
+    posterior::SisPosterior{T}
+    suff_stat_trace::Vector{Float64}
     performance_measures::Dict
 end 
 
 struct SisPosteriorDispersionConditionalMcmcOutput{T<:Union{Int,String}}
     S_fixed::Vector{Path{T}}
     γ_sample::Vector{Float64}
-    γ_prior::ContinuousUnivariateDistribution
-    data::Vector{Vector{Path{T}}}
+    posterior::SisPosterior{T}
     performance_measures::Dict
 end 
 

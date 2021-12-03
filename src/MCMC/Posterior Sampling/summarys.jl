@@ -42,6 +42,7 @@ end
     output.γ_sample
 end 
 
+
 # ========
 #   SIM 
 # ========
