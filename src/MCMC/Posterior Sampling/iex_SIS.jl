@@ -4,7 +4,7 @@ export draw_sample_mode!, draw_sample_mode
 export draw_sample_gamma!, draw_sample_gamma
 export rand_multivariate_bernoulli, rand_multinomial_dict
 export flip!, multinomial_flip!, flip_informed!
-export rand_restr_bins
+export rand_restr_bins, flip_informed_excl!
 
 
 # NOTE μ_cusum must have 0.0 first entry, and for n bins μ_cusum must be of size n+1
@@ -222,63 +222,6 @@ function flip_informed!(
     return log_ratio
 end 
 
-# function flip_informed!(
-#     S_curr::InteractionSequence{T},
-#     S_prop::InteractionSequence{T},
-#     mcmc::SisIexInsertDeleteEdit{T},
-#     P::CumCondProbMatrix
-#     ) where {T<:Int}
-
-#     δ = rand(1:mcmc.ν_edit)  # Number of edits to enact 
-#     nc = cumsum(length.(S_curr))
-#     ind_flat = zeros(Int, δ)
-#     StatsBase.seqsample_a!(1:nc[end], ind_flat)
-#     ind = mcmc.ind_add
-#     ind_upd = mcmc.ind_update
-#     curr_path_ind = 0
-#     log_ratio = 0.0
-#     ind_count = 1
-#     path_count = 1
-#     for (is_first, i_outer) in IterTools.flagfirst(ind_flat)
-#         if is_first 
-#             curr_path_ind = findfirst(x->x>=i_outer, nc)
-#             entry_ind = i_outer - (curr_path_ind==1 ? 0 : nc[curr_path_ind-1])
-#             ind[ind_count] = entry_ind
-#             ind_count += 1
-#         else 
-#             path_ind = findfirst(x-> x>=i_outer, nc)
-#             if path_ind==curr_path_ind
-#                 entry_ind = i_outer - nc[path_ind-1]
-#                 ind[ind_count] = entry_ind
-#                 ind_count += 1 
-#             else 
-#                 ind_flip = view(ind, 1:(ind_count-1))
-#                 # println("We flip indices $ind_flip of the $(curr_path_ind)th path")
-#                 log_ratio += flip_informed!(
-#                     S_prop[curr_path_ind],
-#                     ind_flip,
-#                     P
-#                 )
-#                 ind_upd[path_count] = curr_path_ind
-#                 path_count += 1
-#                 curr_path_ind = path_ind 
-#                 entry_ind = i_outer - nc[path_ind-1]
-#                 ind_count = 1
-#                 ind[ind_count] = entry_ind
-#                 ind_count += 1
-#             end 
-#         end 
-#     end 
-#     ind_flip = view(ind, 1:(ind_count-1))
-#     log_ratio += flip_informed!(
-#                     S_prop[curr_path_ind],
-#                     ind_flip,
-#                     P
-#                 )
-#     # println("We flip indices $ind_flip of the $(curr_path_ind)th path")
-#     return log_ratio
-
-# end
 
 function flip_informed!(
     S_curr::InteractionSequence{T},
@@ -304,6 +247,62 @@ function flip_informed!(
 
 end
 
+function flip_informed_excl!(
+    x::Path, 
+    ind_flip::AbstractArray{Int},
+    P::CumCondProbMatrix
+    )
+
+    curr_vertices = unique(view(x, Not(ind_flip)))
+    if length(curr_vertices) == 0 
+        V = size(P)[2]
+        tmp = fill(1/V, V)
+        pushfirst!(tmp, 0.0)
+        μ_cusum = cumsum(tmp)
+    else 
+        μ_cusum = sum(P[:,curr_vertices], dims=2)[:] ./ length(curr_vertices)
+    end 
+    log_ratio = 0.0
+    for index in ind_flip 
+        curr_val = x[index]
+        prop_val = curr_val
+        prop_prob = 0.0
+        while prop_val == curr_val
+            prop_val, prop_prob = rand_multivariate_bernoulli(μ_cusum)
+        end 
+        x[index] = prop_val 
+        curr_prob = μ_cusum[curr_val+1]-μ_cusum[curr_val]
+        log_ratio += (
+            log(curr_prob) + log(1-curr_prob)
+            - log(prop_prob) - log(1-prop_prob)
+        )
+    end 
+    return log_ratio
+end 
+
+function flip_informed_excl!(
+    S_curr::InteractionSequence{T},
+    S_prop::InteractionSequence{T},
+    mcmc::SisIexInsertDeleteEdit{T},
+    P::CumCondProbMatrix
+    ) where {T<:Int}
+
+    δ = rand(1:mcmc.ν_edit)
+    alloc = rand_restr_bins(length.(S_curr), δ)
+    ind = mcmc.ind_add
+    log_ratio = 0.0
+
+    for (key,val) in pairs(alloc)
+        ind_flip = view(ind, 1:val)
+        log_ratio += flip_informed_excl!(
+            S_prop[key], 
+            ind_flip, 
+            P
+        ) 
+    end 
+    return log_ratio
+
+end
 
 function double_iex_multinomial_edit_accept_reject!(
     S_curr::InteractionSequence{T},
@@ -482,7 +481,6 @@ function double_iex_flip_accept_reject!(
     suff_stat_curr::Float64
     ) where {T<:Int}
     
-    N = length(S_curr)  
     dist = posterior.dist
     V = posterior.V
     data = posterior.data
@@ -503,7 +501,7 @@ function double_iex_flip_accept_reject!(
     for (key,val) in pairs(alloc)
         ind_flip = view(ind, 1:val)
         StatsBase.seqsample_a!(1:lengths[key], ind_flip)
-        log_ratio += flip_informed!(
+        log_ratio += flip_informed_excl!(
             S_prop[key], 
             ind_flip, 
             P
