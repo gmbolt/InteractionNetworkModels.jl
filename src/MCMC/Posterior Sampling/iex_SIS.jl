@@ -1,9 +1,10 @@
-using Distributions, StatsBase, ProgressMeter, InvertedIndices
+using Distributions, StatsBase, ProgressMeter, InvertedIndices, IterTools
 
 export draw_sample_mode!, draw_sample_mode
 export draw_sample_gamma!, draw_sample_gamma
-export rand_multivariate_bernoulli
-export flip!
+export rand_multivariate_bernoulli, rand_multinomial_dict
+export flip!, multinomial_flip!, flip_informed!
+export rand_restr_bins
 
 
 # NOTE μ_cusum must have 0.0 first entry, and for n bins μ_cusum must be of size n+1
@@ -18,6 +19,49 @@ function rand_multivariate_bernoulli(μ_cusum::Vector{Float64})
         end 
     end 
 end 
+
+function rand_multinomial_dict(μ_cusum::Vector{Float64}, ntrials::Int)
+    @assert μ_cusum[1] ≈ 0 "First entry must be 0.0 (for differencing to find probabilities)."
+    out = Dict{Int,Int}()
+    for i in 1:ntrials
+        β = rand()
+        j = findfirst(x->x>β, μ_cusum)
+        out[j-1] = get(out, j-1, 0) + 1
+    end 
+    return out
+end 
+
+function rand_restr_bins(
+    bins::Vector{Int},
+    n::Int
+    )
+    cum_bins = cumsum(bins)
+    @assert n <= cum_bins[end] "Cannot sample more than capacity of bins."
+    ind_flat = zeros(Int, n)
+    StatsBase.seqsample_a!(1:cum_bins[end], ind_flat)
+    out = Dict{Int,Int}()
+    for i in ind_flat 
+        j = findfirst(x->x>=i, cum_bins)
+        out[j] = get(out,j,0) + 1 
+    end 
+    return out
+end 
+
+function rand_restr_cum_bins(
+    cum_bins::Vector{Int},
+    n::Int
+    )
+    @assert n <= cum_bins[end] "Cannot sample more than capacity of bins."
+    ind_flat = zeros(Int, n)
+    StatsBase.seqsample_a!(1:cum_bins[end], ind_flat)
+    out = Dict{Int,Int}()
+    for i in ind_flat 
+        j = findfirst(x->x>=i, cum_bins)
+        out[j] = get(out,j,0) + 1 
+    end 
+    return out
+end 
+
 
 function imcmc_multi_insert_prop_sample!(
     S_curr::InteractionSequence{T}, 
@@ -110,30 +154,6 @@ function delete_insert_informed!(
     return log_ratio_entries
 end 
 
-function flip_informed!(
-    x::Path, 
-    ind_flip::AbstractArray{Int},
-    P::CumCondProbMatrix
-    )
-
-    curr_vertices = unique(view(x, Not(ind_flip)))
-    if length(curr_vertices) == 0 
-        V = size(P)[2]
-        tmp = fill(1/V, V)
-        pushfirst!(tmp, 0.0)
-        μ_cusum = cumsum(tmp)
-    else 
-        μ_cusum = sum(P[:,curr_vertices], dims=2)[:] ./ length(curr_vertices)
-    end 
-    log_ratio = 0.0
-    for index in ind_flip 
-        prop_val, prob = rand_multivariate_bernoulli(μ_cusum)
-        log_ratio += (
-            log(μ_cusum[curr_val+1]-μ_cusum[curr_val]) - log(prob) 
-        )
-    end 
-    return log_ratio
-end 
 
 function flip!(
     x::Path, 
@@ -175,6 +195,116 @@ function flip!(
     end 
 
 end 
+
+function flip_informed!(
+    x::Path, 
+    ind_flip::AbstractArray{Int},
+    P::CumCondProbMatrix
+    )
+
+    curr_vertices = unique(view(x, Not(ind_flip)))
+    if length(curr_vertices) == 0 
+        V = size(P)[2]
+        tmp = fill(1/V, V)
+        pushfirst!(tmp, 0.0)
+        μ_cusum = cumsum(tmp)
+    else 
+        μ_cusum = sum(P[:,curr_vertices], dims=2)[:] ./ length(curr_vertices)
+    end 
+    log_ratio = 0.0
+    for index in ind_flip 
+        curr_val = x[index]
+        x[index], prob = rand_multivariate_bernoulli(μ_cusum)
+        log_ratio += (
+            log(μ_cusum[curr_val+1]-μ_cusum[curr_val]) - log(prob) 
+        )
+    end 
+    return log_ratio
+end 
+
+# function flip_informed!(
+#     S_curr::InteractionSequence{T},
+#     S_prop::InteractionSequence{T},
+#     mcmc::SisIexInsertDeleteEdit{T},
+#     P::CumCondProbMatrix
+#     ) where {T<:Int}
+
+#     δ = rand(1:mcmc.ν_edit)  # Number of edits to enact 
+#     nc = cumsum(length.(S_curr))
+#     ind_flat = zeros(Int, δ)
+#     StatsBase.seqsample_a!(1:nc[end], ind_flat)
+#     ind = mcmc.ind_add
+#     ind_upd = mcmc.ind_update
+#     curr_path_ind = 0
+#     log_ratio = 0.0
+#     ind_count = 1
+#     path_count = 1
+#     for (is_first, i_outer) in IterTools.flagfirst(ind_flat)
+#         if is_first 
+#             curr_path_ind = findfirst(x->x>=i_outer, nc)
+#             entry_ind = i_outer - (curr_path_ind==1 ? 0 : nc[curr_path_ind-1])
+#             ind[ind_count] = entry_ind
+#             ind_count += 1
+#         else 
+#             path_ind = findfirst(x-> x>=i_outer, nc)
+#             if path_ind==curr_path_ind
+#                 entry_ind = i_outer - nc[path_ind-1]
+#                 ind[ind_count] = entry_ind
+#                 ind_count += 1 
+#             else 
+#                 ind_flip = view(ind, 1:(ind_count-1))
+#                 # println("We flip indices $ind_flip of the $(curr_path_ind)th path")
+#                 log_ratio += flip_informed!(
+#                     S_prop[curr_path_ind],
+#                     ind_flip,
+#                     P
+#                 )
+#                 ind_upd[path_count] = curr_path_ind
+#                 path_count += 1
+#                 curr_path_ind = path_ind 
+#                 entry_ind = i_outer - nc[path_ind-1]
+#                 ind_count = 1
+#                 ind[ind_count] = entry_ind
+#                 ind_count += 1
+#             end 
+#         end 
+#     end 
+#     ind_flip = view(ind, 1:(ind_count-1))
+#     log_ratio += flip_informed!(
+#                     S_prop[curr_path_ind],
+#                     ind_flip,
+#                     P
+#                 )
+#     # println("We flip indices $ind_flip of the $(curr_path_ind)th path")
+#     return log_ratio
+
+# end
+
+function flip_informed!(
+    S_curr::InteractionSequence{T},
+    S_prop::InteractionSequence{T},
+    mcmc::SisIexInsertDeleteEdit{T},
+    P::CumCondProbMatrix
+    ) where {T<:Int}
+
+    δ = rand(1:mcmc.ν_edit)
+    alloc = rand_restr_bins(length.(S_curr), δ)
+    ind = mcmc.ind_add
+    log_ratio = 0.0
+
+    for (key,val) in pairs(alloc)
+        ind_flip = view(ind, 1:val)
+        log_ratio += flip_informed!(
+            S_prop[key], 
+            ind_flip, 
+            P
+        ) 
+    end 
+    return log_ratio
+
+end
+
+
 function double_iex_multinomial_edit_accept_reject!(
     S_curr::InteractionSequence{T},
     S_prop::InteractionSequence{T},
@@ -312,7 +442,36 @@ function double_iex_multinomial_edit_accept_reject!(
     end 
 end 
 
-function double_iex_multinomial_flip_accept_reject!(
+# function multinomial_flip_test!(
+#     S_curr::InteractionSequence{T},
+#     S_prop::InteractionSequence{T},
+#     mcmc::SisIexInsertDeleteEdit{T},
+#     P::CumCondProbMatrix
+#     ) where {T<:Int}
+
+#     δ = rand(1:mcmc.ν_edit)  # Number of edits to enact 
+#     log_ratio = 0.0
+#     p_z = cumsum(length.(S_curr))
+#     p_z = p_z ./ p_z[end]
+#     pushfirst!(p_z,0.0)
+#     alloc = rand_multinomial_dict(p_z, δ)
+
+#     for (i,nflips) in pairs(alloc)
+#         ind_flip = view(mcmc.ind_add, 1:nflips)
+#         StatsBase.seqsample_a!(1:length(S_prop[i]), ind_flip)
+#         log_ratio += flip_informed!(
+#                 S_prop[i],
+#                 ind_flip,
+#                 P
+#             )
+#     end 
+    
+
+# end
+
+
+
+function double_iex_flip_accept_reject!(
     S_curr::InteractionSequence{T},
     S_prop::InteractionSequence{T},
     posterior::SisPosterior{T},
@@ -329,57 +488,26 @@ function double_iex_multinomial_flip_accept_reject!(
     data = posterior.data
     γ_prior = posterior.S_prior.γ 
     mode_prior = posterior.S_prior.mode
+    K_inner = posterior.K_inner
+    K_outer = posterior.K_outer
 
     aux_mcmc = mcmc.aux_mcmc
+    lengths = length.(S_curr)
 
-    δ = rand(1:mcmc.ν_edit)  # Number of edits to enact 
-    rem_edits = δ # Remaining edits to allocate
-    j = 0 # Keeps track how many interaction have been edited 
+    δ = rand(1:min(mcmc.ν_edit,sum(lengths)))
+    # @show δ, lengths
+    alloc = rand_restr_bins(lengths, δ)
+    ind = mcmc.ind_add
     log_ratio = 0.0
 
-    for i = 1:N
-
-        # If at end we just assign all remaining edits to final interaction 
-        if i == N 
-            δ_tmp = rem_edits
-        # Otherwise we sample the number of edits via rescaled Binomial 
-        else 
-            p = 1/(N-i+1)
-            δ_tmp = rand(Binomial(rem_edits, p)) # Number of edits to perform on ith interaction 
-        end 
-
-        # println("   Index $i getting $δ_tmp edits...")
-        # If we sampled zero edits we skip to next iteration 
-        if δ_tmp == 0
-            continue 
-        else
-            j += 1 # Increment j 
-            # Make flips .... 
-
-            @inbounds n=length(S_curr[i])
-
-            # Choose entries to flip
-            ind_flip = view(mcmc.ind_del, 1:δ_tmp)
-            StatsBase.seqsample_a!(1:n, ind_flip)
-
-            log_ratio += flip_informed!(
-                S_prop[i],
-                ind_flip, 
-                P
-            )
-
-            mcmc.ind_update[j] = i # Store which interaction was updated (for moving memory if accepted)
-            
-        end 
-
-        # Update rem_edits
-        rem_edits -= δ_tmp
-
-        # If no more left terminate 
-        if rem_edits == 0
-            break 
-        end 
-
+    for (key,val) in pairs(alloc)
+        ind_flip = view(ind, 1:val)
+        StatsBase.seqsample_a!(1:lengths[key], ind_flip)
+        log_ratio += flip_informed!(
+            S_prop[key], 
+            ind_flip, 
+            P
+        ) 
     end 
     
     aux_model = SIS(
@@ -411,12 +539,12 @@ function double_iex_multinomial_flip_accept_reject!(
 
     # Accept-reject step. Use info in mcmc.ind_update to know which interaction are to be copied over 
     if log(rand()) < log_α
-        for i in view(mcmc.ind_update, 1:j)
+        for i in keys(alloc)
             copy!(S_curr[i], S_prop[i])
         end
         return 1, suff_stat_prop
     else 
-        for i in view(mcmc.ind_update, 1:j)
+        for i in keys(alloc)
             copy!(S_prop[i], S_curr[i])
         end 
         return 0, suff_stat_curr
@@ -630,7 +758,7 @@ function draw_sample_mode!(
                 ed_acc_count += was_acc
                 ed_count += 1
             else 
-                was_acc, suff_stat_curr = double_iex_multinomial_edit_accept_reject!(
+                was_acc, suff_stat_curr = double_iex_flip_accept_reject!(
                     S_curr, S_prop, 
                     posterior, γ_curr,
                     mcmc, P, 
@@ -906,15 +1034,28 @@ function accept_reject_mode!(
     
     β = mcmc.β
     if rand() < β
-        was_accepted, suff_stat_curr = double_iex_multinomial_edit_accept_reject!(
-            S_curr, S_prop, 
-            posterior, γ_curr, 
-            mcmc, P, 
-            aux_data,
-            suff_stat_curr
-        )
-        acc_count[1] += was_accepted
-        count[1] += 1
+        if rand() < 0.5 
+            was_accepted, suff_stat_curr = double_iex_multinomial_edit_accept_reject!(
+                S_curr, S_prop, 
+                posterior, γ_curr, 
+                mcmc, P, 
+                aux_data,
+                suff_stat_curr
+            )
+            acc_count[1] += was_accepted
+            count[1] += 1
+        else 
+            was_accepted, suff_stat_curr = double_iex_flip_accept_reject!(
+                S_curr, S_prop, 
+                posterior, γ_curr, 
+                mcmc, P, 
+                aux_data,
+                suff_stat_curr
+            )
+            acc_count[2] += was_accepted
+            count[2] += 1
+        end 
+
     else 
         was_accepted, suff_stat_curr = double_iex_trans_dim_accept_reject!(
             S_curr, S_prop, 
@@ -923,8 +1064,8 @@ function accept_reject_mode!(
             aux_data,
             suff_stat_curr
         )
-        acc_count[2] += was_accepted 
-        count[2] += 1
+        acc_count[3] += was_accepted 
+        count[3] += 1
     end 
     return suff_stat_curr
 end 
@@ -1007,8 +1148,8 @@ function draw_sample!(
     sample_count = 1 # Keeps which sample to be stored we are working to get 
     i = 1 # Keeps track all samples (included lags and burn_ins) 
 
-    acc_count = [0,0]
-    count = [0,0]
+    acc_count = [0,0,0]
+    count = [0,0,0]
     γ_acc_count = 0
     γ_count = 0
 
@@ -1071,9 +1212,10 @@ function draw_sample!(
     end 
 
     ed_acc_prob = acc_count[1]/count[1]
-    td_acc_prob = acc_count[2]/count[2]
+    flip_acc_prob = acc_count[2]/count[2]
+    td_acc_prob = acc_count[3]/count[3]
     γ_acc_prob = γ_acc_count / sum(count)
-    return ed_acc_prob, td_acc_prob, γ_acc_prob
+    return ed_acc_prob, flip_acc_prob, td_acc_prob, γ_acc_prob
 end 
 
 function draw_sample(
@@ -1116,7 +1258,7 @@ function (mcmc::SisIexInsertDeleteEdit)(
     sample_out_S = Vector{InteractionSequence{T}}(undef, desired_samples)
     sample_out_gamma = Vector{Float64}(undef, desired_samples)
 
-    ed_acc_prob, td_acc_prob, γ_acc_prob = draw_sample!(
+    ed_acc_prob, flip_acc_prob, td_acc_prob, γ_acc_prob = draw_sample!(
         sample_out_S,
         sample_out_gamma, 
         mcmc, 
@@ -1129,6 +1271,7 @@ function (mcmc::SisIexInsertDeleteEdit)(
     p_measures = Dict(
             "Dipsersion acceptance probability" => γ_acc_prob,
             "Edit allocation acceptance probability" => ed_acc_prob,
+            "Flip allocation acceptance probability" => flip_acc_prob,
             "Trans-dimensional acceptance probability" => td_acc_prob
         )
 
