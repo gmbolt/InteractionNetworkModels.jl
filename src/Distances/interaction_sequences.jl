@@ -261,7 +261,7 @@ end
 # Standard 
 # --------
 struct DTW <:InteractionSeqDistance
-    ground_dist::InteractionSeqDistance
+    ground_dist::InteractionDistance
 end
 
 function (d::DTW)(
