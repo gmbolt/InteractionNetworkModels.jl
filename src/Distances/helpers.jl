@@ -1,4 +1,4 @@
-using Distances
+using Distances, StatsBase
 
 # Here we simply extend the pairwise() and pairwise!() functions of the Distances.jl package. 
 
@@ -71,4 +71,16 @@ function Distances.pairwise(
         end
     end
     return D
+end
+
+function StatsBase.counts(
+    data::Vector{String},
+    ref::Vector{String}
+    )
+    out = zeros(Int,length(ref))
+    for v in data 
+        ind = findfirst(x->x==v,ref)
+        out[ind] += 1
+    end 
+    return out 
 end
