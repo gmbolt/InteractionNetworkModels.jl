@@ -249,7 +249,7 @@ struct OuterDimensionPredictive
 end 
 
 function draw_sample!(
-    out::Vector{Int},
+    out::Vector{Float64},
     mcmc::SisMcmcSampler,
     predictive::MeanInnerDimensionPredictive
     )
@@ -296,7 +296,7 @@ function draw_sample!(
 end 
 
 function draw_sample!(
-    out::Vector{Vector{Int}},
+    out::Vector{Vector{Float64}},
     mcmc::SisMcmcSampler,
     predictive::MeanInnerDimensionPredictive
     )
@@ -343,7 +343,25 @@ end
 
 function draw_sample(
     mcmc::SisMcmcSampler, 
-    predictive::Union{MeanInnerDimensionPredictive,OuterDimensionPredictive};
+    predictive::Union{MeanInnerDimensionPredictive};
+    n_samples::Int=500,  # Number of draws from the posterior 
+    n_reps::Int=100  # Number of draws from predictive at sampled parameters 
+    )
+
+    if n_reps == 1 
+        out = zeros(n_samples)
+    else 
+        out = [zeros(n_reps) for i in 1:n_samples]
+    end 
+    
+    draw_sample!(out, mcmc, predictive)
+
+    return out 
+end 
+
+function draw_sample(
+    mcmc::SisMcmcSampler, 
+    predictive::Union{OuterDimensionPredictive};
     n_samples::Int=500,  # Number of draws from the posterior 
     n_reps::Int=100  # Number of draws from predictive at sampled parameters 
     )
