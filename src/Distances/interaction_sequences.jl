@@ -18,7 +18,7 @@ function (d::EditDistance)(S1::InteractionSequence{T}, S2::InteractionSequence{T
         d(S2, S1)
     else
         d₀ = d.ground_dist
-        prev_row = pushfirst!(cumsum([d₀(T[], p) for p in S2]), 0.0);
+        prev_row = pushfirst!(cumsum([d₀(nothing, p) for p in S2]), 0.0);
         curr_row = zeros(Float64, length(S2) + 1);
 
         for i = 1:length(S1)
