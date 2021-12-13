@@ -4,7 +4,7 @@ export PathDistribution, PathPseudoUniform, PathCooccurrence
 
 abstract type PathDistribution end 
 
-struct PathPseudoUniform
+struct PathPseudoUniform <: PathDistribution
     vertex_set::UnitRange{Int}
     length_dist::DiscreteUnivariateDistribution
 end 

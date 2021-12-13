@@ -223,12 +223,12 @@ struct SisMcmcInsertDeleteGibbs<: SisMcmcSampler
     vals::Vector{Int} # Storage for valuse to insert in Gibbs scan
     ind_trans_dim::Vector{Int} # Storage of where to insert/delete 
     function SisMcmcInsertDeleteGibbs(
-        path_dist::PathDistribution;
+        path_dist::T;
         K=100,
         ν_gibbs=4, ν_trans_dim=2,  β=0.6,
         desired_samples=1000, lag=1, burn_in=0,
         init=SisInitMode()
-        ) 
+        ) where {T<:PathDistribution}
         curr_pointers = [Int[] for i in 1:K]
         prop_pointers = [Int[] for i in 1:K]
         ind_del = zeros(Int, ν_gibbs)
@@ -302,7 +302,7 @@ struct SisMcmcInsertDeleteEdit <: SisMcmcSampler
         K=100,
         ν_edit=2, ν_trans_dim=2, β=0.4,
         desired_samples=1000, lag=1, burn_in=0, init=SisInitMode()
-        )
+        ) 
         curr_pointers = [Int[] for i in 1:K]
         prop_pointers = [Int[] for i in 1:K]
         ind_del = zeros(Int, ν_edit)
