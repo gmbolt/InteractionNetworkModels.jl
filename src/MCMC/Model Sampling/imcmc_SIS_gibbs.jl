@@ -1,18 +1,17 @@
 using Distributions, StatsBase, Distributed
 
-export draw_sample, draw_sample!, rand_multinomial_init
- 
+export draw_sample, draw_sample!, rand_multinomial_init 
 
 # Gibbs Move 
 # ----------
 
 function imcmc_gibbs_update!(
-    S_curr::InteractionSequence{T},
-    S_prop::InteractionSequence{T},
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int},
     i::Int,
-    model::SIS{T}, 
-    mcmc::SisMcmcInsertDeleteGibbs{T}
-    ) where {T<:Union{Int, String}}
+    model::SIS, 
+    mcmc::SisMcmcInsertDeleteGibbs
+    ) 
     # S_prop = copy(S_curr)
 
     # @inbounds m = rand_reflect(length(curr[i]), ν, 1, model.K_inner)
@@ -69,11 +68,11 @@ end
 
 
 function imcmc_gibbs_scan!(
-    S_curr::InteractionSequence{T},
-    S_prop::InteractionSequence{T},
-    model::SIS{T}, 
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int},
+    model::SIS, 
     mcmc::SisMcmcInsertDeleteGibbs
-    ) where {T<:Union{Int, String}} 
+    )
     count = 0
     N = length(S_curr)
     for i = 1:N
@@ -86,13 +85,13 @@ end
 # -----------------
 
 function draw_sample!(
-    sample_out::Union{InteractionSequenceSample{T}, SubArray},
+    sample_out::Union{InteractionSequenceSample{Int}, SubArray},
     mcmc::SisMcmcInsertDeleteGibbs,
-    model::SIS{T};
+    model::SIS;
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=get_init(model, mcmc.init)
-    ) where {T<:Union{Int,String}}
+    init::InteractionSequence{Int}=get_init(model, mcmc.init)
+    ) 
 
     # Define aliases for pointers to the storage of current vals and proposals
     curr_pointers = mcmc.curr_pointers
@@ -120,8 +119,8 @@ function draw_sample!(
     tr_dim_acc_count = 0
 
     # Bounds for uniform sampling
-    lb(x::Vector{Path{T}}) = max(1, length(x) - 1 )
-    ub(x::Vector{Path{T}}) = min(model.K_outer, length(x) + 1)
+    lb(x::Vector{Path{Int}}) = max(1, length(x) - 1 )
+    ub(x::Vector{Path{Int}}) = min(model.K_outer, length(x) + 1)
 
 
     while sample_count ≤ length(sample_out)
@@ -161,14 +160,14 @@ function draw_sample!(
 end 
 
 function draw_sample(
-    mcmc::SisMcmcInsertDeleteGibbs{T},
-    model::SIS{T};
+    mcmc::SisMcmcInsertDeleteGibbs,
+    model::SIS;
     desired_samples::Int=mcmc.desired_samples, 
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=get_init(model, mcmc.init)
-    ) where {T<:Union{Int,String}} 
-    sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
+    init::Vector{Path{Int}}=get_init(model, mcmc.init)
+    )
+    sample_out = Vector{Vector{Path{Int}}}(undef, desired_samples)
     # @show sample_out
     draw_sample!(sample_out, mcmc, model, burn_in=burn_in, lag=lag, init=init)
     return sample_out
@@ -176,15 +175,15 @@ function draw_sample(
 end 
 
 
-function (mcmc::SisMcmcInsertDeleteGibbs{T})(
-    model::SIS{T};
+function (mcmc::SisMcmcInsertDeleteGibbs)(
+    model::SIS;
     desired_samples::Int=mcmc.desired_samples, 
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=get_init(model, mcmc.init)
-    ) where {T<:Union{Int,String}}
+    init::Vector{Path{Int}}=get_init(model, mcmc.init)
+    ) 
 
-    sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
+    sample_out = Vector{Vector{Path{Int}}}(undef, desired_samples)
     # @show sample_out
     (
         gibbs_tot_count, 

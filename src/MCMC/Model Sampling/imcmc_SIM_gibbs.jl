@@ -1,12 +1,12 @@
 using Distributions, StatsBase
 
 function InteractionNetworkModels.imcmc_gibbs_update!(
-    S_curr::InteractionSequence{T},
-    S_prop::InteractionSequence{T},
+    S_curr::InteractionSequence,
+    S_prop::InteractionSequence,
     i::Int,
-    model::SIM{T}, 
-    mcmc::SimMcmcInsertDeleteGibbs{T}
-    ) where {T<:Union{Int, String}}
+    model::SIM, 
+    mcmc::SimMcmcInsertDeleteGibbs
+    )
 
     @inbounds n = length(S_curr[i])
     δ = rand(1:mcmc.ν)
@@ -55,11 +55,11 @@ function InteractionNetworkModels.imcmc_gibbs_update!(
 end 
 
 function InteractionNetworkModels.imcmc_gibbs_scan!(
-    S_curr::InteractionSequence{T},
-    S_prop::InteractionSequence{T},
-    model::SIM{T}, 
+    S_curr::InteractionSequence,
+    S_prop::InteractionSequence,
+    model::SIM, 
     mcmc::SimMcmcInsertDeleteGibbs
-    ) where {T<:Union{Int, String}} 
+    ) 
     count = 0
     N = length(S_curr)
     for i = 1:N
@@ -69,13 +69,13 @@ function InteractionNetworkModels.imcmc_gibbs_scan!(
 end
 
 function InteractionNetworkModels.draw_sample!(
-    sample_out::InteractionSequenceSample{T},
+    sample_out::InteractionSequenceSample{Int},
     mcmc::SimMcmcInsertDeleteGibbs,
-    model::SIM{T};
+    model::SIM;
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=model.mode
-    ) where {T<:Union{Int,String}}
+    init::InteractionSequence{Int}=model.mode
+    )
 
     # Define aliases for pointers to the storage of current vals and proposals
     curr_pointers = mcmc.curr_pointers
@@ -104,8 +104,8 @@ function InteractionNetworkModels.draw_sample!(
     # is_insert = false
 
     # Bounds for uniform sampling
-    lb(x::Vector{Path{T}}) = max(1, length(x) - 1 )
-    ub(x::Vector{Path{T}}) = min(model.K_outer, length(x) + 1)
+    lb(x::Vector{Path{Int}}) = max(1, length(x) - 1 )
+    ub(x::Vector{Path{Int}}) = min(model.K_outer, length(x) + 1)
 
     # prob gibbs (effectively with ϵ=1)
     prob_gibbs = 1/(2+1) + mcmc.β
@@ -211,17 +211,17 @@ function InteractionNetworkModels.draw_sample!(
 end 
 
 function InteractionNetworkModels.draw_sample(
-    mcmc::SimMcmcInsertDeleteGibbs{T},
-    model::SIM{T};
+    mcmc::SimMcmcInsertDeleteGibbs,
+    model::SIM;
     desired_samples::Int=mcmc.desired_samples, 
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=model.mode
-    ) where {T<:Union{Int,String}}
+    init::InteractionSequence{Int}=model.mode
+    ) 
 
 
 
-    sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
+    sample_out = InteractionSequenceSample{Int}(undef, desired_samples)
     (
         count, 
         acc_count, 

@@ -9,26 +9,26 @@ export print_map_est
 #    SIS 
 # ==========
 
-struct SisPosteriorMcmcOutput{T<:Union{Int,String}}
-    S_sample::Vector{InteractionSequence{T}}
+struct SisPosteriorMcmcOutput
+    S_sample::Vector{InteractionSequence{Int}}
     γ_sample::Vector{Float64}
-    posterior::SisPosterior{T}
+    posterior::SisPosterior
     suff_stat_trace::Vector{Float64}
     performace_measures::Dict
 end 
 
-struct SisPosteriorModeConditionalMcmcOutput{T<:Union{Int,String}}
+struct SisPosteriorModeConditionalMcmcOutput
     γ_fixed::Float64
-    S_sample::Vector{Vector{Path{T}}}
-    posterior::SisPosterior{T}
+    S_sample::Vector{Vector{Path{Int}}}
+    posterior::SisPosterior
     suff_stat_trace::Vector{Float64}
     performance_measures::Dict
 end 
 
-struct SisPosteriorDispersionConditionalMcmcOutput{T<:Union{Int,String}}
-    S_fixed::Vector{Path{T}}
+struct SisPosteriorDispersionConditionalMcmcOutput
+    S_fixed::Vector{Path{Int}}
     γ_sample::Vector{Float64}
-    posterior::SisPosterior{T}
+    posterior::SisPosterior
     performance_measures::Dict
 end 
 
@@ -37,27 +37,27 @@ end
 #    SIM 
 # ==========
 
-struct SimPosteriorMcmcOutput{T<:Union{Int,String}}
-    S_sample::Vector{InteractionSequence{T}}
+struct SimPosteriorMcmcOutput
+    S_sample::Vector{InteractionSequence{Int}}
     γ_sample::Vector{Float64}
-    posterior::SimPosterior{T}
+    posterior::SimPosterior
     performace_measures::Dict
 end 
 
-struct SimPosteriorModeConditionalMcmcOutput{T<:Union{Int,String}}
+struct SimPosteriorModeConditionalMcmcOutput
     γ_fixed::Float64
-    S_sample::Vector{Vector{Path{T}}}
+    S_sample::Vector{Vector{Path{Int}}}
     dist::InteractionSetDistance
-    S_prior::SIM{T}
-    data::Vector{Vector{Path{T}}}
+    S_prior::SIM
+    data::Vector{Vector{Path{Int}}}
     performance_measures::Dict
 end 
 
-struct SimPosteriorDispersionConditionalMcmcOutput{T<:Union{Int,String}}
-    S_fixed::Vector{Path{T}}
+struct SimPosteriorDispersionConditionalMcmcOutput
+    S_fixed::Vector{Path{Int}}
     γ_sample::Vector{Float64}
     γ_prior::ContinuousUnivariateDistribution
-    data::Vector{Vector{Path{T}}}
+    data::Vector{Vector{Path{Int}}}
     performance_measures::Dict
 end 
 

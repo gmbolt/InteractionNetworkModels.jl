@@ -1,15 +1,15 @@
 export SisMcmcOutput, SimMcmcOutput, SpfMcmcOutput
 
 
-struct SisMcmcOutput{T<:Union{Int, String}}
-    model::SIS{T} # The model from which the sample was drawn
-    sample::Vector{Vector{Path{T}}}  # The sample
+struct SisMcmcOutput
+    model::SIS # The model from which the sample was drawn
+    sample::Vector{Vector{Path{Int}}}  # The sample
     performance_measures::Dict  # Dictionary of performance measures key => value, e.g. "acceptance probability" => 0.25
 end 
 
-struct SimMcmcOutput{T<:Union{Int, String}}
-    model::SIM{T}
-    sample::Vector{Vector{Path{T}}}  # The sample
+struct SimMcmcOutput
+    model::SIM
+    sample::Vector{Vector{Path{Int}}}  # The sample
     performance_measures::Dict  # Dictionary of performance measures key => value, e.g. "acceptance probability" => 0.25
 end 
 

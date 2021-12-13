@@ -5,27 +5,27 @@ export SpfPosterior, log_eval, get_length_dist
 
 # SIS 
 
-struct SisPosterior{T<:Union{Int, String}}
-    data::Vector{Vector{Path{T}}}
-    S_prior::SIS{T}
+struct SisPosterior
+    data::InteractionSequenceSample{Int}
+    S_prior::SIS
     γ_prior::ContinuousUnivariateDistribution
     dist::InteractionSeqDistance
-    V::Vector{T}
+    V::AbstractArray{Int}
     K_inner::Real
     K_outer::Real
     sample_size::Int
     function SisPosterior(
-        data::Vector{Vector{Path{S}}},
-        S_prior::SIS{S}, 
+        data::InteractionSequenceSample{Int},
+        S_prior::SIS, 
         γ_prior::ContinuousUnivariateDistribution
-        ) where {S<:Union{Int, String}}
+        ) 
 
         dist = S_prior.dist
         V = S_prior.V
         K_inner = S_prior.K_inner
         K_outer = S_prior.K_outer
         sample_size = length(data)
-        new{S}(data, S_prior, γ_prior, dist, V, K_inner, K_outer, sample_size)
+        new(data, S_prior, γ_prior, dist, V, K_inner, K_outer, sample_size)
     end 
 end 
 
@@ -33,27 +33,27 @@ end
 
 # SIM 
 
-struct SimPosterior{T<:Union{Int, String}}
-    data::Vector{Vector{Path{T}}}
-    S_prior::SIM{T}
+struct SimPosterior
+    data::InteractionSequenceSample{Int}
+    S_prior::SIM
     γ_prior::ContinuousUnivariateDistribution
     dist::InteractionSetDistance
-    V::Vector{T}
+    V::AbstractArray{Int}
     K_inner::Real
     K_outer::Real
     sample_size::Int
     function SimPosterior(
-        data::Vector{Vector{Path{S}}},
-        S_prior::SIM{S}, 
+        data::InteractionSequenceSample{Int},
+        S_prior::SIM, 
         γ_prior::ContinuousUnivariateDistribution
-        ) where {S<:Union{Int, String}}
+        )
 
         dist = S_prior.dist
         V = S_prior.V
         K_inner = S_prior.K_inner
         K_outer = S_prior.K_outer
         sample_size = length(data)
-        new{S}(data, S_prior, γ_prior, dist, V, K_inner, K_outer, sample_size)
+        new(data, S_prior, γ_prior, dist, V, K_inner, K_outer, sample_size)
     end 
 end 
 

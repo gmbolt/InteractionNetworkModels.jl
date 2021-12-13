@@ -64,11 +64,11 @@ end
 
 
 function imcmc_multi_insert_prop_sample!(
-    S_curr::InteractionSequence{T}, 
-    S_prop::InteractionSequence{T},
-    mcmc::SisIexInsertDeleteEdit{T},
-    ind::AbstractVector{T}
-    ) where {T<:Union{Int, String}}
+    S_curr::InteractionSequence{Int}, 
+    S_prop::InteractionSequence{Int},
+    mcmc::SisIexInsertDeleteEdit,
+    ind::AbstractVector{Int}
+    ) 
 
     prop_pointers = mcmc.prop_pointers
     ν_trans_dim = mcmc.ν_trans_dim
@@ -87,11 +87,11 @@ function imcmc_multi_insert_prop_sample!(
 end 
 
 function imcmc_multi_delete_prop_sample!(
-    S_curr::InteractionSequence{T}, 
-    S_prop::InteractionSequence{T}, 
-    mcmc::SisIexInsertDeleteEdit{T},
-    ind::AbstractVector{T}
-    ) where {T<:Union{Int,String}}
+    S_curr::InteractionSequence{Int}, 
+    S_prop::InteractionSequence{Int}, 
+    mcmc::SisIexInsertDeleteEdit,
+    ind::AbstractVector{Int}
+    ) 
 
     prop_pointers = mcmc.prop_pointers
     ν_trans_dim = mcmc.ν_trans_dim
@@ -224,11 +224,11 @@ end
 
 
 function flip_informed!(
-    S_curr::InteractionSequence{T},
-    S_prop::InteractionSequence{T},
-    mcmc::SisIexInsertDeleteEdit{T},
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int},
+    mcmc::SisIexInsertDeleteEdit,
     P::CumCondProbMatrix
-    ) where {T<:Int}
+    ) 
 
     δ = rand(1:mcmc.ν_edit)
     alloc = rand_restr_bins(length.(S_curr), δ)
@@ -281,11 +281,11 @@ function flip_informed_excl!(
 end 
 
 function flip_informed_excl!(
-    S_curr::InteractionSequence{T},
-    S_prop::InteractionSequence{T},
-    mcmc::SisIexInsertDeleteEdit{T},
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int},
+    mcmc::SisIexInsertDeleteEdit,
     P::CumCondProbMatrix
-    ) where {T<:Int}
+    ) 
 
     δ = rand(1:mcmc.ν_edit)
     alloc = rand_restr_bins(length.(S_curr), δ)
@@ -305,15 +305,15 @@ function flip_informed_excl!(
 end
 
 function double_iex_multinomial_edit_accept_reject!(
-    S_curr::InteractionSequence{T},
-    S_prop::InteractionSequence{T},
-    posterior::SisPosterior{T},
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int},
+    posterior::SisPosterior,
     γ_curr::Float64,
-    mcmc::SisIexInsertDeleteEdit{T},
+    mcmc::SisIexInsertDeleteEdit,
     P::CumCondProbMatrix,
-    aux_data::InteractionSequenceSample{T},
+    aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64
-    ) where {T<:Int}
+    )
     
     N = length(S_curr)  
     dist = posterior.dist
@@ -442,9 +442,9 @@ function double_iex_multinomial_edit_accept_reject!(
 end 
 
 # function multinomial_flip_test!(
-#     S_curr::InteractionSequence{T},
-#     S_prop::InteractionSequence{T},
-#     mcmc::SisIexInsertDeleteEdit{T},
+#     S_curr::InteractionSequence{Int},
+#     S_prop::InteractionSequence{Int},
+#     mcmc::SisIexInsertDeleteEdit,
 #     P::CumCondProbMatrix
 #     ) where {T<:Int}
 
@@ -471,15 +471,15 @@ end
 
 
 function double_iex_flip_accept_reject!(
-    S_curr::InteractionSequence{T},
-    S_prop::InteractionSequence{T},
-    posterior::SisPosterior{T},
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int},
+    posterior::SisPosterior,
     γ_curr::Float64,
-    mcmc::SisIexInsertDeleteEdit{T},
+    mcmc::SisIexInsertDeleteEdit,
     P::CumCondProbMatrix,
-    aux_data::InteractionSequenceSample{T},
+    aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64
-    ) where {T<:Int}
+    ) 
     
     dist = posterior.dist
     V = posterior.V
@@ -551,14 +551,14 @@ function double_iex_flip_accept_reject!(
 end 
 
 function double_iex_trans_dim_accept_reject!(
-    S_curr::InteractionSequence{T},
-    S_prop::InteractionSequence{T},
-    posterior::SisPosterior{T}, 
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int},
+    posterior::SisPosterior, 
     γ_curr::Float64,
-    mcmc::SisIexInsertDeleteEdit{T},
-    aux_data::InteractionSequenceSample{T},
+    mcmc::SisIexInsertDeleteEdit,
+    aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64
-    )  where {T<:Union{Int, String}}
+    ) 
     
     K_inner = posterior.K_inner
     K_outer = posterior.K_outer
@@ -674,15 +674,15 @@ end
 # ----------------
 
 function draw_sample_mode!(
-    sample_out::Union{InteractionSequenceSample{T}, SubArray},
-    mcmc::SisIexInsertDeleteEdit{T},
-    posterior::SisPosterior{T},
+    sample_out::Union{InteractionSequenceSample{Int}, SubArray},
+    mcmc::SisIexInsertDeleteEdit,
+    posterior::SisPosterior,
     γ_fixed::Float64;
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    S_init::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist),
+    S_init::Vector{Path{Int}}=sample_frechet_mean(posterior.data, posterior.dist),
     loading_bar::Bool=true
-    ) where {T<:Union{Int,String}}
+    ) 
 
     if loading_bar
         iter = Progress(
@@ -718,7 +718,7 @@ function draw_sample_mode!(
     flp_count = 0
     flp_acc_count = 0
 
-    aux_data = [[T[]] for i in 1:posterior.sample_size]
+    aux_data = [[Int[]] for i in 1:posterior.sample_size]
     # Initialise the aux_data 
     aux_model = SIS(
         S_curr, γ_curr, 
@@ -799,17 +799,17 @@ function draw_sample_mode!(
 end 
 
 function draw_sample_mode(
-    mcmc::SisIexInsertDeleteEdit{T},
-    posterior::SisPosterior{T},
+    mcmc::SisIexInsertDeleteEdit,
+    posterior::SisPosterior,
     γ_fixed::Float64;
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    S_init::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist),
+    S_init::Vector{Path{Int}}=sample_frechet_mean(posterior.data, posterior.dist),
     loading_bar::Bool=true
-    ) where {T<:Union{Int,String}}
+    ) 
 
-    sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
+    sample_out = Vector{Vector{Path{Int}}}(undef, desired_samples)
     draw_sample_mode!(
         sample_out, 
         mcmc, posterior, 
@@ -821,16 +821,16 @@ function draw_sample_mode(
 
 end 
 
-function (mcmc::SisIexInsertDeleteEdit{Int})(
-    posterior::SisPosterior{T}, 
+function (mcmc::SisIexInsertDeleteEdit)(
+    posterior::SisPosterior, 
     γ_fixed::Float64;
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    S_init::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist),
+    S_init::Vector{Path{Int}}=sample_frechet_mean(posterior.data, posterior.dist),
     loading_bar::Bool=true
-    ) where {T<:Union{Int,String}}
-    sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
+    ) 
+    sample_out = Vector{Vector{Path{Int}}}(undef, desired_samples)
 
     (
         edit_count, edit_acc_count, 
@@ -870,14 +870,14 @@ end
 
 function draw_sample_gamma!(
     sample_out::Union{Vector{Float64}, SubArray},
-    mcmc::SisIexInsertDeleteEdit{T},
-    posterior::SisPosterior{T},
-    S_fixed::InteractionSequence{T};
+    mcmc::SisIexInsertDeleteEdit,
+    posterior::SisPosterior,
+    S_fixed::InteractionSequence{Int};
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
     γ_init::Float64=4.0,
     loading_bar::Bool=true
-    ) where {T<:Union{Int,String}}
+    )
 
     if loading_bar
         iter = Progress(
@@ -896,7 +896,7 @@ function draw_sample_gamma!(
 
     S_curr = deepcopy(S_fixed)
     γ_curr = γ_init
-    aux_data = [[T[]] for i in 1:posterior.sample_size]
+    aux_data = [[Int[]] for i in 1:posterior.sample_size]
 
     # Evaluate sufficient statistic
     suff_stat = mapreduce(
@@ -954,15 +954,15 @@ function draw_sample_gamma!(
 end 
 
 function draw_sample_gamma(
-    mcmc::SisIexInsertDeleteEdit{T},
-    posterior::SisPosterior{T},
-    S_fixed::InteractionSequence{T};
+    mcmc::SisIexInsertDeleteEdit,
+    posterior::SisPosterior,
+    S_fixed::InteractionSequence{Int};
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
     γ_init::Float64,
     loading_bar::Bool=true
-    ) where {T<:Union{Int,String}}
+    ) 
 
     sample_out = Vector{Float64}(undef, desired_samples)
     draw_sample_gamme!(
@@ -977,15 +977,15 @@ function draw_sample_gamma(
 end 
 
 
-function (mcmc::SisIexInsertDeleteEdit{T})(
-    posterior::SisPosterior{T}, 
-    S_fixed::InteractionSequence{T};
+function (mcmc::SisIexInsertDeleteEdit)(
+    posterior::SisPosterior, 
+    S_fixed::InteractionSequence{Int};
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
     γ_init::Float64=5.0,
     loading_bar::Bool=true
-    ) where {T<:Union{Int,String}}
+    ) 
 
     sample_out = Vector{Float64}(undef, desired_samples)
 
@@ -1021,17 +1021,17 @@ end
 # Mode accept-reject 
 
 function accept_reject_mode!(
-    S_curr::InteractionSequence{T},
-    S_prop::InteractionSequence{T},
-    posterior::SisPosterior{T},
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int},
+    posterior::SisPosterior,
     γ_curr::Float64, 
-    mcmc::SisIexInsertDeleteEdit{T},
+    mcmc::SisIexInsertDeleteEdit,
     P::CumCondProbMatrix,
-    aux_data::InteractionSequenceSample{T},
+    aux_data::InteractionSequenceSample{Int},
     acc_count::Vector{Int},
     count::Vector{Int},
     suff_stat_curr::Float64
-    ) where {T<:Union{Int,String}}
+    )
     
     β = mcmc.β
     if rand() < β
@@ -1073,12 +1073,12 @@ end
 
 function accept_reject_gamma!(
     γ_curr::Float64,
-    S_curr::InteractionSequence{T},
-    posterior::SisPosterior{T},
-    mcmc::SisIexInsertDeleteEdit{T},
-    aux_data::InteractionSequenceSample{T},
+    S_curr::InteractionSequence{Int},
+    posterior::SisPosterior,
+    mcmc::SisIexInsertDeleteEdit,
+    aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64
-    ) where {T<:Union{Int,String}}
+    ) 
 
     ε = mcmc.ε
     aux_mcmc = mcmc.aux_mcmc
@@ -1113,16 +1113,16 @@ end
 
 
 function draw_sample!(
-    sample_out_S::Union{InteractionSequenceSample{T},SubArray},
+    sample_out_S::Union{InteractionSequenceSample{Int},SubArray},
     sample_out_gamma::Union{Vector{Float64},SubArray},
-    mcmc::SisIexInsertDeleteEdit{T},
-    posterior::SisPosterior{T};
+    mcmc::SisIexInsertDeleteEdit,
+    posterior::SisPosterior;
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    S_init::Vector{Path{T}}=sample_frechet_mean(posterior.data, posterior.dist),
+    S_init::Vector{Path{Int}}=sample_frechet_mean(posterior.data, posterior.dist),
     γ_init::Float64=5.0,
     loading_bar::Bool=true
-    ) where {T<:Union{Int,String}}
+    )
 
     if loading_bar
         iter = Progress(
@@ -1154,7 +1154,7 @@ function draw_sample!(
     γ_acc_count = 0
     γ_count = 0
 
-    aux_data = [[T[]] for i in 1:posterior.sample_size]
+    aux_data = [[Int[]] for i in 1:posterior.sample_size]
     # Initialise the aux_data 
     aux_model = SIS(
         S_curr, γ_curr, 
@@ -1222,17 +1222,17 @@ function draw_sample!(
 end 
 
 function draw_sample(
-    mcmc::SisIexInsertDeleteEdit{T},
-    posterior::SisPosterior{T};
+    mcmc::SisIexInsertDeleteEdit,
+    posterior::SisPosterior;
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    S_init::InteractionSequence{T}=sample_frechet_mean(posterior.data, posterior.dist),
+    S_init::InteractionSequence{Int}=sample_frechet_mean(posterior.data, posterior.dist),
     γ_init::Float64=5.0,
     loading_bar::Bool=true
-    ) where {T<:Union{Int,String}}
+    )
 
-    sample_out_S = Vector{InteractionSequence{T}}(undef, desired_samples)
+    sample_out_S = Vector{InteractionSequence}(undef, desired_samples)
     sample_out_gamma = Vector{Float64}(undef, desired_samples)
 
     draw_sample!(
@@ -1249,16 +1249,16 @@ function draw_sample(
 end 
 
 function (mcmc::SisIexInsertDeleteEdit)(
-    posterior::SisPosterior{T};
+    posterior::SisPosterior;
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    S_init::InteractionSequence{T}=sample_frechet_mean(posterior.data, posterior.dist),
+    S_init::InteractionSequence{Int}=sample_frechet_mean(posterior.data, posterior.dist),
     γ_init::Float64=5.0,
     loading_bar::Bool=true
-    ) where {T<:Union{Int,String}}
+    ) 
 
-    sample_out_S = Vector{InteractionSequence{T}}(undef, desired_samples)
+    sample_out_S = Vector{InteractionSequence}(undef, desired_samples)
     sample_out_gamma = Vector{Float64}(undef, desired_samples)
 
     ed_acc_prob, flip_acc_prob, td_acc_prob, γ_acc_prob, suff_stats = draw_sample!(

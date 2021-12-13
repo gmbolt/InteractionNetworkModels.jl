@@ -25,7 +25,7 @@ end
 function pred_missing(
     S::InteractionSequence{Int},
     ind::Tuple{Int,Int},
-    mcmc_post_out::SisPosteriorMcmcOutput{Int}
+    mcmc_post_out::SisPosteriorMcmcOutput
     )
 
     posterior = mcmc_post_out.posterior
@@ -60,7 +60,7 @@ end
 function pred_missing(
     S::InteractionSequence{Int},
     ind::Tuple{Int,Int},
-    model::SIS{Int}
+    model::SIS
     )
 
     d, γ = (model.dist, model.γ)

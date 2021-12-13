@@ -5,9 +5,9 @@ using RecipesBase, Measures
 # =======
 
 @recipe function f(
-    output::SisPosteriorMcmcOutput{T},
-    S_true::InteractionSequence{T}
-    ) where {T<:Union{Int, String}}
+    output::SisPosteriorMcmcOutput,
+    S_true::InteractionSequence{Int}
+    ) 
 
     S_sample = output.S_sample
     γ_sample = output.γ_sample
@@ -23,7 +23,7 @@ using RecipesBase, Measures
 end 
 
 
-@recipe function f(output::SisPosteriorModeConditionalMcmcOutput{T}, S_true::Vector{Path{T}}) where {T<:Union{Int, String}}
+@recipe function f(output::SisPosteriorModeConditionalMcmcOutput, S_true::Vector{Path{Int}}) 
     S_sample = output.S_sample
     d = output.posterior.dist
     xguide --> "Index"
@@ -34,7 +34,7 @@ end
     map(x->d(S_true,x), S_sample)
 end 
 
-@recipe function f(output::SisPosteriorDispersionConditionalMcmcOutput{T}) where {T<:Union{Int,String}}
+@recipe function f(output::SisPosteriorDispersionConditionalMcmcOutput) 
     xguide --> "Index"
     yguide --> "γ"
     size --> (800, 300)
@@ -49,9 +49,9 @@ end
 # ========
 
 @recipe function f(
-    output::SimPosteriorMcmcOutput{T},
-    S_true::InteractionSequence{T}
-    ) where {T<:Union{Int, String}}
+    output::SimPosteriorMcmcOutput,
+    S_true::InteractionSequence{Int}
+    ) 
 
     S_sample = output.S_sample
     γ_sample = output.γ_sample
@@ -67,7 +67,7 @@ end
 end 
 
 
-@recipe function f(output::SimPosteriorModeConditionalMcmcOutput{T}, S_true::Vector{Path{T}}) where {T<:Union{Int, String}}
+@recipe function f(output::SimPosteriorModeConditionalMcmcOutput, S_true::Vector{Path{Int}}) 
     S_sample = output.S_sample
     xguide --> "Index"
     yguide --> "Distance from Truth"
@@ -77,7 +77,7 @@ end
     map(x->output.dist(S_true,x), S_sample)
 end 
 
-@recipe function f(output::SimPosteriorDispersionConditionalMcmcOutput{T}) where {T<:Union{Int,String}}
+@recipe function f(output::SimPosteriorDispersionConditionalMcmcOutput) 
     xguide --> "Index"
     yguide --> "γ"
     size --> (800, 300)

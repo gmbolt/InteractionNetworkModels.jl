@@ -4,11 +4,11 @@ using Distributions, StatsBase
 # --------------------
 
 function imcmc_multinomial_edit_accept_reject!(
-    S_curr::InteractionSequence{T}, 
-    S_prop::InteractionSequence{T}, 
-    model::SIM{T}, 
-    mcmc::SimMcmcInsertDeleteEdit{T}
-    ) where {T<:Union{Int, String}}
+    S_curr::InteractionSequence, 
+    S_prop::InteractionSequence, 
+    model::SIM, 
+    mcmc::SimMcmcInsertDeleteEdit
+    ) 
 
     N = length(S_curr)  
     K_inner = model.K_inner
@@ -121,11 +121,11 @@ end
 # ----------------------
 
 function imcmc_multi_insert_prop_sample!(
-    S_curr::InteractionSequence{T}, 
-    S_prop::InteractionSequence{T},
-    mcmc::SimMcmcInsertDeleteEdit{T},
-    ind::AbstractVector{T}
-    ) where {T<:Union{Int, String}}
+    S_curr::InteractionSequence, 
+    S_prop::InteractionSequence,
+    mcmc::SimMcmcInsertDeleteEdit,
+    ind::AbstractVector{Int}
+    ) 
 
     prop_pointers = mcmc.prop_pointers
     ν_trans_dim = mcmc.ν_trans_dim
@@ -144,11 +144,11 @@ function imcmc_multi_insert_prop_sample!(
 end 
 
 function imcmc_multi_delete_prop_sample!(
-    S_curr::InteractionSequence{T}, 
-    S_prop::InteractionSequence{T}, 
-    mcmc::SimMcmcInsertDeleteEdit{T},
-    ind::AbstractVector{T}
-    ) where {T<:Union{Int,String}}
+    S_curr::InteractionSequence, 
+    S_prop::InteractionSequence, 
+    mcmc::SimMcmcInsertDeleteEdit,
+    ind::AbstractVector{Int}
+    ) 
 
     prop_pointers = mcmc.prop_pointers
     ν_trans_dim = mcmc.ν_trans_dim
@@ -168,11 +168,11 @@ function imcmc_multi_delete_prop_sample!(
 end 
 
 function imcmc_trans_dim_accept_reject!(
-    S_curr::InteractionSequence{T},
-    S_prop::InteractionSequence{T}, 
-    model::SIM{T}, 
-    mcmc::SimMcmcInsertDeleteEdit{T}
-    )  where {T<:Union{Int, String}}
+    S_curr::InteractionSequence,
+    S_prop::InteractionSequence, 
+    model::SIM, 
+    mcmc::SimMcmcInsertDeleteEdit   
+    )  
 
     K_outer = model.K_outer
     ν_trans_dim = mcmc.ν_trans_dim
@@ -267,13 +267,13 @@ Draw sample in-place from given SIM model `model::SIM` via MCMC algorithm with e
 Accepts keyword arguments to change MCMC output, including burn-in, lag and initial values. If not given, these are set to the default values of the passed MCMC sampler `mcmc::SimMcmcInsertDeleteEdit`.
 """
 function draw_sample!(
-    sample_out::Union{InteractionSequenceSample{T}, SubArray},
-    mcmc::SimMcmcInsertDeleteEdit{T},
-    model::SIM{T};
+    sample_out::Union{InteractionSequenceSample{Int}, SubArray},
+    mcmc::SimMcmcInsertDeleteEdit,
+    model::SIM;
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::InteractionSequence{T}=get_init(mcmc.init, model)
-    ) where {T<:Union{Int,String}}
+    init::InteractionSequence{Int}=get_init(mcmc.init, model)
+    ) 
 
 
 
@@ -333,29 +333,29 @@ function draw_sample!(
 end 
 
 function draw_sample(
-    mcmc::SimMcmcInsertDeleteEdit{T}, 
-    model::SIM{T};
+    mcmc::SimMcmcInsertDeleteEdit, 
+    model::SIM;
     desired_samples::Int=mcmc.desired_samples, 
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=get_init(mcmc.init, model)
-    ) where {T<:Union{Int,String}} 
+    init::InteractionSequence{Int}=get_init(mcmc.init, model)
+    ) 
 
-    sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
+    sample_out = InteractionSequenceSample{Int}(undef, desired_samples)
     draw_sample!(sample_out, mcmc, model, burn_in=burn_in, lag=lag, init=init)
     return sample_out
 
 end 
 
-function (mcmc::SimMcmcInsertDeleteEdit{T})(
-    model::SIM{T};
+function (mcmc::SimMcmcInsertDeleteEdit)(
+    model::SIM;
     desired_samples::Int=mcmc.desired_samples, 
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
-    init::Vector{Path{T}}=get_init(mcmc.init, model)
-    ) where {T<:Union{Int,String}}
+    init::InteractionSequence{Int}=get_init(mcmc.init, model)
+    ) 
 
-    sample_out = Vector{Vector{Path{T}}}(undef, desired_samples)
+    sample_out = InteractionSequenceSample{Int}(undef, desired_samples)
     # @show sample_out
     (
         update_count, update_acc_count, 

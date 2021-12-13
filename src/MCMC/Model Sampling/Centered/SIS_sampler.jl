@@ -3,7 +3,7 @@ using Distributions
 function imcmc_trans_dim_accept_reject!(
     S_curr::InteractionSequence{Int},
     S_prop::InteractionSequence{Int}, 
-    model::SIS{Int}, 
+    model::SIS, 
     mcmc::SisMcmcSplitMerge
     )
 
