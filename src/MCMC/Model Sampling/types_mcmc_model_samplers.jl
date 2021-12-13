@@ -1,5 +1,5 @@
 export SisMcmcSampler, SimMcmcSampler, SpfMcmcSampler
-export SisMcmcInsertDeleteEdit, SisMcmcInsertDeleteGibbs
+export SisMcmcInsertDeleteEdit, SisMcmcInsertDeleteGibbs, SisMcmcSplitMerge
 export SimMcmcInsertDeleteEdit, SimMcmcInsertDeleteGibbs
 export SisMcmcInitialiser, SisInitMode, SisInitRandEdit, get_init
 export SisMcmcInitialiser, SimInitMode
@@ -282,7 +282,7 @@ end
 struct SisMcmcInsertDeleteEdit{T<:Union{Int,String}} <: SisMcmcSampler
     ν_edit::Int  # Maximum number of edit operations
     ν_trans_dim::Int  # Maximum change in outer dimension
-    β::Real  # Probability of trans-dimensional move
+    β::Real  # Probability of update move
     path_dist::PathDistribution{T}  # Distribution used to introduce new interactions
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
     desired_samples::Int  # Final three set default values for MCMC samplers 
@@ -335,6 +335,80 @@ function Base.show(io::IO, sampler::SisMcmcInsertDeleteEdit)
     println(io, "-"^n)
     println(io, "Parameters:")
     num_of_pars = 5
+    for par in fieldnames(typeof(sampler))[1:num_of_pars]
+        println(io, par, " = $(getfield(sampler, par))  ", sampler.par_info[par])
+    end 
+    println(io, "\nDefault output parameters:")
+    for par in fieldnames(typeof(sampler))[(num_of_pars+1):(num_of_pars+4)]
+        println(io, par, " = $(getfield(sampler, par))  ")
+    end 
+end 
+
+# Merge/split
+# -----------
+
+struct SisMcmcSplitMerge <: SisMcmcSampler
+    ν_ed::Int  # Maximum number of edit operations
+    ν_td::Int  # Maximum change in outer dimension
+    β::Real  # Probability of update move
+    η::Float64  # Noisy parameter for split/merge
+    p::Float64  # Parameter for Geometric dist in split/merge
+    p_ins::Geometric 
+    K::Int # Max number of interactions (used to determined how many pointers to store interactions)
+    desired_samples::Int  # Final three set default values for MCMC samplers 
+    burn_in::Int
+    lag::Int
+    init::SisMcmcInitialiser
+    par_info::Dict
+    curr_pointers::InteractionSequence{Int} # Storage for prev value in MCMC
+    prop_pointers::InteractionSequence{Int} # Storage for curr value in MCMC
+    ind_del::Vector{Int} # Storage for indexing of deletions of interactions
+    ind_add::Vector{Int} # Storage for indexing of additions of interactions
+    vals::Vector{Int} # Storage for values to insert in interactions
+    ind_update::Vector{Int} # Storage of which values have been updated
+    ind_td::Vector{Int} # Storage for location of split/merges
+    function SisMcmcSplitMerge(
+        ν_ed=2, ν_td=2, β=0.7,
+        η=0.7, p=0.7,
+        K=100,
+        desired_samples=1000, lag=1, burn_in=0, init=SisInitMode()
+        ) 
+        curr_pointers = [Int[] for i in 1:K]
+        prop_pointers = [Int[] for i in 1:K]
+        ind_del = zeros(Int, ν_ed)
+        ind_add = zeros(Int, ν_ed)
+        vals = zeros(Int, ν_ed)
+        ind_update = zeros(Int, ν_ed)
+        ind_td = zeros(Int, ν_td)
+        p_ins = Geometric(p)
+        par_info = Dict()
+        par_info[:ν_ed] = "(maximum number of edit operations)"
+        par_info[:ν_td] = "(maximum increase/decrease in dimension)"
+        par_info[:η] = "(noise parameter for merge/splits)"
+        par_info[:p] = "(parameter for Geometric dist. in merge/splits)"
+        par_info[:β] = "(probability of update move)"
+        par_info[:K] = "(maximum number of paths, used to initialise storage)"
+
+        new(
+            ν_ed, ν_td, β, 
+            η, p, p_ins,
+            K,
+            desired_samples, burn_in, lag, init,
+            par_info,
+            curr_pointers, prop_pointers, ind_del, ind_add, vals,
+            ind_update, ind_td
+            )
+    end 
+end 
+
+function Base.show(io::IO, sampler::SisMcmcSplitMerge)
+    title = "MCMC Sampler for SIS Model"
+    n = length(title)
+    println(io, title)
+    println(io, "-"^n)
+    println(io, "Description: edit allocation with merge and split\n")
+    println(io, "Parameters:")
+    num_of_pars = 6
     for par in fieldnames(typeof(sampler))[1:num_of_pars]
         println(io, par, " = $(getfield(sampler, par))  ", sampler.par_info[par])
     end 

@@ -25,12 +25,13 @@ end
 
 @recipe function f(output::SisPosteriorModeConditionalMcmcOutput{T}, S_true::Vector{Path{T}}) where {T<:Union{Int, String}}
     S_sample = output.S_sample
+    d = output.posterior.dist
     xguide --> "Index"
     yguide --> "Distance from Truth"
     size --> (800, 300)
     label --> nothing
     margin --> 5mm
-    map(x->output.dist(S_true,x), S_sample)
+    map(x->d(S_true,x), S_sample)
 end 
 
 @recipe function f(output::SisPosteriorDispersionConditionalMcmcOutput{T}) where {T<:Union{Int,String}}
@@ -120,7 +121,7 @@ end
     yguide --> "Distance from Truth"
     legend --> false
     size --> (800, 600)
-    y1 = map(x -> output.dist(I_true, x), I_sample)
+    y1 = map(x -> output.posterior.dist(I_true, x), I_sample)
     y1
 end 
 

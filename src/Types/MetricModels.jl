@@ -4,6 +4,7 @@ export get_normalising_const, get_sample_space, eachpath, eachinterseq
 export get_entropy, get_entropy_nieve, get_dist_counts, get_ball_counts, get_ball_count
 export get_uniform_avg_dist, get_uniform_var_dist
 export pmf_unormalised, get_true_dist_vec, get_true_dist_dict
+export DimensionRange, isin, notin
 
 
 struct SPF{T<:Union{Int, String}}
@@ -231,26 +232,63 @@ end
 
 # The model Types
 
-struct SIS{T<:Union{Int, String}}
-    mode::Vector{Path{T}} # Mode
+struct DimensionRange
+    l::Real 
+    u::Real 
+end 
+# NOTE - both these functions perform worse if called repeatedly.
+# If we have r::DimensionRange better to assign values such as..
+# l, u = (r.l, r.u)
+# and then use these in the code. This is what I have done in MCMC samplers. 
+function isin(
+    r::DimensionRange,
+    val::Real
+    )
+    return (val >= r.l) & (val <= r.u)
+end 
+
+function notin(
+    r::DimensionRange,
+    val::Real
+    )
+    return (val < r.l) | (val > r.u)
+end 
+
+struct SIS
+    mode::Vector{Path{Int}} # Mode
     γ::Real # Precision
     dist::InteractionSeqDistance # Distance metric
-    V::Vector{T} # Vertex Set
-    K_inner::Real # Maximum interaction sequence size
-    K_outer::Real # Maximum path (interaction) length
+    V::UnitRange # Vertex Set
+    K_inner::DimensionRange # Maximum interaction sequence size
+    K_outer::DimensionRange # Maximum path (interaction) length
 end
 
 SIS(
-    mode::InteractionSequence{T}, 
+    mode::InteractionSequence{Int}, 
     γ::Real, 
     dist::InteractionSeqDistance, 
-    V::Vector{T}
-    ) where {T<:Union{Int,String}}= SIS(mode, γ, dist, V, Inf, Inf)
+    V::UnitRange
+) = SIS(
+        mode, γ, dist, V, 
+        DimensionRange(1,Inf), 
+        DimensionRange(1,Inf)
+)
 
+SIS(
+    mode::InteractionSequence{Int}, 
+    γ::Real, 
+    dist::InteractionSeqDistance, 
+    V::UnitRange,
+    K_inner::Real, K_outer::Real
+) = SIS(
+        mode, γ, dist, V, 
+        DimensionRange(1,K_inner), 
+        DimensionRange(1,K_outer)
+)
 
 function Base.show(
-    io::IO, model::SIS{T}
-    ) where {T<:Union{Int,String}}
+    io::IO, model::SIS
+    ) 
 
     title = "SIS Model"
     n = length(title)
@@ -263,25 +301,45 @@ function Base.show(
 
 end 
 
-struct SIM{T<:Union{Int, String}}
-    mode::Vector{Path{T}} # Mode
+struct SIM
+    mode::Vector{Path{Int}} # Mode
     γ::Real # Precision
     dist::InteractionSetDistance # Distance metric
-    V::Vector{T} # Vertex Set
-    K_inner::Real # Maximum interaction sequence size
-    K_outer::Real # Maximum path (interaction) length
+    V::UnitRange # Vertex Set
+    K_inner::DimensionRange # Maximum interaction sequence size
+    K_outer::DimensionRange # Maximum path (interaction) length
 end
 
 SIM(
-    mode::InteractionSequence{T}, 
+    mode::InteractionSequence{Int}, 
     γ::Real, 
     dist::InteractionSeqDistance, 
-    V::Vector{T}
-    ) where {T<:Union{Int,String}}= SIM(mode, γ, dist, V, Inf, Inf)
+    V::UnitRange
+) = SIM(
+    mode, 
+    γ, 
+    dist, V, 
+    DimensionRange(1,Inf), 
+    DimensionRange(1,Inf)
+)
+
+SIM(
+    mode::InteractionSequence{Int}, 
+    γ::Real, 
+    dist::InteractionSeqDistance, 
+    V::UnitRange,
+    K_inner::Real, K_outer::Real
+) = SIM(
+    mode, 
+    γ, 
+    dist, V, 
+    DimensionRange(1,K_inner), 
+    DimensionRange(1,K_outer)
+)
 
 function Base.show(
-    io::IO, model::SIM{T}
-    ) where {T<:Union{Int,String}}
+    io::IO, model::SIM
+    ) 
 
     title = "SIM Model"
     n = length(title)
@@ -299,7 +357,7 @@ end
 Given `model::Union{SIS, SIM}`, calculate the sum of distances to
 the mode. This function takes a variable number of Vector{Path} as input.
 """
-function sum_of_dists(model::Union{SIS{T}, SIM{T}}, x::Vector{Path{T}}...) where {T<:Union{Int, String}}
+function sum_of_dists(model::Union{SIS, SIM}, x::Vector{Path{Int}}...)
     z = 0.0
     for P in x
         z += model.dist(P, model.mode)
@@ -310,7 +368,7 @@ end
 Given `model::Union{SIS, SIM}`, calculate the sum of distances to
 the mode. This function takes a Vector{Path} as input.
 """
-sum_of_dists(model::Union{SIS{T}, SIM{T}}, x::Vector{Vector{Path{T}}}) where {T<:Union{Int, String}} = sum_of_dists(model, x...)
+sum_of_dists(model::Union{SIS, SIM}, x::Vector{Vector{Path{Int}}}) 
 
 
 """
@@ -331,8 +389,8 @@ end
 Evaluate the unormalised probability of an interaction seq `x`
 """
 function pmf_unormalised(
-    model::Union{SIS{T}, SIM{T}}, 
-    x::Vector{Path{T}}) where {T<:Union{Int, String}}
+    model::Union{SIS, SIM}, 
+    x::Vector{Path{Int}})
 
     return exp(- model.γ * model.dist(x, model.mode))
 end 
@@ -362,19 +420,19 @@ end
 """
 Returns vector with all elements in the sample space.
 """
-function get_sample_space(model::SIS{T}) where T <:Union{Int, String}
-    z = Vector{Vector{Path{T}}}()
-    for I in eachinterseq(model.V, model.K_inner, model.K_outer)
+function get_sample_space(model::SIS) 
+    z = Vector{Vector{Path{Int}}}()
+    for I in eachinterseq(model.V, model.K_inner.u, model.K_outer.u)
         push!(z, [Path(p...) for p in I])
     end
     return z
 end
 
 
-function get_sample_space(model::SIM{T}) where T <:Union{Int, String}
+function get_sample_space(model::SIM)
 
-    z = Vector{Vector{Path{T}}}()
-    for I in eachinterseq(model.V, model.K_inner, model.K_outer)
+    z = Vector{Vector{Path{Int}}}()
+    for I in eachinterseq(model.V, model.K_inner.u, model.K_outer.l)
         push!(z, [Path(p...) for p in I])
     end
 
@@ -384,12 +442,12 @@ end
 
 
 
-function get_true_dist_vec(model::SIS{T}; show_progress=true) where T <:Union{Int, String}
+function get_true_dist_vec(model::SIS; show_progress=true) 
     if show_progress
         x = Vector{Float64}()
         iter = Progress(cardinality(model), 1)  # minimum update interval: 1 second
         Z = 0.0 # Normalising constant
-        for I in eachinterseq(model.V, model.K_inner, model.K_outer)
+        for I in eachinterseq(model.V, model.K_inner.u, model.K_outer.u)
             val = pmf_unormalised(model, [Path(p...) for p in I])  # evaluate unormalised probability
             Z += val
             push!(x, val)
@@ -398,7 +456,7 @@ function get_true_dist_vec(model::SIS{T}; show_progress=true) where T <:Union{In
     else 
         x = Vector{Float64}()
         Z = 0.0 # Normalising constant
-        for I in eachinterseq(model.V, model.K_inner, model.K_outer)
+        for I in eachinterseq(model.V, model.K_inner.u, model.K_outer.u)
             val = pmf_unormalised(model, [Path(p...) for p in I])  # evaluate unormalised probability
             Z += val
             push!(x, val)

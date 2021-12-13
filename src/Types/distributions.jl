@@ -41,28 +41,27 @@ struct TrGeometric<:DiscreteUnivariateDistribution
     p::Float64 # Prob param
     lb::Int # Lower bound (smallest value)
     ub::Int  # Upper bound
-    C::Float64 # Normalising Constant
-    function TrGeometric(p::Float64, lb::Int, ub::Int)
-        C = (1 - (1-p)^(ub-lb+1))
-        new(p, lb, ub, C)
-    end
 end
+
+function normalising_const(d::TrGeometric)
+    return (1 - (1-d.p)^(d.ub-d.lb+1))
+end 
 
 TrGeometric(p::Float64, ub::Int) = TrGeometric(p, 0, ub)
 
 function Distributions.pdf(d::TrGeometric, x::Integer)
     _insupport = insupport(d, x)
-    return _insupport ? d.p*(1-d.p)^(x-d.lb) / d.C : 0.0
+    return _insupport ? d.p*(1-d.p)^(x-d.lb) / normalising_const(d) : 0.0
 end
 
 function Distributions.logpdf(d::TrGeometric, x::Integer)
     _insupport = insupport(d, x)
-    return _insupport ? log(d.p) + (x-d.lb) * log(1-d.p) -  log(d.C) : -Inf
+    return _insupport ? log(d.p) + (x-d.lb) * log(1-d.p) -  log(normalising_const(d)) : -Inf
 end
 
 function Distributions.cdf(d::TrGeometric, x::Number)
     if d.lb ≤ x ≤ d.ub
-        return ( 1 - (1 - d.p)^(trunc(Int,x)-d.lb+1) )/d.C
+        return ( 1 - (1 - d.p)^(trunc(Int,x)-d.lb+1) )/normalising_const(d)
     else
         return float(x > d.ub)
     end
@@ -70,8 +69,8 @@ end
 
 # Here I make use of closed form of generalised inverse of the TrGeom dist.
 # Not sure if this is the fastest implementation
-function Distributions.quantile(d::TrGeometric, p::Real)
-    return 0.0<p<1.0 ? ceil(Int, log(1-p*d.C)/log(1-d.p) - 1 )+d.lb : d.ub*(p≥1.0) + d.lb*(p≤0.0)
+function Distributions.quantile(d::TrGeometric, q::Real)
+    return 0.0<q<1.0 ? ceil(Int, log(1-q*normalising_const(d))/log(1-d.p) - 1 )+d.lb : d.ub*(p≥1.0) + d.lb*(q≤0.0)
 end
 
 Distributions.minimum(d::TrGeometric) = d.lb
