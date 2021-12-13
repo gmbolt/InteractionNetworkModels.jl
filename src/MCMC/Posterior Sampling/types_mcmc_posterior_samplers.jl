@@ -9,7 +9,7 @@ abstract type SisPosteriorSampler end
 struct SisIexInsertDeleteGibbs <: SisPosteriorSampler 
     ν::Int 
     β::Float64 
-    path_dist::PathDistribution{Int}
+    path_dist::PathDistribution
     K::Int 
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
@@ -21,7 +21,7 @@ struct SisIexInsertDeleteGibbs <: SisPosteriorSampler
     ind_add::Vector{Int} # Storage for indexing of additions in Gibbs scan
     vals::Vector{Int} # Storage for valuse to insert in Gibbs scan
     function SisIexInsertDeleteGibbs(
-        path_dist::PathDistribution{Int};
+        path_dist::PathDistribution;
         K=100,
         ν=4, β=0.6,
         desired_samples=1000, lag=1, burn_in=0
@@ -51,7 +51,7 @@ struct SisIexInsertDeleteEdit<: SisPosteriorSampler
     ν_trans_dim::Int  # Maximum increase/decrease in dimension
     β::Real  # Probability of trans-dimensional move
     α::Float64  # How much vertex proposal is informed by data (0.0 max and ∞ is uniform over vertice)
-    path_dist::PathDistribution{Int}  # Distribution used to introduce new interactions
+    path_dist::PathDistribution  # Distribution used to introduce new interactions
     ε::Float64 # Neighborhood for sampling γ
     aux_mcmc::SisMcmcSampler
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
@@ -67,7 +67,7 @@ struct SisIexInsertDeleteEdit<: SisPosteriorSampler
     ind_update::Vector{Int} # Storage of which values have been updated
     ind_trans_dim::Vector{Int} # Storage of where to insert/delete 
     function SisIexInsertDeleteEdit(
-        path_dist::PathDistribution{Int},
+        path_dist::PathDistribution,
         aux_mcmc::SisMcmcSampler;
         K=100,
         ν_edit=2, ν_trans_dim=1 , β=0.7, α=0.0,
@@ -114,7 +114,7 @@ struct SimIexInsertDeleteEdit <: SimPosteriorSampler
     ν_trans_dim::Int  # Maximum increase/decrease in dimension
     β::Real  # Probability of trans-dimensional move
     α::Float64  # How much vertex proposal is informed by data (0.0 max and ∞ is uniform over vertice)
-    path_dist::PathDistribution{Int}  # Distribution used to introduce new interactions
+    path_dist::PathDistribution  # Distribution used to introduce new interactions
     ε::Float64
     aux_mcmc::SimMcmcSampler
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
@@ -130,7 +130,7 @@ struct SimIexInsertDeleteEdit <: SimPosteriorSampler
     ind_update::Vector{Int} # Storage of which values have been updated
     ind_trans_dim::Vector{Int} # Storage of where to insert/delete 
     function SimIexInsertDeleteEdit(
-        path_dist::PathDistribution{Int},
+        path_dist::PathDistribution,
         aux_mcmc::SimMcmcSampler;
         K=100,
         ν_edit=2, ν_trans_dim=1 , β=0.7, α=0.0,

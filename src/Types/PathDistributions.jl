@@ -2,14 +2,14 @@ using Distributions
 
 export PathDistribution, PathPseudoUniform, PathCooccurrence
 
-abstract type PathDistribution{T<:Union{Int,String}} end 
+abstract type PathDistribution end 
 
-struct PathPseudoUniform{T<:Union{Int, String}} <: PathDistribution{T}
-    vertex_set::Vector{T}
+struct PathPseudoUniform
+    vertex_set::UnitRange{Int}
     length_dist::DiscreteUnivariateDistribution
 end 
 
-struct PathCooccurrence{T<:Union{Int,String}} <: PathDistribution{T}
+struct PathCooccurrence{T<:Union{Int,String}} <: PathDistribution
     vertex_set::Vector{T}
     length_dist::DiscreteUnivariateDistribution
     initial_dist::DiscreteUnivariateDistribution
@@ -45,7 +45,7 @@ function Base.rand(d::PathPseudoUniform)
     return rand(d.vertex_set, m)
 end 
 
-function rand!(p::Vector{T}, d::PathPseudoUniform{T}) where {T<:Union{Int,String}}
+function rand!(p::Vector{Int}, d::PathPseudoUniform)
 
     m = rand(d.length_dist)
     resize!(p, m)
@@ -105,7 +105,7 @@ end
 
 
 
-function Distributions.logpdf(d::PathPseudoUniform{T}, p::Path{T}) where {T<:Union{Int,String}}
+function Distributions.logpdf(d::PathPseudoUniform, p::Path{Int})
     m = length(p)
     return logpdf(d.length_dist, m) - m*log(length(d.vertex_set))
 end 

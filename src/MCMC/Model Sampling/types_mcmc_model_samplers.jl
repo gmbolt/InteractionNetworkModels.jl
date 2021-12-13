@@ -208,7 +208,7 @@ abstract type SisMcmcSampler end
 struct SisMcmcInsertDeleteGibbs<: SisMcmcSampler
     ν_gibbs::Int   # Maximum number of edit ops
     ν_trans_dim::Int  # Maximum increase or decrease in number of interactions
-    path_dist::PathDistribution{Int}  # Distribution used to introduce new interactions
+    path_dist::PathDistribution  # Distribution used to introduce new interactions
     β::Real  # Extra probability of Gibbs move
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
     desired_samples::Int  # Final three set default values for MCMC samplers 
@@ -223,7 +223,7 @@ struct SisMcmcInsertDeleteGibbs<: SisMcmcSampler
     vals::Vector{Int} # Storage for valuse to insert in Gibbs scan
     ind_trans_dim::Vector{Int} # Storage of where to insert/delete 
     function SisMcmcInsertDeleteGibbs(
-        path_dist::PathDistribution{Int};
+        path_dist::PathDistribution;
         K=100,
         ν_gibbs=4, ν_trans_dim=2,  β=0.6,
         desired_samples=1000, lag=1, burn_in=0,
@@ -283,7 +283,7 @@ struct SisMcmcInsertDeleteEdit <: SisMcmcSampler
     ν_edit::Int  # Maximum number of edit operations
     ν_trans_dim::Int  # Maximum change in outer dimension
     β::Real  # Probability of update move
-    path_dist::PathDistribution{Int}  # Distribution used to introduce new interactions
+    path_dist::PathDistribution  # Distribution used to introduce new interactions
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
@@ -298,7 +298,7 @@ struct SisMcmcInsertDeleteEdit <: SisMcmcSampler
     ind_update::Vector{Int} # Storage of which values have been updated
     ind_trans_dim::Vector{Int} # Storage of where to insert/delete 
     function SisMcmcInsertDeleteEdit(
-        path_dist::PathDistribution{Int};
+        path_dist::PathDistribution;
         K=100,
         ν_edit=2, ν_trans_dim=2, β=0.4,
         desired_samples=1000, lag=1, burn_in=0, init=SisInitMode()
@@ -462,7 +462,7 @@ struct SimMcmcInsertDeleteEdit <: SimMcmcSampler
     ν_edit::Int  # Maximum number of edit operations
     ν_trans_dim::Int  # Maximum change in outer dimension
     β::Real  # Probability of trans-dimensional move
-    path_dist::PathDistribution{Int}  # Distribution used to introduce new interactions
+    path_dist::PathDistribution  # Distribution used to introduce new interactions
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
@@ -477,7 +477,7 @@ struct SimMcmcInsertDeleteEdit <: SimMcmcSampler
     ind_update::Vector{Int} # Storage of which values have been updated
     ind_trans_dim::Vector{Int} # Storage of where to insert/delete 
     function SimMcmcInsertDeleteEdit(
-        path_dist::PathDistribution{Int};
+        path_dist::PathDistribution;
         K=100,
         ν_edit=2, ν_trans_dim=2, β=0.4,
         desired_samples=1000, lag=1, burn_in=0, init=SimInitMode()
@@ -526,28 +526,28 @@ end
 # Gibbs Scan Sampler
 # ------------------
 
-struct SimMcmcInsertDeleteGibbs{T<:Union{Int,String}} <: SimMcmcSampler
+struct SimMcmcInsertDeleteGibbs<: SimMcmcSampler
     ν::Int   # Maximum number of edit ops
-    path_dist::PathDistribution{T}  # Distribution used to introduce new interactions
+    path_dist::PathDistribution  # Distribution used to introduce new interactions
     β::Real  # Extra probability of Gibbs move
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
     lag::Int
     par_info::Dict
-    curr_pointers::InteractionSequence{T} # Storage for prev value in MCMC
-    prop_pointers::InteractionSequence{T} # Storage for curr value in MCMC
+    curr_pointers::InteractionSequence{Int} # Storage for prev value in MCMC
+    prop_pointers::InteractionSequence{Int} # Storage for curr value in MCMC
     ind_del::Vector{Int} # Storage for indexing of deletions in Gibbs scan
     ind_add::Vector{Int} # Storage for indexing of additions in Gibbs scan
-    vals::Vector{T} # Storage for valuse to insert in Gibbs scan
+    vals::Vector{Int} # Storage for valuse to insert in Gibbs scan
     function SimMcmcInsertDeleteGibbs(
-        path_dist::PathDistribution{S};
+        path_dist::PathDistribution;
         K=100,
         ν=4, β=0.0,
         desired_samples=1000, lag=1, burn_in=0
-        ) where {S<:Union{Int, String}}
-        curr_pointers = [S[] for i in 1:K]
-        prop_pointers = [S[] for i in 1:K]
+        ) 
+        curr_pointers = [Int[] for i in 1:K]
+        prop_pointers = [Int[] for i in 1:K]
         ind_del = zeros(Int, ν)
         ind_add = zeros(Int, ν)
         vals = zeros(Int, ν)
@@ -557,7 +557,7 @@ struct SimMcmcInsertDeleteGibbs{T<:Union{Int,String}} <: SimMcmcSampler
         par_info[:β] = "(extra probability of Gibbs scan)"
         par_info[:K] = "(maximum number of interactions, used to initialise storage)"
 
-        new{S}(
+        new(
             ν, path_dist, β, K,
             desired_samples, burn_in, lag, 
             par_info, 
