@@ -1,5 +1,6 @@
 using RecipesBase, Measures
 
+export print_map_est
 # =======
 #   SIS
 # =======
@@ -43,6 +44,35 @@ end
     output.γ_sample
 end 
 
+function print_map_est(output::SisPosteriorMcmcOutput; top_num::Int=5) 
+    d = proportionmap(output.S_sample)
+    # for key in keys(d)
+    #     d[key] /= length(output.S_sample)
+    # end 
+    props = sort(collect(d), by=x->x[2], rev=true)
+    title = "\nPosterior probability of mode"
+    println(title)
+    println("-"^length(title), "\n")
+    for i in 1:min(top_num, length(d))
+        println(props[i][2],"  ", props[i][1])
+    end    
+    println("\n...showing top $(min(top_num, length(d))) interactions.")
+end 
+
+function print_map_est(sample::InteractionSequenceSample; top_num::Int=5) 
+    d = proportionmap(sample)
+    # for key in keys(d)
+    #     d[key] /= length(output.S_sample)
+    # end 
+    props = sort(collect(d), by=x->x[2], rev=true)
+    title = "\nPosterior probability of mode"
+    println(title)
+    println("-"^length(title), "\n")
+    for i in 1:min(top_num, length(d))
+        println(props[i][2],"  ", props[i][1])
+    end    
+    println("\n...showing top $(min(top_num, length(d))) interactions.")
+end 
 
 # ========
 #   SIM 

@@ -71,7 +71,7 @@ function imcmc_multi_insert_prop_sample!(
     ) 
 
     prop_pointers = mcmc.prop_pointers
-    ν_trans_dim = mcmc.ν_trans_dim
+    # ν_trans_dim = mcmc.ν_trans_dim
     N = length(S_curr)
     path_dist = mcmc.path_dist
 
@@ -81,7 +81,7 @@ function imcmc_multi_insert_prop_sample!(
         rand!(S_prop[i], path_dist)
         log_ratio += - logpdf(path_dist, S_prop[i])
     end 
-    log_ratio += log(ν_trans_dim) - log(min(ν_trans_dim,N)) 
+    # log_ratio += log(ν_trans_dim) - log(min(ν_trans_dim,N)) 
     return log_ratio 
 
 end 
@@ -105,7 +105,7 @@ function imcmc_multi_delete_prop_sample!(
         log_ratio += logpdf(path_dist, S_curr[i])
     end 
 
-    log_ratio += log(min(ν_trans_dim,N)) - log(ν_trans_dim)
+    # log_ratio += log(min(ν_trans_dim,N)) - log(ν_trans_dim)
     return log_ratio
 
 end 
@@ -318,8 +318,8 @@ function double_iex_multinomial_edit_accept_reject!(
     N = length(S_curr)  
     dist = posterior.dist
     V = posterior.V
-    K_inner = posterior.K_inner
-    K_outer = posterior.K_outer
+    K_inner, K_outer = (posterior.K_inner, posterior.K_outer)
+    K_in_lb, K_in_ub = (K_inner.l, K_inner.u)
     data = posterior.data
     γ_prior = posterior.S_prior.γ 
     mode_prior = posterior.S_prior.mode
@@ -351,11 +351,11 @@ function double_iex_multinomial_edit_accept_reject!(
             # Make edits .... 
             @inbounds n = length(S_curr[i])
             # a,b = (lb(n, δ_tmp, model), ub(n, δ_tmp))
-            d = rand(0:min(n-1,δ_tmp))
+            d = rand(0:min(n-K_in_lb, δ_tmp))
             m = n + δ_tmp - 2*d
 
             # Catch invalid proposals
-            if (m > K_inner)
+            if (m > K_in_ub)
                 # Here we just reject the proposal
                 for i in 1:N
                     copy!(S_prop[i], S_curr[i])
@@ -386,7 +386,7 @@ function double_iex_multinomial_edit_accept_reject!(
             
             # Add to log_ratio
             # log_prod_term += log(b - a + 1) - log(ub(m, δ_tmp) - lb(m, δ_tmp, model) +1)
-            log_ratio += log(min(n-1, δ_tmp)+1) - log(min(m-1, δ_tmp)+1)
+            log_ratio += log(min(n-K_in_lb, δ_tmp)+1) - log(min(m-K_in_lb, δ_tmp)+1)
 
         end 
 
@@ -486,8 +486,7 @@ function double_iex_flip_accept_reject!(
     data = posterior.data
     γ_prior = posterior.S_prior.γ 
     mode_prior = posterior.S_prior.mode
-    K_inner = posterior.K_inner
-    K_outer = posterior.K_outer
+    K_inner, K_outer = (posterior.K_inner, posterior.K_outer)
 
     aux_mcmc = mcmc.aux_mcmc
     lengths = length.(S_curr)
@@ -559,9 +558,8 @@ function double_iex_trans_dim_accept_reject!(
     aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64
     ) 
-    
-    K_inner = posterior.K_inner
-    K_outer = posterior.K_outer
+    K_inner, K_outer = (posterior.K_inner, posterior.K_outer)
+    K_out_lb, K_out_ub = (K_outer.l, K_outer.u)
     data = posterior.data 
     dist = posterior.dist 
     V = posterior.V 
@@ -582,7 +580,7 @@ function double_iex_trans_dim_accept_reject!(
     if is_insert
         ε = rand(1:ν_trans_dim) # How many to insert 
         # Catch invalid proposal (ones which have zero probability)
-        if (N + ε) > K_outer
+        if (N + ε) > K_out_ub
             # Make no changes and imediately reject  
             return 0, suff_stat_curr
         end 
@@ -592,11 +590,12 @@ function double_iex_trans_dim_accept_reject!(
             S_curr, S_prop, 
             mcmc, 
             ind_tr_dim
-            ) # Enact move and catch log ratio term 
+        ) # Enact move and catch log ratio term 
+        log_ratio += log(ν_trans_dim) - log(min(ν_trans_dim,N)) 
     else 
         ε = rand(1:min(ν_trans_dim, N)) # How many to delete
         # Catch invalid proposal (would go to empty inter seq)
-        if ε == N 
+        if (N - ε) < K_out_lb
             return 0, suff_stat_curr
         end  
         ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage
@@ -605,7 +604,8 @@ function double_iex_trans_dim_accept_reject!(
             S_curr, S_prop, 
             mcmc, 
             ind_tr_dim
-            ) # Enact move and catch log ratio 
+        ) # Enact move and catch log ratio 
+        log_ratio += log(min(ν_trans_dim,N)) - log(ν_trans_dim)
     end 
 
     # Now do accept-reject step (**THIS IS WHERE WE DIFFER FROM MODEL SAMPLER***)
@@ -1258,7 +1258,7 @@ function (mcmc::SisIexInsertDeleteEdit)(
     loading_bar::Bool=true
     ) 
 
-    sample_out_S = Vector{InteractionSequence}(undef, desired_samples)
+    sample_out_S = Vector{InteractionSequence{Int}}(undef, desired_samples)
     sample_out_gamma = Vector{Float64}(undef, desired_samples)
 
     ed_acc_prob, flip_acc_prob, td_acc_prob, γ_acc_prob, suff_stats = draw_sample!(

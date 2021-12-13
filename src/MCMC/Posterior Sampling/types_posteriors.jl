@@ -11,8 +11,8 @@ struct SisPosterior
     γ_prior::ContinuousUnivariateDistribution
     dist::InteractionSeqDistance
     V::AbstractArray{Int}
-    K_inner::Real
-    K_outer::Real
+    K_inner::DimensionRange
+    K_outer::DimensionRange
     sample_size::Int
     function SisPosterior(
         data::InteractionSequenceSample{Int},
@@ -39,8 +39,8 @@ struct SimPosterior
     γ_prior::ContinuousUnivariateDistribution
     dist::InteractionSetDistance
     V::AbstractArray{Int}
-    K_inner::Real
-    K_outer::Real
+    K_inner::DimensionRange
+    K_outer::DimensionRange
     sample_size::Int
     function SimPosterior(
         data::InteractionSequenceSample{Int},

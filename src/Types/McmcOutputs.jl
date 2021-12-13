@@ -1,4 +1,4 @@
-using RecipesBase
+using RecipesBase, StatsBase
 
 export SpfPosteriorMcmcOutput, SpfPosteriorModeConditionalMcmcOutput, SpfPosteriorDispersionConditionalMcmcOutput
 export SpfMcmcOutput
