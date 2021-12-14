@@ -41,7 +41,7 @@ struct SimPosteriorMcmcOutput
     S_sample::Vector{InteractionSequence{Int}}
     γ_sample::Vector{Float64}
     posterior::SimPosterior
-    suff_stat_trace::Float64
+    suff_stat_trace::Vector{Float64}
     performace_measures::Dict
 end 
 
@@ -49,7 +49,7 @@ struct SimPosteriorModeConditionalMcmcOutput
     γ_fixed::Float64
     S_sample::Vector{Vector{Path{Int}}}
     posterior::SimPosterior
-    suff_stat_trace::Float64
+    suff_stat_trace::Vector{Float64}
     performance_measures::Dict
 end 
 

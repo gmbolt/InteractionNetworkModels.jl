@@ -313,7 +313,7 @@ end
 SIM(
     mode::InteractionSequence{Int}, 
     γ::Real, 
-    dist::InteractionSeqDistance, 
+    dist::InteractionSetDistance, 
     V::UnitRange
 ) = SIM(
     mode, 
@@ -326,7 +326,7 @@ SIM(
 SIM(
     mode::InteractionSequence{Int}, 
     γ::Real, 
-    dist::InteractionSeqDistance, 
+    dist::InteractionSetDistance, 
     V::UnitRange,
     K_inner::Real, K_outer::Real
 ) = SIM(
