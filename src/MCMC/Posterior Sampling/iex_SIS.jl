@@ -355,7 +355,7 @@ function double_iex_multinomial_edit_accept_reject!(
             m = n + δ_tmp - 2*d
 
             # Catch invalid proposals
-            if (m > K_in_ub)
+            if  (m > K_in_ub) 
                 # Here we just reject the proposal
                 for i in 1:N
                     copy!(S_prop[i], S_curr[i])
@@ -756,7 +756,6 @@ function draw_sample_mode!(
                 )
                 ed_acc_count += was_acc
                 ed_count += 1
-                push!(suff_stats, suff_stat_curr)
             else 
                 was_acc, suff_stat_curr = double_iex_flip_accept_reject!(
                     S_curr, S_prop, 
@@ -767,7 +766,6 @@ function draw_sample_mode!(
                 )
                 flp_acc_count += was_acc
                 flp_count += 1
-                push!(suff_stats, suff_stat_curr)
             end 
         # Else do trans-dim move. We will do accept-reject move here 
         else 
@@ -780,11 +778,11 @@ function draw_sample_mode!(
             )
             tr_dim_acc_count += was_acc
             tr_dim_count += 1
-            push!(suff_stats, suff_stat_curr)
         end 
         if loading_bar
             next!(iter)
         end 
+        push!(suff_stats, suff_stat_curr)
     end 
     for i in 1:length(S_curr)
         migrate!(curr_pointers, S_curr, 1, 1)
@@ -1168,7 +1166,7 @@ function draw_sample!(
         x -> posterior.dist(S_curr, x), 
         +, 
         posterior.data
-        )
+    )
     suff_stats = Float64[suff_stat_curr]
     # Get informed proposal matrix
     P, vmap, vmap_inv = get_informed_proposal_matrix(posterior, mcmc.α)

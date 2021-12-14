@@ -65,8 +65,8 @@ function double_iex_multinomial_edit_accept_reject!(
     N = length(S_curr)  
     dist = posterior.dist
     V = posterior.V
-    K_inner = posterior.K_inner
-    K_outer = posterior.K_outer
+    K_inner, K_outer = (posterior.K_inner, posterior.K_outer)
+    K_in_lb, K_in_ub = (K_inner.l, K_inner.u)
     data = posterior.data
     γ_prior = posterior.S_prior.γ 
     mode_prior = posterior.S_prior.mode
@@ -97,16 +97,16 @@ function double_iex_multinomial_edit_accept_reject!(
             j += 1 # Increment j 
             # Make edits .... 
             @inbounds n = length(S_curr[i])
-            d = rand(0:min(n,δ_tmp))
+            d = rand(0:min(n-K_in_lb, δ_tmp))
             m = n + δ_tmp - 2*d
 
             # Catch invalid proposals
-            if (m < 1) | (m > K_inner)
+            if (m > K_in_ub)
                 # Here we just reject the proposal
                 for i in 1:N
                     copy!(S_prop[i], S_curr[i])
                 end 
-                return 0 
+                return 0, suff_stat_curr
             end 
 
             ind_del = view(mcmc.ind_del, 1:d)
@@ -129,7 +129,7 @@ function double_iex_multinomial_edit_accept_reject!(
             
             # Add to log_ratio
             # log_prod_term += log(b - a + 1) - log(ub(m, δ_tmp) - lb(m, δ_tmp, model) +1)
-            log_ratio += log(min(n, δ_tmp)+1) - log(min(m, δ_tmp)+1)
+            log_ratio += log(min(n-K_in_lb, δ_tmp)+1) - log(min(m-K_in_lb, δ_tmp)+1)
 
         end 
 
@@ -196,8 +196,8 @@ function double_iex_trans_dim_accept_reject!(
     suff_stat_curr::Float64
     )  
     
-    K_inner = posterior.K_inner
-    K_outer = posterior.K_outer
+    K_inner, K_outer = (posterior.K_inner, posterior.K_outer)
+    K_out_lb, K_out_ub = (K_outer.l, K_outer.u)
     data = posterior.data 
     dist = posterior.dist 
     V = posterior.V 
@@ -218,7 +218,7 @@ function double_iex_trans_dim_accept_reject!(
     if is_insert
         ε = rand(1:ν_trans_dim) # How many to insert 
         # Catch invalid proposal (ones which have zero probability)
-        if (N + ε) > K_outer
+        if (N + ε) > K_out_ub
             # Make no changes and imediately reject  
             return 0, suff_stat_curr
         end 
@@ -232,7 +232,7 @@ function double_iex_trans_dim_accept_reject!(
     else 
         ε = rand(1:min(ν_trans_dim, N)) # How many to delete
         # Catch invalid proposal (would go to empty inter seq)
-        if ε == N 
+        if (N - ε) < K_out_lb
             return 0, suff_stat_curr
         end  
         ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage
@@ -363,8 +363,8 @@ function draw_sample_mode!(
         x -> posterior.dist(S_curr, x), 
         +, 
         posterior.data
-        )
-
+    )
+    suff_stats = Float64[suff_stat_curr] # Storage for all sufficient stats (for diagnostics)
     P, vmap, vmap_inv = get_informed_proposal_matrix(posterior, mcmc.α)
 
     while sample_count ≤ length(sample_out)
@@ -400,6 +400,7 @@ function draw_sample_mode!(
         if loading_bar
             next!(iter)
         end 
+        push!(suff_stats, suff_stat_curr)
     end 
     for i in 1:length(S_curr)
         migrate!(curr_pointers, S_curr, 1, 1)
@@ -407,7 +408,8 @@ function draw_sample_mode!(
     end 
     return (
                 upd_count, upd_acc_count,
-                tr_dim_count, tr_dim_acc_count
+                tr_dim_count, tr_dim_acc_count,
+                suff_stats
             )
 end 
 
@@ -447,7 +449,8 @@ function (mcmc::SimIexInsertDeleteEdit)(
 
     (
         update_count, update_acc_count, 
-        trans_dim_count, trans_dim_acc_count
+        trans_dim_count, trans_dim_acc_count,
+        suff_stats
         ) = draw_sample_mode!(
             sample_out, 
             mcmc, 
@@ -466,9 +469,8 @@ function (mcmc::SimIexInsertDeleteEdit)(
     output = SimPosteriorModeConditionalMcmcOutput(
             γ_fixed, 
             sample_out, 
-            posterior.dist, 
-            posterior.S_prior, 
-            posterior.data,
+            posterior,
+            suff_stats,
             p_measures
             )
 
@@ -771,7 +773,8 @@ function draw_sample!(
         x -> posterior.dist(S_curr, x), 
         +, 
         posterior.data
-        )
+    )
+    suff_stats = Float64[suff_stat_curr]
     # Get informed proposal matrix
     P, vmap, vmap_inv = get_informed_proposal_matrix(posterior, mcmc.α)
 
@@ -793,6 +796,7 @@ function draw_sample!(
             acc_count, count,
             suff_stat_curr
         )
+        push!(suff_stats, suff_stat_curr)
         # Update gamma 
         # ------------
         γ_curr, tmp =  accept_reject_gamma!(
@@ -818,7 +822,7 @@ function draw_sample!(
     ed_acc_prob = acc_count[1]/count[1]
     td_acc_prob = acc_count[2]/count[2]
     γ_acc_prob = γ_acc_count / sum(count)
-    return ed_acc_prob, td_acc_prob, γ_acc_prob
+    return ed_acc_prob, td_acc_prob, γ_acc_prob, suff_stats
 end 
 
 function draw_sample(
@@ -861,7 +865,7 @@ function (mcmc::SimIexInsertDeleteEdit)(
     sample_out_S = Vector{InteractionSequence{Int}}(undef, desired_samples)
     sample_out_gamma = Vector{Float64}(undef, desired_samples)
 
-    ed_acc_prob, td_acc_prob, γ_acc_prob = draw_sample!(
+    ed_acc_prob, td_acc_prob, γ_acc_prob, suff_stats = draw_sample!(
         sample_out_S,
         sample_out_gamma, 
         mcmc, 
@@ -881,6 +885,7 @@ function (mcmc::SimIexInsertDeleteEdit)(
         sample_out_S, 
         sample_out_gamma, 
         posterior,
+        suff_stats,
         p_measures
     )
     

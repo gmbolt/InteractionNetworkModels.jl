@@ -11,7 +11,8 @@ function imcmc_multinomial_edit_accept_reject!(
     ) 
 
     N = length(S_curr)  
-    K_inner = model.K_inner
+    K_in_lb = model.K_inner.l
+    K_in_ub = model.K_inner.u
     δ = rand(1:mcmc.ν_edit)  # Number of edits to enact 
     rem_edits = δ # Remaining edits to allocate
     len_diffs = 0
@@ -44,7 +45,7 @@ function imcmc_multinomial_edit_accept_reject!(
             m = n + δ_tmp - 2*d
 
             # Catch invalid proposals
-            if (m < 1) | (m > K_inner)
+            if (m < K_in_lb) | (m > K_in_ub)
                 # Here we just reject the proposal
                 for i in 1:N
                     copy!(S_prop[i], S_curr[i])
@@ -174,7 +175,8 @@ function imcmc_trans_dim_accept_reject!(
     mcmc::SimMcmcInsertDeleteEdit   
     )  
 
-    K_outer = model.K_outer
+    K_out_lb = model.K_outer.l
+    K_out_ub = model.K_outer.u
     ν_trans_dim = mcmc.ν_trans_dim
     curr_pointers = mcmc.curr_pointers
     prop_pointers = mcmc.prop_pointers
@@ -187,7 +189,7 @@ function imcmc_trans_dim_accept_reject!(
     if is_insert
         ε = rand(1:ν_trans_dim) # How many to insert 
         # Catch invalid proposal (ones which have zero probability)
-        if (N + ε) > K_outer
+        if (N + ε) > K_out_ub
             # Make no changes and imediately reject  
             return 0  
         end 
@@ -201,7 +203,7 @@ function imcmc_trans_dim_accept_reject!(
     else 
         ε = rand(1:min(ν_trans_dim, N)) # How many to delete
         # Catch invalid proposal (would go to empty inter seq)
-        if ε == N 
+        if (N - ε) < K_out_lb
             return 0 
         end  
         ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage

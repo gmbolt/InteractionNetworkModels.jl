@@ -442,8 +442,8 @@ struct SimInitMode <: SimMcmcInitialiser
 end 
 
 function get_init(
-    model::SIM, 
-    initiliaser::SimInitMode
+    initiliaser::SimInitMode,
+    model::SIM
     )
     return model.mode
 end 

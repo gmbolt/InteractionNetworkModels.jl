@@ -24,7 +24,7 @@ function imcmc_multinomial_edit_accept_reject!(
 
     # println("Making $δ edits in total...")
 
-    for i = 1:N
+    for i in eachindex(S_curr)
 
         # If at end we just assign all remaining edits to final interaction 
         if i == N 
@@ -227,7 +227,7 @@ function imcmc_trans_dim_accept_reject!(
     else 
         ε = rand(1:min(ν_trans_dim, N)) # How many to delete
         # Catch invalid proposal (would go to empty inter seq)
-        if ε == N 
+        if (N - ε) < K_out_lb 
             return 0 
         end  
         ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage

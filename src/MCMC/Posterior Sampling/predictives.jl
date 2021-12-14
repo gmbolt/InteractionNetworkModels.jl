@@ -1,7 +1,7 @@
 using StatsBase
 
-export SingleMissingPredictive, PosteriorPredictive, DistanceToModePredictive
-export MeanInnerDimensionPredictive, OuterDimensionPredictive
+export SingleMissingPredictive, PosteriorPredictive
+export dist_to_mode_sample, mean_inner_dim_sample, outer_dim_sample
 export pred_missing, get_prediction, get_truth, was_correct, get_pred_accuracy
 
 # ===========================
@@ -104,15 +104,25 @@ end
 # Summary statistics predictives 
 # ===============================
 
+# General posterior predictive 
+# ----------------------------
+
+# SIS 
+
 struct PosteriorPredictive
-    posterior::SisPosteriorMcmcOutput
+    posterior::Union{SisPosteriorMcmcOutput, SimPosteriorMcmcOutput}
+    model_type::DataType
+    function PosteriorPredictive(p::Union{SisPosteriorMcmcOutput, SimPosteriorMcmcOutput})
+        T = typeof(p.posterior.S_prior)
+        new(p, T)
+    end 
 end 
 
 function draw_sample!(
     out::Vector{InteractionSequence{Int}},
-    mcmc::SisMcmcSampler,
+    mcmc::T,
     predictive::PosteriorPredictive
-    )
+    ) where {T<:Union{SisMcmcSampler, SimMcmcSampler}}
 
     posterior_mcmc = predictive.posterior
     S_sample = posterior_mcmc.S_sample 
@@ -125,17 +135,18 @@ function draw_sample!(
     
     for i in eachindex(out)
         ind = rand(1:n_samples)
-        model = SIS(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
+        model = predictive.model_type(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
         draw_sample!(view(out,i:i), mcmc, model)
     end 
 end 
 
 function draw_sample!(
-    out::Vector{InteractionSequenceSample{Int}},
-    mcmc::SisMcmcSampler,
+    out::Vector{InteractionSequenceSample{Int}}, # Note difference here with prev function 
+    mcmc::T,
     predictive::PosteriorPredictive
-    )
+    ) where {T<:Union{SisMcmcSampler, SimMcmcSampler}}
 
+    # Aliases for info in given objects 
     posterior_mcmc = predictive.posterior
     S_sample = posterior_mcmc.S_sample 
     γ_sample = posterior_mcmc.γ_sample
@@ -145,25 +156,28 @@ function draw_sample!(
     K_I, K_O = (posterior.K_inner, posterior.K_outer)
     n_samples = length(S_sample)
     
+    # For each length n vector in out we 
+    # (i) sample parameters from posterior 
+    # (ii) store n samples from model at parameters in said vector  
     for i in eachindex(out)
         ind = rand(1:n_samples)
-        model = SIS(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
+        model = predictive.model_type(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
         draw_sample!(out[i], mcmc, model)
     end 
 end 
 
 
 function draw_sample(
-    mcmc::SisMcmcSampler, 
+    mcmc::T, 
     predictive::PosteriorPredictive;
     n_samples::Int=500,  # Number of draws from the posterior 
     n_reps::Int=100  # Number of draws from predictive at sampled parameters 
-    )
+    ) where {T<:Union{SisMcmcSampler, SimMcmcSampler}}
 
     if n_reps == 1 
         out = InteractionSequenceSample{Int}(undef, n_samples)
     else 
-        out = [InteractionSequenceSample{Int}(undef, n_reps) for i in 1:n_samples]
+        out = [InteractionSequenceSample{Int}(undef, n_samples) for i in 1:n_reps]
     end 
     
     draw_sample!(out, mcmc, predictive)
@@ -171,16 +185,16 @@ function draw_sample(
     return out 
 end 
 
-struct DistanceToModePredictive 
-    posterior::SisPosteriorMcmcOutput
-end 
+
+# Distance to mode 
+# ----------------
 
 
-function draw_sample!(
+function dist_to_mode_sample!(
     out::Vector{Float64},
-    mcmc::SisMcmcSampler,
-    predictive::DistanceToModePredictive
-    )
+    mcmc::T,
+    predictive::PosteriorPredictive
+    ) where {T<:Union{SisMcmcSampler, SimMcmcSampler}}
 
     posterior_mcmc = predictive.posterior
     S_sample = posterior_mcmc.S_sample 
@@ -193,17 +207,17 @@ function draw_sample!(
     sample_store = [[Int[]]]
     for i in eachindex(out)
         ind = rand(1:n_samples)
-        model = SIS(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
+        model = predictive.model_type(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
         draw_sample!(sample_store, mcmc, model)
         out[i] = d(sample_store[1], model.mode)
     end 
 end 
 
-function draw_sample!(
+function dist_to_mode_sample!(
     out::Vector{Vector{Float64}},
-    mcmc::SisMcmcSampler,
-    predictive::DistanceToModePredictive
-    )
+    mcmc::T,
+    predictive::PosteriorPredictive
+    ) where {T<:Union{SisMcmcSampler, SimMcmcSampler}}
 
     posterior_mcmc = predictive.posterior
     S_sample = posterior_mcmc.S_sample 
@@ -216,43 +230,35 @@ function draw_sample!(
     sample_store = [[Int[]] for i in 1:length(out[1])]
     for i in eachindex(out)
         ind = rand(1:n_samples)
-        model = SIS(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
+        model = predictive.model_type(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
         draw_sample!(sample_store, mcmc, model)
         out[i] = map(x -> d(x, model.mode), sample_store)
     end 
 end 
 
-function draw_sample(
-    mcmc::SisMcmcSampler, 
-    predictive::DistanceToModePredictive;
+function dist_to_mode_sample(
+    mcmc::T, 
+    predictive::PosteriorPredictive;
     n_samples::Int=500,  # Number of draws from the posterior 
     n_reps::Int=100  # Number of draws from predictive at sampled parameters 
-    )
+    ) where {T<:Union{SisMcmcSampler, SimMcmcSampler}}
 
     if n_reps == 1 
         out = zeros(n_samples)
     else 
-        out = [zeros(n_reps) for i in 1:n_samples]
+        out = [zeros(n_samples) for i in 1:n_reps]
     end 
     
-    draw_sample!(out, mcmc, predictive)
+    dist_to_mode_sample!(out, mcmc, predictive)
 
     return out 
 end 
 
-struct MeanInnerDimensionPredictive
-    posterior::SisPosteriorMcmcOutput
-end 
-
-struct OuterDimensionPredictive 
-    posterior::SisPosteriorMcmcOutput
-end 
-
-function draw_sample!(
+function mean_inner_dim_sample!(
     out::Vector{Float64},
-    mcmc::SisMcmcSampler,
-    predictive::MeanInnerDimensionPredictive
-    )
+    mcmc::T,
+    predictive::PosteriorPredictive
+    ) where {T<:Union{SisMcmcSampler, SimMcmcSampler}}
 
     posterior_mcmc = predictive.posterior
     S_sample = posterior_mcmc.S_sample 
@@ -265,17 +271,17 @@ function draw_sample!(
     sample_store = [[Int[]]]
     for i in eachindex(out)
         ind = rand(1:n_samples)
-        model = SIS(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
+        model = predictive.model_type(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
         draw_sample!(sample_store, mcmc, model)
         out[i] = mean(lenth.(sample_store[1]))
     end 
 end 
 
-function draw_sample!(
+function outer_dim_sample!(
     out::Vector{Int},
-    mcmc::SisMcmcSampler,
-    predictive::OuterDimensionPredictive
-    )
+    mcmc::T,
+    predictive::PosteriorPredictive
+    ) where {T<:Union{SisMcmcSampler, SimMcmcSampler}}
 
     posterior_mcmc = predictive.posterior
     S_sample = posterior_mcmc.S_sample 
@@ -289,17 +295,17 @@ function draw_sample!(
 
     for i in eachindex(out)
         ind = rand(1:n_samples)
-        model = SIS(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
+        model = predictive.model_type(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
         draw_sample!(sample_store, mcmc, model)
         out[i] = length(sample_store[1])
     end 
 end 
 
-function draw_sample!(
+function mean_inner_dim_sample!(
     out::Vector{Vector{Float64}},
-    mcmc::SisMcmcSampler,
-    predictive::MeanInnerDimensionPredictive
-    )
+    mcmc::T,
+    predictive::PosteriorPredictive
+    ) where {T<:Union{SisMcmcSampler, SimMcmcSampler}}
 
     posterior_mcmc = predictive.posterior
     S_sample = posterior_mcmc.S_sample 
@@ -312,17 +318,17 @@ function draw_sample!(
     sample_store = [[Int[]] for i in 1:length(out[1])]
     for i in eachindex(out)
         ind = rand(1:n_samples)
-        model = SIS(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
+        model = predictive.model_type(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
         draw_sample!(sample_store, mcmc, model)
         out[i] = map(x -> mean(length.(x)), sample_store)
     end 
 end 
 
-function draw_sample!(
+function outer_dim_sample!(
     out::Vector{Vector{Int}},
-    mcmc::SisMcmcSampler,
-    predictive::OuterDimensionPredictive
-    )
+    mcmc::T,
+    predictive::PosteriorPredictive
+    ) where {T<:Union{SisMcmcSampler, SimMcmcSampler}}
 
     posterior_mcmc = predictive.posterior
     S_sample = posterior_mcmc.S_sample 
@@ -335,44 +341,44 @@ function draw_sample!(
     sample_store = [[Int[]] for i in 1:length(out[1])]
     for i in eachindex(out)
         ind = rand(1:n_samples)
-        model = SIS(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
+        model = predictive.model_type(S_sample[ind],γ_sample[ind], d, V, K_I, K_O)
         draw_sample!(sample_store, mcmc, model)
         out[i] = map(x -> length(x), sample_store)
     end 
 end 
 
-function draw_sample(
-    mcmc::SisMcmcSampler, 
-    predictive::Union{MeanInnerDimensionPredictive};
+function mean_inner_dim_sample(
+    mcmc::T, 
+    predictive::PosteriorPredictive;
     n_samples::Int=500,  # Number of draws from the posterior 
     n_reps::Int=100  # Number of draws from predictive at sampled parameters 
-    )
+    ) where {T<:Union{SisMcmcSampler, SimMcmcSampler}}
 
     if n_reps == 1 
         out = zeros(n_samples)
     else 
-        out = [zeros(n_reps) for i in 1:n_samples]
+        out = [zeros(n_samples) for i in 1:n_reps]
     end 
     
-    draw_sample!(out, mcmc, predictive)
+    mean_inner_dim_sample!(out, mcmc, predictive)
 
     return out 
 end 
 
-function draw_sample(
-    mcmc::SisMcmcSampler, 
-    predictive::Union{OuterDimensionPredictive};
+function outer_dim_sample(
+    mcmc::T, 
+    predictive::PosteriorPredictive;
     n_samples::Int=500,  # Number of draws from the posterior 
     n_reps::Int=100  # Number of draws from predictive at sampled parameters 
-    )
+    ) where {T<:Union{SisMcmcSampler, SimMcmcSampler}}
 
     if n_reps == 1 
         out = zeros(Int, n_samples)
     else 
-        out = [zeros(Int, n_reps) for i in 1:n_samples]
+        out = [zeros(Int, n_samples) for i in 1:n_reps]
     end 
     
-    draw_sample!(out, mcmc, predictive)
+    outer_dim_sample!(out, mcmc, predictive)
 
     return out 
 end 
