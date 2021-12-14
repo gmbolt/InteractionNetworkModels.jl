@@ -2,6 +2,52 @@ using Distributions, StatsBase
 
 export imcmc_multinomial_edit_accept_reject!, unif_multinomial_sample_tester
 export imcmc_trans_dim_accept_reject!, draw_sample!, draw_sample
+export rand_delete!, rand_insert!
+
+function rand_delete!(x::Path{Int}, d::Int)
+
+    n = length(x)
+    k = d
+    i = 0 
+    live_index = 0
+    while k > 0
+        u = rand()
+        q = (n - k) / n
+        while q > u  # skip
+            i += 1
+            n -= 1
+            q *= (n - k) / n
+        end
+        i+=1
+        # i is now index to delete 
+        deleteat!(x, i-live_index)
+        live_index += 1
+        n -= 1
+        k -= 1
+    end
+
+end 
+
+function rand_insert!(x::Path{Int}, a::Int, V::UnitRange)
+
+    n = length(x)+a
+    k = a
+    i = 0 
+    while k > 0
+        u = rand()
+        q = (n - k) / n
+        while q > u  # skip
+            i += 1
+            n -= 1
+            q *= (n - k) / n
+        end
+        i+=1
+        # i is now index to insert
+        insert!(x, i, rand(V))
+        n -= 1
+        k -= 1
+    end
+end 
 
 # Edit Allocation Move 
 # --------------------
@@ -58,18 +104,21 @@ function imcmc_multinomial_edit_accept_reject!(
 
             # tot_dels += d
             # println("       Deleting $d and adding $(δ_tmp-d)")
-            ind_del = view(mcmc.ind_del, 1:d)
-            ind_add = view(mcmc.ind_add, 1:(δ_tmp-d))
-            vals = view(mcmc.vals, 1:(δ_tmp-d))
+            # ind_del = view(mcmc.ind_del, 1:d)
+            # ind_add = view(mcmc.ind_add, 1:(δ_tmp-d))
+            # vals = view(mcmc.vals, 1:(δ_tmp-d))
 
             # println("           ind_del: $ind_del ; ind_add: $ind_add")
 
             # Sample indexing info and new entries (all in-place)
-            StatsBase.seqsample_a!(1:n, ind_del)
-            StatsBase.seqsample_a!(1:m, ind_add)
-            sample!(model.V, vals)
+            # StatsBase.seqsample_a!(1:n, ind_del)
+            # StatsBase.seqsample_a!(1:m, ind_add)
+            # sample!(model.V, vals)
 
-            delete_insert!(S_prop[i], ind_del, ind_add, vals)
+            I_tmp = S_prop[i]
+            rand_delete!(I_tmp, d)
+            rand_insert!(I_tmp, δ_tmp-d, model.V)
+            # delete_insert!(S_prop[i], ind_del, ind_add, vals)
 
             mcmc.ind_update[j] = i # Store which interaction was updated
             
@@ -168,6 +217,49 @@ function imcmc_multi_insert_prop_sample!(
 
 end 
 
+function imcmc_multi_insert_prop_sample!(
+    S_curr::InteractionSequence{Int}, 
+    S_prop::InteractionSequence{Int},
+    mcmc::Union{SisMcmcInsertDeleteGibbs,SisMcmcInsertDeleteEdit},
+    ε::Int
+    ) 
+
+    prop_pointers = mcmc.prop_pointers
+    ν_trans_dim = mcmc.ν_trans_dim
+    N = length(S_curr)
+    path_dist = mcmc.path_dist
+    log_ratio = 0.0
+    ind = mcmc.ind_trans_dim
+    
+    n = length(S_prop)+ε
+    k = ε
+    i = 0 
+    j = 0
+    while k > 0
+        u = rand()
+        q = (n - k) / n
+        while q > u  # skip
+            i += 1
+            n -= 1
+            q *= (n - k) / n
+        end
+        i += 1
+        j += 1
+        # Insert path at index i
+        # i is now index to insert
+        ind[j] = i
+        tmp = popfirst!(prop_pointers)
+        rand!(tmp, path_dist)
+        insert!(S_prop, i, tmp)
+        log_ratio += - logpdf(path_dist, tmp)
+        n -= 1
+        k -= 1
+    end
+    log_ratio += log(ν_trans_dim) - log(min(ν_trans_dim,N)) 
+    return log_ratio 
+
+end 
+
 function imcmc_multi_delete_prop_sample!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int}, 
@@ -191,6 +283,52 @@ function imcmc_multi_delete_prop_sample!(
     return log_ratio
 
 end 
+
+function imcmc_multi_delete_prop_sample!(
+    S_curr::InteractionSequence{Int}, 
+    S_prop::InteractionSequence{Int}, 
+    mcmc::Union{SisMcmcInsertDeleteGibbs, SisMcmcInsertDeleteEdit},
+    ε::Int
+    ) 
+
+    prop_pointers = mcmc.prop_pointers
+    ν_trans_dim = mcmc.ν_trans_dim
+    N = length(S_curr)
+    path_dist = mcmc.path_dist
+    log_ratio = 0.0
+    ind = mcmc.ind_trans_dim
+
+    n = length(S_prop)
+    k = ε   
+    i = 0 
+    j = 0
+    live_index = 0
+    while k > 0
+        u = rand()
+        q = (n - k) / n
+        while q > u  # skip
+            i += 1
+            n -= 1
+            q *= (n - k) / n
+        end
+        i+=1
+        j+=1
+        # Delete path 
+        # i is now index to delete 
+        ind[j] = i
+        tmp = popat!(S_prop, i - live_index)
+        pushfirst!(prop_pointers, tmp)
+        log_ratio += logpdf(path_dist, tmp)
+        live_index += 1
+        n -= 1
+        k -= 1
+    end
+
+    log_ratio += log(min(ν_trans_dim,N)) - log(ν_trans_dim)
+    return log_ratio
+
+end 
+
 
 function imcmc_trans_dim_accept_reject!(
     S_curr::InteractionSequence{Int},
@@ -217,12 +355,12 @@ function imcmc_trans_dim_accept_reject!(
             # Make no changes and imediately reject  
             return 0  
         end 
-        ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage for where to insert 
-        StatsBase.seqsample_a!(1:(N+ε), ind_tr_dim) # Sample where to insert 
+        # ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage for where to insert 
+        # StatsBase.seqsample_a!(1:(N+ε), ind_tr_dim) # Sample where to insert 
         log_ratio += imcmc_multi_insert_prop_sample!(
             S_curr, S_prop, 
             mcmc, 
-            ind_tr_dim
+            ε
             ) # Enact move and catch log ratio term 
     else 
         ε = rand(1:min(ν_trans_dim, N)) # How many to delete
@@ -230,12 +368,12 @@ function imcmc_trans_dim_accept_reject!(
         if (N - ε) < K_out_lb 
             return 0 
         end  
-        ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage
-        StatsBase.seqsample_a!(1:N, ind_tr_dim) # Sample which to delete 
+        # ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage
+        # StatsBase.seqsample_a!(1:N, ind_tr_dim) # Sample which to delete 
         log_ratio += imcmc_multi_delete_prop_sample!(
             S_curr, S_prop, 
             mcmc, 
-            ind_tr_dim
+            ε
             ) # Enact move and catch log ratio 
     end 
 
@@ -246,6 +384,7 @@ function imcmc_trans_dim_accept_reject!(
     ) + log_ratio
 
     # Note that we copy interactions between S_prop (resp. S_curr) and prop_pointers (resp .curr_pointers) by hand.
+    ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε)
     if log(rand()) < log_α
         if is_insert
             for i in ind_tr_dim
@@ -300,8 +439,6 @@ function draw_sample!(
     lag::Int=mcmc.lag,
     init::InteractionSequence{Int}=get_init(mcmc.init, model)
     ) 
-
-
 
     # Define aliases for pointers to the storage of current vals and proposals
     curr_pointers = mcmc.curr_pointers
