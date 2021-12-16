@@ -13,7 +13,7 @@ function imcmc_multinomial_edit_accept_reject!(
     N = length(S_curr)  
     K_in_lb = model.K_inner.l
     K_in_ub = model.K_inner.u
-    δ = rand(1:mcmc.ν_edit)  # Number of edits to enact 
+    δ = rand(1:mcmc.ν_ed)  # Number of edits to enact 
     rem_edits = δ # Remaining edits to allocate
     len_diffs = 0
     j = 0 # Keeps track how many interaction have been edited 
@@ -129,7 +129,7 @@ function imcmc_multi_insert_prop_sample!(
     ) 
 
     prop_pointers = mcmc.prop_pointers
-    ν_trans_dim = mcmc.ν_trans_dim
+    ν_td = mcmc.ν_td
     N = length(S_curr)
     path_dist = mcmc.path_dist
 
@@ -139,7 +139,7 @@ function imcmc_multi_insert_prop_sample!(
         rand!(S_prop[i], path_dist)
         log_ratio += - logpdf(path_dist, S_prop[i])
     end 
-    log_ratio += log(ν_trans_dim) - log(min(ν_trans_dim,N)) 
+    log_ratio += log(ν_td) - log(min(ν_td,N)) 
     return log_ratio 
 
 end 
@@ -152,7 +152,7 @@ function imcmc_multi_delete_prop_sample!(
     ) 
 
     prop_pointers = mcmc.prop_pointers
-    ν_trans_dim = mcmc.ν_trans_dim
+    ν_td = mcmc.ν_td
     N = length(S_curr)
     path_dist = mcmc.path_dist
 
@@ -163,7 +163,7 @@ function imcmc_multi_delete_prop_sample!(
         log_ratio += logpdf(path_dist, S_curr[i])
     end 
 
-    log_ratio += log(min(ν_trans_dim,N)) - log(ν_trans_dim)
+    log_ratio += log(min(ν_td,N)) - log(ν_td)
     return log_ratio
 
 end 
@@ -177,7 +177,7 @@ function imcmc_trans_dim_accept_reject!(
 
     K_out_lb = model.K_outer.l
     K_out_ub = model.K_outer.u
-    ν_trans_dim = mcmc.ν_trans_dim
+    ν_td = mcmc.ν_td
     curr_pointers = mcmc.curr_pointers
     prop_pointers = mcmc.prop_pointers
 
@@ -187,13 +187,13 @@ function imcmc_trans_dim_accept_reject!(
     N = length(S_curr)
     is_insert = rand(Bernoulli(0.5))
     if is_insert
-        ε = rand(1:ν_trans_dim) # How many to insert 
+        ε = rand(1:ν_td) # How many to insert 
         # Catch invalid proposal (ones which have zero probability)
         if (N + ε) > K_out_ub
             # Make no changes and imediately reject  
             return 0  
         end 
-        ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage for where to insert 
+        ind_tr_dim = view(mcmc.ind_td, 1:ε) # Storage for where to insert 
         StatsBase.seqsample_a!(1:(N+ε), ind_tr_dim) # Sample where to insert 
         log_ratio += imcmc_multi_insert_prop_sample!(
             S_curr, S_prop, 
@@ -201,12 +201,12 @@ function imcmc_trans_dim_accept_reject!(
             ind_tr_dim
             ) # Enact move and catch log ratio term 
     else 
-        ε = rand(1:min(ν_trans_dim, N)) # How many to delete
+        ε = rand(1:min(ν_td, N)) # How many to delete
         # Catch invalid proposal (would go to empty inter seq)
         if (N - ε) < K_out_lb
             return 0 
         end  
-        ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage
+        ind_tr_dim = view(mcmc.ind_td, 1:ε) # Storage
         StatsBase.seqsample_a!(1:N, ind_tr_dim) # Sample which to delete 
         log_ratio += imcmc_multi_delete_prop_sample!(
             S_curr, S_prop, 

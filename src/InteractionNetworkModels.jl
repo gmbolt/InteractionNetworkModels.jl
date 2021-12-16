@@ -16,6 +16,7 @@ include("Distances/graph_distances.jl")
 include("Types/PathDistributions.jl")
 include("Types/DataStructures.jl")
 include("Types/MetricModels.jl")
+include("Types/MarkovModels.jl")
 include("Types/distributions.jl")
 include("Types/hollywood_model.jl")
 

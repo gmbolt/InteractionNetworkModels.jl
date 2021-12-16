@@ -9,6 +9,56 @@ struct PathPseudoUniform <: PathDistribution
     length_dist::DiscreteUnivariateDistribution
 end 
 
+function Base.rand(d::PathPseudoUniform)
+    m = rand(d.length_dist)
+    return rand(d.vertex_set, m)
+end 
+
+function rand!(p::Vector{Int}, d::PathPseudoUniform)
+
+    m = rand(d.length_dist)
+    resize!(p, m)
+    sample!(d.vertex_set, p)
+
+end 
+
+struct PathConditionalCategorial <: PathDistribution
+    α::Float64
+    V::UnitRange
+end 
+
+PathCondCat = PathConditionalCategorial
+
+function get_cond_dist(
+    S::InteractionSequence{Int};
+    α::Float64=0.0,
+    V::Int=length(unique(vcat(S...)))
+    )
+    tot_len = 0
+    c = fill(α, V)
+    for path in S 
+        for v in path 
+            c[v] += 1.0 
+            tot_len += 1
+        end 
+    end 
+    c ./= (tot_len + α * V)
+    return c
+end
+
+function Base.rand(d::PathCondCat, curr::InteractionSequence{Int})
+    m = rand(Poisson(mean(length.(curr))))
+    p = get_cond_dist(curr, α=d.α, V=length(d.V))
+    return rand(Categorical(p), m)
+end 
+
+function rand!(x::Vector{Int}, d::PathCondCat, curr::InteractionSequence{Int})
+    m = rand(Poisson(mean(length.(curr))))
+    resize!(x, m)
+    p = get_cond_dist(S, α=d.α, V=length(d.V))
+    sample!(Categorical(p), x)
+end 
+
 struct PathCooccurrence{T<:Union{Int,String}} <: PathDistribution
     vertex_set::Vector{T}
     length_dist::DiscreteUnivariateDistribution
@@ -40,18 +90,7 @@ function PathCooccurrence(
 end 
 
 
-function Base.rand(d::PathPseudoUniform)
-    m = rand(d.length_dist)
-    return rand(d.vertex_set, m)
-end 
 
-function rand!(p::Vector{Int}, d::PathPseudoUniform)
-
-    m = rand(d.length_dist)
-    resize!(p, m)
-    sample!(d.vertex_set, p)
-
-end 
 
 function Base.rand(d::PathCooccurrence{String})
     m = rand(d.length_dist) # Sample length 

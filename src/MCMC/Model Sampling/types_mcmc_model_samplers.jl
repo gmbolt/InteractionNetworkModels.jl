@@ -207,7 +207,7 @@ abstract type SisMcmcSampler end
 
 struct SisMcmcInsertDeleteGibbs<: SisMcmcSampler
     ν_gibbs::Int   # Maximum number of edit ops
-    ν_trans_dim::Int  # Maximum increase or decrease in number of interactions
+    ν_td::Int  # Maximum increase or decrease in number of interactions
     path_dist::PathDistribution  # Distribution used to introduce new interactions
     β::Real  # Extra probability of Gibbs move
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
@@ -221,11 +221,11 @@ struct SisMcmcInsertDeleteGibbs<: SisMcmcSampler
     ind_del::Vector{Int} # Storage for indexing of deletions in Gibbs scan
     ind_add::Vector{Int} # Storage for indexing of additions in Gibbs scan
     vals::Vector{Int} # Storage for valuse to insert in Gibbs scan
-    ind_trans_dim::Vector{Int} # Storage of where to insert/delete 
+    ind_td::Vector{Int} # Storage of where to insert/delete 
     function SisMcmcInsertDeleteGibbs(
         path_dist::T;
         K=100,
-        ν_gibbs=4, ν_trans_dim=2,  β=0.6,
+        ν_gibbs=4, ν_td=2,  β=0.6,
         desired_samples=1000, lag=1, burn_in=0,
         init=SisInitMode()
         ) where {T<:PathDistribution}
@@ -234,19 +234,19 @@ struct SisMcmcInsertDeleteGibbs<: SisMcmcSampler
         ind_del = zeros(Int, ν_gibbs)
         ind_add = zeros(Int, ν_gibbs)
         vals = zeros(Int, ν_gibbs)
-        ind_trans_dim = zeros(Int, ν_trans_dim)
+        ind_td = zeros(Int, ν_td)
         par_info = Dict()
         par_info[:ν_gibbs] = "(maximum number of edit operations in iMCMC-within-Gibbs conditional updates)"
-        par_info[:ν_trans_dim] = "(maximum number of interaction insertions or deletions)"
+        par_info[:ν_td] = "(maximum number of interaction insertions or deletions)"
         par_info[:path_dist] = "(path distribution for insertions)"
         par_info[:β] = "(probability of Gibbs scan)"
         par_info[:K] = "(maximum number of interactions, used to initialise storage)"
 
         new(
-            ν_gibbs, ν_trans_dim, path_dist, β, K,
+            ν_gibbs, ν_td, path_dist, β, K,
             desired_samples, burn_in, lag, init,
             par_info,
-            curr_pointers, prop_pointers, ind_del, ind_add, vals, ind_trans_dim
+            curr_pointers, prop_pointers, ind_del, ind_add, vals, ind_td
             )
     end 
 end 
@@ -280,8 +280,8 @@ end
 
 
 struct SisMcmcInsertDeleteEdit <: SisMcmcSampler
-    ν_edit::Int  # Maximum number of edit operations
-    ν_trans_dim::Int  # Maximum change in outer dimension
+    ν_ed::Int  # Maximum number of edit operations
+    ν_td::Int  # Maximum change in outer dimension
     β::Real  # Probability of update move
     path_dist::PathDistribution  # Distribution used to introduce new interactions
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
@@ -296,34 +296,34 @@ struct SisMcmcInsertDeleteEdit <: SisMcmcSampler
     ind_add::Vector{Int} # Storage for indexing of additions of interactions
     vals::Vector{Int} # Storage for values to insert in interactions
     ind_update::Vector{Int} # Storage of which values have been updated
-    ind_trans_dim::Vector{Int} # Storage of where to insert/delete 
+    ind_td::Vector{Int} # Storage of where to insert/delete 
     function SisMcmcInsertDeleteEdit(
         path_dist::PathDistribution;
         K=100,
-        ν_edit=2, ν_trans_dim=2, β=0.4,
+        ν_ed=2, ν_td=2, β=0.4,
         desired_samples=1000, lag=1, burn_in=0, init=SisInitMode()
         ) 
         curr_pointers = [Int[] for i in 1:K]
         prop_pointers = [Int[] for i in 1:K]
-        ind_del = zeros(Int, ν_edit)
-        ind_add = zeros(Int, ν_edit)
-        vals = zeros(Int, ν_edit)
-        ind_update = zeros(Int, ν_edit)
-        ind_trans_dim = zeros(Int, ν_trans_dim)
+        ind_del = zeros(Int, ν_ed)
+        ind_add = zeros(Int, ν_ed)
+        vals = zeros(Int, ν_ed)
+        ind_update = zeros(Int, ν_ed)
+        ind_td = zeros(Int, ν_td)
         par_info = Dict()
-        par_info[:ν_edit] = "(maximum number of edit operations)"
-        par_info[:ν_trans_dim] = "(maximum increase/decrease in dimension)"
+        par_info[:ν_ed] = "(maximum number of edit operations)"
+        par_info[:ν_td] = "(maximum increase/decrease in dimension)"
         par_info[:path_dist] = "(path distribution for insertions)"
         par_info[:β] = "(probability of update move)"
         par_info[:K] = "(maximum number of interactions, used to initialise storage)"
 
         new(
-            ν_edit, ν_trans_dim, β, 
+            ν_ed, ν_td, β, 
             path_dist, K,
             desired_samples, burn_in, lag, init,
             par_info,
             curr_pointers, prop_pointers, ind_del, ind_add, vals,
-            ind_update, ind_trans_dim
+            ind_update, ind_td
             )
     end 
 end 
@@ -353,7 +353,6 @@ struct SisMcmcSplitMerge <: SisMcmcSampler
     β::Real  # Probability of update move
     η::Float64  # Noisy parameter for split/merge
     p::Float64  # Parameter for Geometric dist in split/merge
-    p_ins::Geometric 
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
@@ -367,8 +366,9 @@ struct SisMcmcSplitMerge <: SisMcmcSampler
     vals::Vector{Int} # Storage for values to insert in interactions
     ind_update::Vector{Int} # Storage of which values have been updated
     ind_td::Vector{Int} # Storage for location of split/merges
+    p_ins::Geometric 
     function SisMcmcSplitMerge(
-        ν_ed=2, ν_td=2, β=0.7,
+        ;ν_ed=2, ν_td=2, β=0.7,
         η=0.7, p=0.7,
         K=100,
         desired_samples=1000, lag=1, burn_in=0, init=SisInitMode()
@@ -391,12 +391,13 @@ struct SisMcmcSplitMerge <: SisMcmcSampler
 
         new(
             ν_ed, ν_td, β, 
-            η, p, p_ins,
+            η, p,
             K,
             desired_samples, burn_in, lag, init,
             par_info,
             curr_pointers, prop_pointers, ind_del, ind_add, vals,
-            ind_update, ind_td
+            ind_update, ind_td,
+            p_ins
             )
     end 
 end 
@@ -459,8 +460,8 @@ abstract type SimMcmcSampler end
 # -----------------------
 
 struct SimMcmcInsertDeleteEdit <: SimMcmcSampler
-    ν_edit::Int  # Maximum number of edit operations
-    ν_trans_dim::Int  # Maximum change in outer dimension
+    ν_ed::Int  # Maximum number of edit operations
+    ν_td::Int  # Maximum change in outer dimension
     β::Real  # Probability of trans-dimensional move
     path_dist::PathDistribution  # Distribution used to introduce new interactions
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
@@ -475,34 +476,34 @@ struct SimMcmcInsertDeleteEdit <: SimMcmcSampler
     ind_add::Vector{Int} # Storage for indexing of additions of interactions
     vals::Vector{Int} # Storage for values to insert in interactions
     ind_update::Vector{Int} # Storage of which values have been updated
-    ind_trans_dim::Vector{Int} # Storage of where to insert/delete 
+    ind_td::Vector{Int} # Storage of where to insert/delete 
     function SimMcmcInsertDeleteEdit(
         path_dist::PathDistribution;
         K=100,
-        ν_edit=2, ν_trans_dim=2, β=0.4,
+        ν_ed=2, ν_td=2, β=0.4,
         desired_samples=1000, lag=1, burn_in=0, init=SimInitMode()
         ) 
         curr_pointers = [Int[] for i in 1:K]
         prop_pointers = [Int[] for i in 1:K]
-        ind_del = zeros(Int, ν_edit)
-        ind_add = zeros(Int, ν_edit)
-        vals = zeros(Int, ν_edit)
-        ind_update = zeros(Int, ν_edit)
-        ind_trans_dim = zeros(Int, ν_trans_dim)
+        ind_del = zeros(Int, ν_ed)
+        ind_add = zeros(Int, ν_ed)
+        vals = zeros(Int, ν_ed)
+        ind_update = zeros(Int, ν_ed)
+        ind_td = zeros(Int, ν_td)
         par_info = Dict()
-        par_info[:ν_edit] = "(maximum number of edit operations)"
-        par_info[:ν_trans_dim] = "(maximum increase/decrease in dimension)"
+        par_info[:ν_ed] = "(maximum number of edit operations)"
+        par_info[:ν_td] = "(maximum increase/decrease in dimension)"
         par_info[:path_dist] = "(path distribution for insertions)"
         par_info[:β] = "(probability of update move)"
         par_info[:K] = "(maximum number of interactions, used to initialise storage)"
 
         new(
-            ν_edit, ν_trans_dim, β, 
+            ν_ed, ν_td, β, 
             path_dist, K,
             desired_samples, burn_in, lag, init,
             par_info,
             curr_pointers, prop_pointers, ind_del, ind_add, vals,
-            ind_update, ind_trans_dim
+            ind_update, ind_td
             )
     end  
 end 

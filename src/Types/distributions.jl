@@ -1,5 +1,5 @@
 export ScaledBeta, TrGeometric, TrBinomial, StringCategorical, likelihood, log_likelihood
-
+export normalising_const
 ## Scaled beta distribution
 """
 Scaled Beta distribution. Instantiate with ScaledBeta() e.g.

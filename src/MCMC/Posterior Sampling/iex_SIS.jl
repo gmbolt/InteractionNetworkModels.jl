@@ -71,7 +71,7 @@ function imcmc_multi_insert_prop_sample!(
     ) 
 
     prop_pointers = mcmc.prop_pointers
-    # ν_trans_dim = mcmc.ν_trans_dim
+    # ν_td = mcmc.ν_td
     N = length(S_curr)
     path_dist = mcmc.path_dist
 
@@ -81,7 +81,7 @@ function imcmc_multi_insert_prop_sample!(
         rand!(S_prop[i], path_dist)
         log_ratio += - logpdf(path_dist, S_prop[i])
     end 
-    # log_ratio += log(ν_trans_dim) - log(min(ν_trans_dim,N)) 
+    # log_ratio += log(ν_td) - log(min(ν_td,N)) 
     return log_ratio 
 
 end 
@@ -94,7 +94,7 @@ function imcmc_multi_delete_prop_sample!(
     ) 
 
     prop_pointers = mcmc.prop_pointers
-    ν_trans_dim = mcmc.ν_trans_dim
+    ν_td = mcmc.ν_td
     N = length(S_curr)
     path_dist = mcmc.path_dist
 
@@ -105,7 +105,7 @@ function imcmc_multi_delete_prop_sample!(
         log_ratio += logpdf(path_dist, S_curr[i])
     end 
 
-    # log_ratio += log(min(ν_trans_dim,N)) - log(ν_trans_dim)
+    # log_ratio += log(min(ν_td,N)) - log(ν_td)
     return log_ratio
 
 end 
@@ -230,7 +230,7 @@ function flip_informed!(
     P::CumCondProbMatrix
     ) 
 
-    δ = rand(1:mcmc.ν_edit)
+    δ = rand(1:mcmc.ν_ed)
     alloc = rand_restr_bins(length.(S_curr), δ)
     ind = mcmc.ind_add
     log_ratio = 0.0
@@ -287,7 +287,7 @@ function flip_informed_excl!(
     P::CumCondProbMatrix
     ) 
 
-    δ = rand(1:mcmc.ν_edit)
+    δ = rand(1:mcmc.ν_ed)
     alloc = rand_restr_bins(length.(S_curr), δ)
     ind = mcmc.ind_add
     log_ratio = 0.0
@@ -326,7 +326,7 @@ function double_iex_multinomial_edit_accept_reject!(
 
     aux_mcmc = mcmc.aux_mcmc
 
-    δ = rand(1:mcmc.ν_edit)  # Number of edits to enact 
+    δ = rand(1:mcmc.ν_ed)  # Number of edits to enact 
     rem_edits = δ # Remaining edits to allocate
     j = 0 # Keeps track how many interaction have been edited 
     log_ratio = 0.0
@@ -448,7 +448,7 @@ end
 #     P::CumCondProbMatrix
 #     ) where {T<:Int}
 
-#     δ = rand(1:mcmc.ν_edit)  # Number of edits to enact 
+#     δ = rand(1:mcmc.ν_ed)  # Number of edits to enact 
 #     log_ratio = 0.0
 #     p_z = cumsum(length.(S_curr))
 #     p_z = p_z ./ p_z[end]
@@ -491,7 +491,7 @@ function double_iex_flip_accept_reject!(
     aux_mcmc = mcmc.aux_mcmc
     lengths = length.(S_curr)
 
-    δ = rand(1:min(mcmc.ν_edit,sum(lengths)))
+    δ = rand(1:min(mcmc.ν_ed,sum(lengths)))
     # @show δ, lengths
     alloc = rand_restr_bins(lengths, δ)
     ind = mcmc.ind_add
@@ -567,7 +567,7 @@ function double_iex_trans_dim_accept_reject!(
     mode_prior = posterior.S_prior.mode
 
 
-    ν_trans_dim = mcmc.ν_trans_dim
+    ν_td = mcmc.ν_td
     curr_pointers = mcmc.curr_pointers
     prop_pointers = mcmc.prop_pointers
     aux_mcmc = mcmc.aux_mcmc 
@@ -578,34 +578,34 @@ function double_iex_trans_dim_accept_reject!(
     N = length(S_curr)
     is_insert = rand(Bernoulli(0.5))
     if is_insert
-        ε = rand(1:ν_trans_dim) # How many to insert 
+        ε = rand(1:ν_td) # How many to insert 
         # Catch invalid proposal (ones which have zero probability)
         if (N + ε) > K_out_ub
             # Make no changes and imediately reject  
             return 0, suff_stat_curr
         end 
-        ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage for where to insert 
+        ind_tr_dim = view(mcmc.ind_td, 1:ε) # Storage for where to insert 
         StatsBase.seqsample_a!(1:(N+ε), ind_tr_dim) # Sample where to insert 
         log_ratio += imcmc_multi_insert_prop_sample!(
             S_curr, S_prop, 
             mcmc, 
             ind_tr_dim
         ) # Enact move and catch log ratio term 
-        log_ratio += log(ν_trans_dim) - log(min(ν_trans_dim,N)) 
+        log_ratio += log(ν_td) - log(min(ν_td,N)) 
     else 
-        ε = rand(1:min(ν_trans_dim, N)) # How many to delete
+        ε = rand(1:min(ν_td, N)) # How many to delete
         # Catch invalid proposal (would go to empty inter seq)
         if (N - ε) < K_out_lb
             return 0, suff_stat_curr
         end  
-        ind_tr_dim = view(mcmc.ind_trans_dim, 1:ε) # Storage
+        ind_tr_dim = view(mcmc.ind_td, 1:ε) # Storage
         StatsBase.seqsample_a!(1:N, ind_tr_dim) # Sample which to delete 
         log_ratio += imcmc_multi_delete_prop_sample!(
             S_curr, S_prop, 
             mcmc, 
             ind_tr_dim
         ) # Enact move and catch log ratio 
-        log_ratio += log(min(ν_trans_dim,N)) - log(ν_trans_dim)
+        log_ratio += log(min(ν_td,N)) - log(ν_td)
     end 
 
     # Now do accept-reject step (**THIS IS WHERE WE DIFFER FROM MODEL SAMPLER***)

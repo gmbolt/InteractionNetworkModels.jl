@@ -154,19 +154,19 @@ function rand_split_noisy!(
         η, 
         V
     )
-
     p = p_del.p
     p_del_rev = TrGeometric(p, min(m1,m2))
     k = n - d  # Number of entries kept
+    # @show n_diff, k, m1, m2
     log_ratio = (
         log(normalising_const(p_del_rev)) - log(normalising_const(p_del))
-        + log(p) + (n - d - abs(m1-m2)) * log(1-p) 
+        + (k - abs(m1-m2)) * log(1-p) - log(p)
         + n_diff * log(length(V) - 1) 
         - (k - n_diff) * log(η) - n_diff * log(1 - η) 
         + (m1 + m2 - n - k) * log(length(V))
     )
     # Here we catch invalid proposals
-    if (m < K_in_lb) | (m > K_in_ub) 
+    if (m1 < K_in_lb) | (m1 > K_in_ub) | (m2 < K_in_lb) | (m2 > K_in_ub)
         log_ratio += -Inf
     end 
 
@@ -235,10 +235,10 @@ function merge_noisy!(
     @assert length(prop) == length(ind1_keep) "Invalid length of input `prop`"
     for i in eachindex(prop)
         if rand() < 0.5 
-            println("first")
+            # println("first")
             prop[i] = curr1[ind1_keep[i]]
         else 
-            println("second")
+            # println("second")
             prop[i] = curr2[ind2_keep[i]]
         end 
     end 
@@ -275,10 +275,10 @@ function merge_noisy_ins_dels!(
         if curr1[i] !== curr2[1]
             n_diff += 1
             if rand() < 0.5 
-                println("second")
+                # println("second")
                 curr1[i] = popfirst!(curr2) # Note this will return first val of curr2 and remove it 
             else
-                println("first")
+                # println("first")
                 popfirst!(curr2) # Here we just remove the first entry of curr2, not assigning this to curr1 
             end 
         else 
@@ -371,8 +371,8 @@ end
 
 # This will split adjacent paths 
 function multiple_adj_split_noisy!(
-    S_curr::Vector{Path{Int}}, 
-    S_store::Vector{Path{Int}},  # Storage for new paths 
+    curr::Vector{Path{Int}}, 
+    store::Vector{Path{Int}},  # Storage for new paths 
     ind_split::AbstractArray{Int}, # Which to split 
     p_ins::Geometric,
     η::Float64,
@@ -383,12 +383,12 @@ function multiple_adj_split_noisy!(
     live_index = 0 # We need to keep adjusting indexing as new paths are interoduced    for i in ind_split 
     log_ratio = 0.0
     for i in ind_split
-        I_curr = S_curr[i+live_index] # Current path 
+        I_curr = curr[i+live_index] # Current path 
         p_del = TrGeometric(p, length(I_curr)) # Deletion distribution 
-        I_new = popfirst!(S_store)  # Storage for new path 
-        insert!(S_curr, i+1+live_index, I_new)
+        I_new = popfirst!(store)  # Storage for new path 
+        insert!(curr, i+1+live_index, I_new)
         live_index += 1
-        log_ratio = rand_split_noisy!(
+        log_ratio += rand_split_noisy!(
             I_curr, I_new,
             p_del, p_ins,
             η, 
