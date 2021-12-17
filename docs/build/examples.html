@@ -15,15 +15,15 @@ V = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 K_inner = 20
 K_outer = 20
 </code></pre><p>Now we define sampler </p><pre><code class="language-julia hljs">path_proposal = PathPseudoUniform(model.V, TrGeometric(0.5, 1, model.K_inner))
-mcmc_sampler = SisMcmcInsertDeleteEdit(
+mcmc_sampler = SisMcmcInsertDelete(
     path_proposal,
     K=model.K_inner,
-    ν_edit=1, ν_trans_dim=1, β=0.7
+    ν_ed=1, ν_td=1, β=0.7
     )</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MCMC Sampler for SIS Models via with Multinomial Allocated Updates and Interaction Insertion/Deletion.
 ------------------------------------------------------------------------------------------------------
 Parameters:
-ν_edit = 1  (maximum number of edit operations)
-ν_trans_dim = 1  (maximum increase/decrease in dimension)
+ν_ed = 1  (maximum number of edit operations)
+ν_td = 1  (maximum increase/decrease in dimension)
 β = 0.7  (probability of update move)
 path_dist = PathPseudoUniform{Int64}([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], TrGeometric(p=0.5, lb=1, ub=20, C=0.9999990463256836))  (path distribution for insertions)
 K = 20  (maximum number of interactions, used to initialise storage)

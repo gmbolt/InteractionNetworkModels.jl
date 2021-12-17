@@ -15,10 +15,10 @@ Now we define sampler
 
 ```@example model_sampling
 path_proposal = PathPseudoUniform(model.V, TrGeometric(0.5, 1, model.K_inner))
-mcmc_sampler = SisMcmcInsertDeleteEdit(
+mcmc_sampler = SisMcmcInsertDelete(
     path_proposal, 
     K=model.K_inner, 
-    ν_edit=1, ν_trans_dim=1, β=0.7
+    ν_ed=1, ν_td=1, β=0.7
     )
 
 ```

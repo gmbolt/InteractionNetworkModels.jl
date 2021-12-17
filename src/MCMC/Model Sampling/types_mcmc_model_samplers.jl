@@ -1,5 +1,7 @@
+using Distributions
 export SisMcmcSampler, SimMcmcSampler, SpfMcmcSampler
-export SisMcmcInsertDeleteEdit, SisMcmcInsertDeleteGibbs, SisMcmcSplitMerge
+export SisMcmcInsertDelete, SisMcmcInsertDeleteGibbs, SisMcmcSplitMerge
+export SisMcmcInsertDeleteCenter
 export SimMcmcInsertDeleteEdit, SimMcmcInsertDeleteGibbs
 export SisMcmcInitialiser, SisInitMode, SisInitRandEdit, get_init
 export SisMcmcInitialiser, SimInitMode
@@ -279,11 +281,11 @@ function Base.show(io::IO, sampler::SisMcmcInsertDeleteGibbs)
 end 
 
 
-struct SisMcmcInsertDeleteEdit <: SisMcmcSampler
+struct SisMcmcInsertDelete <: SisMcmcSampler
     ν_ed::Int  # Maximum number of edit operations
     ν_td::Int  # Maximum change in outer dimension
     β::Real  # Probability of update move
-    path_dist::PathDistribution  # Distribution used to introduce new interactions
+    len_dist::DiscreteUnivariateDistribution  # Dist. to sample path lengths
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
@@ -292,43 +294,37 @@ struct SisMcmcInsertDeleteEdit <: SisMcmcSampler
     par_info::Dict
     curr_pointers::InteractionSequence{Int} # Storage for prev value in MCMC
     prop_pointers::InteractionSequence{Int} # Storage for curr value in MCMC
-    ind_del::Vector{Int} # Storage for indexing of deletions of interactions
-    ind_add::Vector{Int} # Storage for indexing of additions of interactions
-    vals::Vector{Int} # Storage for values to insert in interactions
     ind_update::Vector{Int} # Storage of which values have been updated
     ind_td::Vector{Int} # Storage of where to insert/delete 
-    function SisMcmcInsertDeleteEdit(
-        path_dist::PathDistribution;
+    function SisMcmcInsertDelete(
+        ;
         K=100,
-        ν_ed=2, ν_td=2, β=0.4,
+        ν_ed=2, ν_td=2, β=0.4, len_dist=TrGeometric(0.8,1,K),
         desired_samples=1000, lag=1, burn_in=0, init=SisInitMode()
         ) 
         curr_pointers = [Int[] for i in 1:K]
         prop_pointers = [Int[] for i in 1:K]
-        ind_del = zeros(Int, ν_ed)
-        ind_add = zeros(Int, ν_ed)
-        vals = zeros(Int, ν_ed)
         ind_update = zeros(Int, ν_ed)
         ind_td = zeros(Int, ν_td)
         par_info = Dict()
         par_info[:ν_ed] = "(maximum number of edit operations)"
         par_info[:ν_td] = "(maximum increase/decrease in dimension)"
-        par_info[:path_dist] = "(path distribution for insertions)"
+        par_info[:len_dist] = "(distribution to sample length of path insertions)"
         par_info[:β] = "(probability of update move)"
         par_info[:K] = "(maximum number of interactions, used to initialise storage)"
 
         new(
             ν_ed, ν_td, β, 
-            path_dist, K,
+            len_dist, K,
             desired_samples, burn_in, lag, init,
             par_info,
-            curr_pointers, prop_pointers, ind_del, ind_add, vals,
+            curr_pointers, prop_pointers,
             ind_update, ind_td
             )
     end 
 end 
 
-function Base.show(io::IO, sampler::SisMcmcInsertDeleteEdit)
+function Base.show(io::IO, sampler::SisMcmcInsertDelete)
     title = "MCMC Sampler for SIS Models via with Multinomial Allocated Updates and Interaction Insertion/Deletion."
     n = length(title)
     println(io, title)
@@ -343,6 +339,69 @@ function Base.show(io::IO, sampler::SisMcmcInsertDeleteEdit)
         println(io, par, " = $(getfield(sampler, par))  ")
     end 
 end 
+
+# Centered Insert/Delete
+# ----------------------
+
+struct SisMcmcInsertDeleteCenter <: SisMcmcSampler
+    ν_ed::Int  # Maximum number of edit operations
+    ν_td::Int  # Maximum change in outer dimension
+    β::Real  # Probability of update move
+    p::Float64  # Par for geometric on size difference
+    K::Int # Max number of interactions (used to determined how many pointers to store interactions)
+    desired_samples::Int  # Final three set default values for MCMC samplers 
+    burn_in::Int
+    lag::Int
+    init::SisMcmcInitialiser
+    par_info::Dict
+    curr_pointers::InteractionSequence{Int} # Storage for prev value in MCMC
+    prop_pointers::InteractionSequence{Int} # Storage for curr value in MCMC
+    ind_update::Vector{Int} # Storage of which values have been updated
+    ind_td::Vector{Int} # Storage of where to insert/delete 
+    function SisMcmcInsertDeleteCenter(
+        ;
+        K=100,
+        ν_ed=2, ν_td=2, β=0.4, p=0.7,
+        desired_samples=1000, lag=1, burn_in=0, init=SisInitMode()
+        ) 
+        curr_pointers = [Int[] for i in 1:K]
+        prop_pointers = [Int[] for i in 1:K]
+        ind_update = zeros(Int, ν_ed)
+        ind_td = zeros(Int, ν_td)
+        par_info = Dict()
+        par_info[:ν_ed] = "(maximum number of edit operations)"
+        par_info[:ν_td] = "(maximum increase/decrease in dimension)"
+        par_info[:p] = "(parameter for Geometric dists. on size difference from mean)"
+        par_info[:β] = "(probability of update move)"
+        par_info[:K] = "(maximum number of interactions, used to initialise storage)"
+
+        new(
+            ν_ed, ν_td, β, 
+            p, K,
+            desired_samples, burn_in, lag, init,
+            par_info,
+            curr_pointers, prop_pointers,
+            ind_update, ind_td
+            )
+    end 
+end 
+
+function Base.show(io::IO, sampler::SisMcmcInsertDeleteCenter)
+    title = "MCMC Sampler for SIS Models via with Multinomial Allocated Updates and Interaction Insertion/Deletion."
+    n = length(title)
+    println(io, title)
+    println(io, "-"^n)
+    println(io, "Parameters:")
+    num_of_pars = 5
+    for par in fieldnames(typeof(sampler))[1:num_of_pars]
+        println(io, par, " = $(getfield(sampler, par))  ", sampler.par_info[par])
+    end 
+    println(io, "\nDefault output parameters:")
+    for par in fieldnames(typeof(sampler))[(num_of_pars+1):(num_of_pars+4)]
+        println(io, par, " = $(getfield(sampler, par))  ")
+    end 
+end 
+
 
 # Merge/split
 # -----------
