@@ -197,7 +197,7 @@ end
 function imcmc_multi_insert_prop_sample!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int},
-    mcmc::Union{SisMcmcInsertDeleteGibbs,SisMcmcInsertDelete},
+    mcmc::Union{SisMcmcInsertDeleteGibbs,SisMcmcInsertDelete,SimMcmcInsertDelete},
     ind::AbstractVector{Int},
     V::UnitRange,
     K_in_ub::Int
@@ -225,7 +225,7 @@ end
 function imcmc_multi_insert_prop_sample!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int},
-    mcmc::Union{SisMcmcInsertDeleteGibbs,SisMcmcInsertDelete},
+    mcmc::Union{SisMcmcInsertDeleteGibbs,SisMcmcInsertDelete,SimMcmcInsertDelete},
     ε::Int,
     V::UnitRange,
     K_in_ub::Int
@@ -272,7 +272,7 @@ end
 function imcmc_multi_delete_prop_sample!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int}, 
-    mcmc::Union{SisMcmcInsertDeleteGibbs, SisMcmcInsertDelete},
+    mcmc::Union{SisMcmcInsertDeleteGibbs, SisMcmcInsertDelete,SimMcmcInsertDelete},
     ind::AbstractVector{Int}, 
     V::UnitRange
     ) 
@@ -299,7 +299,7 @@ end
 function imcmc_multi_delete_prop_sample!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int}, 
-    mcmc::Union{SisMcmcInsertDeleteGibbs, SisMcmcInsertDelete},
+    mcmc::Union{SisMcmcInsertDeleteGibbs,SisMcmcInsertDelete,SimMcmcInsertDelete},
     ε::Int, 
     V::UnitRange
     ) 

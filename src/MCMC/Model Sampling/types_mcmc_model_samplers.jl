@@ -2,7 +2,7 @@ using Distributions
 export SisMcmcSampler, SimMcmcSampler, SpfMcmcSampler
 export SisMcmcInsertDelete, SisMcmcInsertDeleteGibbs, SisMcmcSplitMerge
 export SisMcmcInsertDeleteCenter
-export SimMcmcInsertDeleteEdit, SimMcmcInsertDeleteGibbs
+export SimMcmcInsertDelete, SimMcmcInsertDeleteGibbs
 export SisMcmcInitialiser, SisInitMode, SisInitRandEdit, get_init
 export SisMcmcInitialiser, SimInitMode
 export SpfInvolutiveMcmcCentSubseq, SpfInvolutiveMcmcEdit
@@ -325,10 +325,11 @@ struct SisMcmcInsertDelete <: SisMcmcSampler
 end 
 
 function Base.show(io::IO, sampler::SisMcmcInsertDelete)
-    title = "MCMC Sampler for SIS Models via with Multinomial Allocated Updates and Interaction Insertion/Deletion."
+    title = "MCMC Sampler for SIS Model"
     n = length(title)
     println(io, title)
     println(io, "-"^n)
+    println(io, "Description: interaction insertion/deletion with edit allocation updates.")
     println(io, "Parameters:")
     num_of_pars = 5
     for par in fieldnames(typeof(sampler))[1:num_of_pars]
@@ -518,11 +519,11 @@ abstract type SimMcmcSampler end
 # Edit Allocation Sampler 
 # -----------------------
 
-struct SimMcmcInsertDeleteEdit <: SimMcmcSampler
+struct SimMcmcInsertDelete <: SimMcmcSampler
     ν_ed::Int  # Maximum number of edit operations
     ν_td::Int  # Maximum change in outer dimension
     β::Real  # Probability of trans-dimensional move
-    path_dist::PathDistribution  # Distribution used to introduce new interactions
+    len_dist::DiscreteUnivariateDistribution
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
@@ -536,10 +537,10 @@ struct SimMcmcInsertDeleteEdit <: SimMcmcSampler
     vals::Vector{Int} # Storage for values to insert in interactions
     ind_update::Vector{Int} # Storage of which values have been updated
     ind_td::Vector{Int} # Storage of where to insert/delete 
-    function SimMcmcInsertDeleteEdit(
-        path_dist::PathDistribution;
+    function SimMcmcInsertDelete(
+        ;
         K=100,
-        ν_ed=2, ν_td=2, β=0.4,
+        ν_ed=2, ν_td=2, β=0.4, len_dist=TrGeometric(0.8,1,K),
         desired_samples=1000, lag=1, burn_in=0, init=SimInitMode()
         ) 
         curr_pointers = [Int[] for i in 1:K]
@@ -552,13 +553,13 @@ struct SimMcmcInsertDeleteEdit <: SimMcmcSampler
         par_info = Dict()
         par_info[:ν_ed] = "(maximum number of edit operations)"
         par_info[:ν_td] = "(maximum increase/decrease in dimension)"
-        par_info[:path_dist] = "(path distribution for insertions)"
+        par_info[:len_dist] = "(distribution to sample length of path insertions)"
         par_info[:β] = "(probability of update move)"
         par_info[:K] = "(maximum number of interactions, used to initialise storage)"
 
         new(
             ν_ed, ν_td, β, 
-            path_dist, K,
+            len_dist, K,
             desired_samples, burn_in, lag, init,
             par_info,
             curr_pointers, prop_pointers, ind_del, ind_add, vals,
@@ -567,11 +568,12 @@ struct SimMcmcInsertDeleteEdit <: SimMcmcSampler
     end  
 end 
 
-function Base.show(io::IO, sampler::SimMcmcInsertDeleteEdit)
-    title = "MCMC Sampler for SIM Models via Edit Allocation + Insert/Delete Moves"
+function Base.show(io::IO, sampler::SimMcmcInsertDelete)
+    title = "MCMC Sampler for SIM Models"
     n = length(title)
     println(io, title)
     println(io, "-"^n)
+    println(io, "Description: interaction insertion/deletion with edit allocation updates.")
     println(io, "Parameters:")
     num_of_pars = 5
     for par in fieldnames(typeof(sampler))[1:num_of_pars]

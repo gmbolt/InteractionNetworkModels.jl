@@ -15,27 +15,24 @@ end
 # """
 function log_multinomial_ratio(x::AbstractVector, y::AbstractVector)
     if length(x) > length(y)
-        return -log_multinomial_ratio(y,x)
+        x = log_multinomial_ratio(y,x)
+        return -x
     end 
     # Now we can assume length(x) ≤ length(y)
     z = 0.0
-    dictx = Dict{eltype(x), Int}()  # To store values seen in x and their counts
-    dicty = Dict{eltype(y), Int}()  # To store values seen in y and their counts
+    dx = Dict{eltype(x), Int}()  # To store values seen in x and their counts
+    dy = Dict{eltype(y), Int}()  # To store values seen in y and their counts
 
     # First sort the element counts terms
-    for i=1:length(x) 
+    @inbounds for i in eachindex(x) 
         # @show x_val, y_val, typeof(x_val)
-        @inbounds myaddcounts!(dictx, x[i])
-        @inbounds myaddcounts!(dicty, y[i])
-        @inbounds z = z + log(dicty[y[i]]) - log(dictx[x[i]]) 
+        myaddcounts!(dx, x[i])
+        myaddcounts!(dy, y[i])
+        z += log(dy[y[i]]) - log(dx[x[i]]) 
     end 
-    for i=(length(x)+1):(length(y))
-        @inbounds myaddcounts!(dicty, y[i])
-        @inbounds z = z + log(dicty[y[i]])
-    end 
-    # Now the object size terms (log())
-    for i=(length(x)+1):length(y)
-        z = z - log(i)
+    @inbounds for i=(length(x)+1):(length(y))
+        myaddcounts!(dy, y[i])
+        z += log(dy[y[i]]) - log(i)
     end 
     return z
 end 

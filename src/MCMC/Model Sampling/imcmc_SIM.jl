@@ -7,7 +7,7 @@ function imcmc_multinomial_edit_accept_reject!(
     S_curr::InteractionSequence, 
     S_prop::InteractionSequence, 
     model::SIM, 
-    mcmc::SimMcmcInsertDeleteEdit
+    mcmc::SimMcmcInsertDelete
     ) 
 
     N = length(S_curr)  
@@ -121,62 +121,66 @@ end
 # Trans-dimensional Move 
 # ----------------------
 
-function imcmc_multi_insert_prop_sample!(
-    S_curr::InteractionSequence, 
-    S_prop::InteractionSequence,
-    mcmc::SimMcmcInsertDeleteEdit,
-    ind::AbstractVector{Int}
-    ) 
+# function imcmc_multi_insert_prop_sample!(
+#     S_curr::InteractionSequence, 
+#     S_prop::InteractionSequence,
+#     mcmc::SimMcmcInsertDelete,
+#     ind::AbstractVector{Int},
+#     V::UnitRange,
+#     K_in_ub::Int
+#     ) 
 
-    prop_pointers = mcmc.prop_pointers
-    ν_td = mcmc.ν_td
-    N = length(S_curr)
-    path_dist = mcmc.path_dist
+#     prop_pointers = mcmc.prop_pointers
+#     ν_td = mcmc.ν_td
+#     N = length(S_curr)
+#     len_dist = mcmc.len_dist
 
-    log_ratio = 0.0 
-    for i in ind 
-        migrate!(S_prop, prop_pointers, i, 1)
-        rand!(S_prop[i], path_dist)
-        log_ratio += - logpdf(path_dist, S_prop[i])
-    end 
-    log_ratio += log(ν_td) - log(min(ν_td,N)) 
-    return log_ratio 
+#     log_ratio = 0.0 
+#     for i in ind 
+#         migrate!(S_prop, prop_pointers, i, 1)
+#         rand!(S_prop[i], path_dist)
+#         log_ratio += - logpdf(path_dist, S_prop[i])
+#     end 
+#     log_ratio += log(ν_td) - log(min(ν_td,N)) 
+#     return log_ratio 
 
-end 
+# end 
 
-function imcmc_multi_delete_prop_sample!(
-    S_curr::InteractionSequence, 
-    S_prop::InteractionSequence, 
-    mcmc::SimMcmcInsertDeleteEdit,
-    ind::AbstractVector{Int}
-    ) 
+# function imcmc_multi_delete_prop_sample!(
+#     S_curr::InteractionSequence, 
+#     S_prop::InteractionSequence, 
+#     mcmc::SimMcmcInsertDelete,
+#     ind::AbstractVector{Int}
+#     ) 
 
-    prop_pointers = mcmc.prop_pointers
-    ν_td = mcmc.ν_td
-    N = length(S_curr)
-    path_dist = mcmc.path_dist
+#     prop_pointers = mcmc.prop_pointers
+#     ν_td = mcmc.ν_td
+#     N = length(S_curr)
+#     path_dist = mcmc.path_dist
 
-    log_ratio = 0.0
+#     log_ratio = 0.0
 
-    for i in Iterators.reverse(ind)
-        migrate!(prop_pointers, S_prop, 1, i)
-        log_ratio += logpdf(path_dist, S_curr[i])
-    end 
+#     for i in Iterators.reverse(ind)
+#         migrate!(prop_pointers, S_prop, 1, i)
+#         log_ratio += logpdf(path_dist, S_curr[i])
+#     end 
 
-    log_ratio += log(min(ν_td,N)) - log(ν_td)
-    return log_ratio
+#     log_ratio += log(min(ν_td,N)) - log(ν_td)
+#     return log_ratio
 
-end 
+# end 
 
 function imcmc_trans_dim_accept_reject!(
     S_curr::InteractionSequence,
     S_prop::InteractionSequence, 
     model::SIM, 
-    mcmc::SimMcmcInsertDeleteEdit   
+    mcmc::SimMcmcInsertDelete   
     )  
 
     K_out_lb = model.K_outer.l
     K_out_ub = model.K_outer.u
+    K_in_ub = model.K_inner.u
+    V = model.V
     ν_td = mcmc.ν_td
     curr_pointers = mcmc.curr_pointers
     prop_pointers = mcmc.prop_pointers
@@ -198,7 +202,8 @@ function imcmc_trans_dim_accept_reject!(
         log_ratio += imcmc_multi_insert_prop_sample!(
             S_curr, S_prop, 
             mcmc, 
-            ind_tr_dim
+            ind_tr_dim,
+            V, K_in_ub
             ) # Enact move and catch log ratio term 
     else 
         ε = rand(1:min(ν_td, N)) # How many to delete
@@ -211,7 +216,8 @@ function imcmc_trans_dim_accept_reject!(
         log_ratio += imcmc_multi_delete_prop_sample!(
             S_curr, S_prop, 
             mcmc, 
-            ind_tr_dim
+            ind_tr_dim,
+            V
             ) # Enact move and catch log ratio 
     end 
 
@@ -257,7 +263,7 @@ end
 """
     draw_sample!(
         sample_out::InteractionSequenceSample, 
-        mcmc::SimMcmcInsertDeleteEdit, 
+        mcmc::SimMcmcInsertDelete, 
         model::SIM;
         burn_in::Int=mcmc.burn_in,
         lag::Int=mcmc.lag,
@@ -266,11 +272,11 @@ end
 
 Draw sample in-place from given SIM model `model::SIM` via MCMC algorithm with edit allocation and interaction insertion/deletion, storing output in `sample_out::InteractionSequenceSample`. 
 
-Accepts keyword arguments to change MCMC output, including burn-in, lag and initial values. If not given, these are set to the default values of the passed MCMC sampler `mcmc::SimMcmcInsertDeleteEdit`.
+Accepts keyword arguments to change MCMC output, including burn-in, lag and initial values. If not given, these are set to the default values of the passed MCMC sampler `mcmc::SimMcmcInsertDelete`.
 """
 function draw_sample!(
     sample_out::Union{InteractionSequenceSample{Int}, SubArray},
-    mcmc::SimMcmcInsertDeleteEdit,
+    mcmc::SimMcmcInsertDelete,
     model::SIM;
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
@@ -335,7 +341,7 @@ function draw_sample!(
 end 
 
 function draw_sample(
-    mcmc::SimMcmcInsertDeleteEdit, 
+    mcmc::SimMcmcInsertDelete, 
     model::SIM;
     desired_samples::Int=mcmc.desired_samples, 
     burn_in::Int=mcmc.burn_in,
@@ -349,7 +355,7 @@ function draw_sample(
 
 end 
 
-function (mcmc::SimMcmcInsertDeleteEdit)(
+function (mcmc::SimMcmcInsertDelete)(
     model::SIM;
     desired_samples::Int=mcmc.desired_samples, 
     burn_in::Int=mcmc.burn_in,
