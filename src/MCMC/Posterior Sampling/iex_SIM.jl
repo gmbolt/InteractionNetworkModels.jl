@@ -186,6 +186,87 @@ function double_iex_multinomial_edit_accept_reject!(
     end 
 end 
 
+function double_iex_flip_accept_reject!(
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int},
+    posterior::SimPosterior,
+    γ_curr::Float64,
+    mcmc::SimIexInsertDeleteEdit,
+    P::CumCondProbMatrix,
+    aux_data::InteractionSequenceSample{Int},
+    suff_stat_curr::Float64
+    ) 
+    
+    dist = posterior.dist
+    V = posterior.V
+    data = posterior.data
+    γ_prior = posterior.S_prior.γ 
+    mode_prior = posterior.S_prior.mode
+    K_inner, K_outer = (posterior.K_inner, posterior.K_outer)
+
+    aux_mcmc = mcmc.aux_mcmc
+    lengths = length.(S_curr)
+
+    δ = rand(1:min(mcmc.ν_ed,sum(lengths)))
+    # @show δ, lengths
+    alloc = rand_restr_bins(lengths, δ)
+    ind = mcmc.ind_add
+    log_ratio = 0.0
+
+    for (key,val) in pairs(alloc)
+        ind_flip = view(ind, 1:val)
+        StatsBase.seqsample_a!(1:lengths[key], ind_flip)
+        log_ratio += flip_informed_excl!(
+            S_prop[key], 
+            ind_flip, 
+            P
+        ) 
+    end 
+    
+    aux_model = SIM(
+        S_prop, γ_curr, 
+        dist, 
+        V, 
+        K_inner, 
+        K_outer
+        )
+
+    draw_sample!(aux_data, aux_mcmc, aux_model)
+
+    aux_log_lik_ratio = -γ_curr * (
+        mapreduce(x -> dist(x, S_curr), + , aux_data)
+        - mapreduce(x -> dist(x, S_prop), +, aux_data)
+    )
+
+    suff_stat_prop = mapreduce(x -> dist(x, S_prop), + , data)
+    log_lik_ratio = -γ_curr * (
+        suff_stat_prop - suff_stat_curr
+    )
+
+    log_prior_ratio = -γ_prior * (
+        dist(S_prop, mode_prior) - dist(S_curr, mode_prior)
+    )
+
+    log_multinom_term = log_multinomial_ratio(S_curr, S_prop)
+    # Log acceptance probability
+    log_α = log_lik_ratio + log_prior_ratio + aux_log_lik_ratio + log_ratio + log_multinom_term
+
+    # Accept-reject step. Use info in mcmc.ind_update to know which interaction are to be copied over 
+    if log(rand()) < log_α
+        for i in keys(alloc)
+            copy!(S_curr[i], S_prop[i])
+        end
+        return 1, suff_stat_prop
+    else 
+        for i in keys(alloc)
+            copy!(S_prop[i], S_curr[i])
+        end 
+        return 0, suff_stat_curr
+    end 
+
+end 
+
+
 function double_iex_trans_dim_accept_reject!(
     S_curr::InteractionSequence{Int},
     S_prop::InteractionSequence{Int},
@@ -345,8 +426,10 @@ function draw_sample_mode!(
 
     tr_dim_count = 0 
     tr_dim_acc_count = 0
-    upd_count = 0 
-    upd_acc_count = 0
+    ed_count = 0 
+    ed_acc_count = 0
+    flp_count = 0
+    flp_acc_count = 0
 
     aux_data = [[Int[]] for i in 1:posterior.sample_size]
     # Initialise the aux_data 
@@ -376,15 +459,27 @@ function draw_sample_mode!(
         end 
         # W.P. do update move (accept-reject done internally by function call)
         if rand() < β
-            was_acc, suff_stat_curr = double_iex_multinomial_edit_accept_reject!(
-                S_curr, S_prop, 
-                posterior, γ_curr,
-                mcmc, P, 
-                aux_data,
-                suff_stat_curr
-            )
-            upd_acc_count += was_acc
-            upd_count += 1
+            if rand() < 0.5 
+                was_acc, suff_stat_curr = double_iex_multinomial_edit_accept_reject!(
+                    S_curr, S_prop, 
+                    posterior, γ_curr,
+                    mcmc, P, 
+                    aux_data,
+                    suff_stat_curr
+                )
+                ed_acc_count += was_acc
+                ed_count += 1
+            else 
+                was_acc, suff_stat_curr = double_iex_flip_accept_reject!(
+                    S_curr, S_prop, 
+                    posterior, γ_curr,
+                    mcmc, P, 
+                    aux_data,
+                    suff_stat_curr
+                )
+                flp_acc_count += was_acc
+                flp_count += 1
+            end 
         # Else do trans-dim move. We will do accept-reject move here 
         else 
             was_acc, suff_stat_curr = double_iex_trans_dim_accept_reject!(
@@ -407,10 +502,11 @@ function draw_sample_mode!(
         migrate!(prop_pointers, S_prop, 1, 1)
     end 
     return (
-                upd_count, upd_acc_count,
-                tr_dim_count, tr_dim_acc_count,
-                suff_stats
-            )
+        ed_count, ed_acc_count,
+        flp_count, flp_acc_count,
+        tr_dim_count, tr_dim_acc_count,
+        suff_stats
+    )
 end 
 
 function draw_sample_mode(
@@ -448,7 +544,8 @@ function (mcmc::SimIexInsertDeleteEdit)(
     sample_out = Vector{InteractionSequence{Int}}(undef, desired_samples)
 
     (
-        update_count, update_acc_count, 
+        edit_count, edit_acc_count, 
+        flip_count, flip_acc_count,
         trans_dim_count, trans_dim_acc_count,
         suff_stats
         ) = draw_sample_mode!(
@@ -462,9 +559,10 @@ function (mcmc::SimIexInsertDeleteEdit)(
             )
 
     p_measures = Dict(
-            "Proportion Update Moves" => update_count/(update_count+trans_dim_count),
-            "Update Move Acceptance Probability" => update_acc_count / update_count,
-            "Trans-Dimensional Move Acceptance Probability" => trans_dim_acc_count / trans_dim_count
+        "Proportion Update Moves" => (edit_count+flip_count)/(edit_count+flip_count+trans_dim_count),
+        "Edit Alloc Move Acceptance Probability" => edit_acc_count / edit_count,
+        "Flip Alloc Acceptance Probability" => flip_acc_count / flip_count,
+        "Trans-Dimensional Move Acceptance Probability" => trans_dim_acc_count / trans_dim_count
         )
     output = SimPosteriorModeConditionalMcmcOutput(
             γ_fixed, 
@@ -651,15 +749,27 @@ function accept_reject_mode!(
     
     β = mcmc.β
     if rand() < β
-        was_accepted, suff_stat_curr = double_iex_multinomial_edit_accept_reject!(
-            S_curr, S_prop, 
-            posterior, γ_curr, 
-            mcmc, P, 
-            aux_data,
-            suff_stat_curr
-        )
-        acc_count[1] += was_accepted
-        count[1] += 1
+        if rand() < 0.5 
+            was_accepted, suff_stat_curr = double_iex_multinomial_edit_accept_reject!(
+                S_curr, S_prop, 
+                posterior, γ_curr, 
+                mcmc, P, 
+                aux_data,
+                suff_stat_curr
+            )
+            acc_count[1] += was_accepted
+            count[1] += 1
+        else 
+            was_accepted, suff_stat_curr = double_iex_flip_accept_reject!(
+                S_curr, S_prop, 
+                posterior, γ_curr, 
+                mcmc, P, 
+                aux_data,
+                suff_stat_curr
+            )
+            acc_count[2] += was_accepted
+            count[2] += 1
+        end 
     else 
         was_accepted, suff_stat_curr = double_iex_trans_dim_accept_reject!(
             S_curr, S_prop, 
@@ -668,8 +778,8 @@ function accept_reject_mode!(
             aux_data,
             suff_stat_curr
         )
-        acc_count[2] += was_accepted 
-        count[2] += 1
+        acc_count[3] += was_accepted 
+        count[3] += 1
     end 
     return suff_stat_curr
 end 
@@ -754,10 +864,9 @@ function draw_sample!(
     sample_count = 1 # Keeps which sample to be stored we are working to get 
     i = 1 # Keeps track all samples (included lags and burn_ins) 
 
-    acc_count = [0,0]
-    count = [0,0]
+    acc_count = [0,0,0]
+    count = [0,0,0]
     γ_acc_count = 0
-    γ_count = 0
 
     aux_data = [[Int[]] for i in 1:posterior.sample_size]
     # Initialise the aux_data 
@@ -819,10 +928,11 @@ function draw_sample!(
         migrate!(prop_pointers, S_prop, 1, 1)
     end 
 
-    ed_acc_prob = acc_count[1]/count[1]
-    td_acc_prob = acc_count[2]/count[2]
+    ed_acc_prob = acc_count[1] / count[1]
+    flip_acc_prob = acc_count[2] / count[2]
+    td_acc_prob = acc_count[3] / count[3]
     γ_acc_prob = γ_acc_count / sum(count)
-    return ed_acc_prob, td_acc_prob, γ_acc_prob, suff_stats
+    return ed_acc_prob, flip_acc_prob, td_acc_prob, γ_acc_prob, suff_stats
 end 
 
 function draw_sample(
@@ -865,7 +975,7 @@ function (mcmc::SimIexInsertDeleteEdit)(
     sample_out_S = Vector{InteractionSequence{Int}}(undef, desired_samples)
     sample_out_gamma = Vector{Float64}(undef, desired_samples)
 
-    ed_acc_prob, td_acc_prob, γ_acc_prob, suff_stats = draw_sample!(
+    ed_acc_prob, flip_acc_prob, td_acc_prob, γ_acc_prob, suff_stats = draw_sample!(
         sample_out_S,
         sample_out_gamma, 
         mcmc, 
@@ -876,9 +986,10 @@ function (mcmc::SimIexInsertDeleteEdit)(
     )
 
     p_measures = Dict(
-            "Dipsersion acceptance probability" => γ_acc_prob,
-            "Edit allocation acceptance probability" => ed_acc_prob,
-            "Trans-dimensional acceptance probability" => td_acc_prob
+        "Dipsersion acceptance probability" => γ_acc_prob,
+        "Edit allocation acceptance probability" => ed_acc_prob,
+        "Flip allocation acceptance probability" => flip_acc_prob,
+        "Trans-dimensional acceptance probability" => td_acc_prob
         )
 
     return SimPosteriorMcmcOutput(

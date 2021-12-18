@@ -117,7 +117,7 @@ end
     output.γ_sample
 end 
 
-function print_map_est(output::SimPosteriorMcmcOutput; top_num::Int=5) 
+function print_map_est(output::Union{SimPosteriorMcmcOutput,SimPosteriorModeConditionalMcmcOutput}; top_num::Int=5) 
     multiset_sample = Multiset.(output.S_sample)
     d = proportionmap(multiset_sample)
     # for key in keys(d)

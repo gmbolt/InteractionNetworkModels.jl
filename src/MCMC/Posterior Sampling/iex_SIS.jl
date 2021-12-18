@@ -226,7 +226,7 @@ end
 function flip_informed!(
     S_curr::InteractionSequence{Int},
     S_prop::InteractionSequence{Int},
-    mcmc::SisIexInsertDeleteEdit,
+    mcmc::Union{SisIexInsertDeleteEdit,SimIexInsertDeleteEdit},
     P::CumCondProbMatrix
     ) 
 
@@ -283,7 +283,7 @@ end
 function flip_informed_excl!(
     S_curr::InteractionSequence{Int},
     S_prop::InteractionSequence{Int},
-    mcmc::SisIexInsertDeleteEdit,
+    mcmc::Union{SisIexInsertDeleteEdit,SimIexInsertDeleteEdit},
     P::CumCondProbMatrix
     ) 
 
@@ -1150,7 +1150,6 @@ function draw_sample!(
     acc_count = [0,0,0]
     count = [0,0,0]
     γ_acc_count = 0
-    γ_count = 0
 
     aux_data = [[Int[]] for i in 1:posterior.sample_size]
     # Initialise the aux_data 
