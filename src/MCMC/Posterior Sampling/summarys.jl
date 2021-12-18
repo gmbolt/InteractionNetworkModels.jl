@@ -117,7 +117,7 @@ end
 end 
 
 function print_map_est(output::SimPosteriorMcmcOutput; top_num::Int=5) 
-    multiset_sample = Mulitset.(output.S_sample)
+    multiset_sample = Multiset.(output.S_sample)
     d = proportionmap(multiset_sample)
     # for key in keys(d)
     #     d[key] /= length(output.S_sample)
