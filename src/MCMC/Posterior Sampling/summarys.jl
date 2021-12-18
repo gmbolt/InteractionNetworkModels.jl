@@ -99,12 +99,13 @@ end
 
 @recipe function f(output::SimPosteriorModeConditionalMcmcOutput, S_true::Vector{Path{Int}}) 
     S_sample = output.S_sample
+    d = output.posterior.dist
     xguide --> "Index"
     yguide --> "Distance from Truth"
     size --> (800, 300)
     label --> nothing
     margin --> 5mm
-    map(x->output.dist(S_true,x), S_sample)
+    map(x->d(S_true,x), S_sample)
 end 
 
 @recipe function f(output::SimPosteriorDispersionConditionalMcmcOutput) 
