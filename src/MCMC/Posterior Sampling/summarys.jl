@@ -1,4 +1,4 @@
-using RecipesBase, Measures
+using RecipesBase, Measures, Multisets
 
 export print_map_est
 # =======
@@ -56,7 +56,7 @@ function print_map_est(output::SisPosteriorMcmcOutput; top_num::Int=5)
     for i in 1:min(top_num, length(d))
         println(props[i][2],"  ", props[i][1])
     end    
-    println("\n...showing top $(min(top_num, length(d))) interactions.")
+    println("\n...showing top $(min(top_num, length(d))) interaction sequences.")
 end 
 
 function print_map_est(sample::InteractionSequenceSample; top_num::Int=5) 
@@ -71,7 +71,7 @@ function print_map_est(sample::InteractionSequenceSample; top_num::Int=5)
     for i in 1:min(top_num, length(d))
         println(props[i][2],"  ", props[i][1])
     end    
-    println("\n...showing top $(min(top_num, length(d))) interactions.")
+    println("\n...showing top $(min(top_num, length(d))) interaction sequences.")
 end 
 
 # ========
@@ -114,6 +114,22 @@ end
     label --> nothing
     margin --> 5mm
     output.γ_sample
+end 
+
+function print_map_est(output::SimPosteriorMcmcOutput; top_num::Int=5) 
+    multiset_sample = Mulitset.(output.S_sample)
+    d = proportionmap(multiset_sample)
+    # for key in keys(d)
+    #     d[key] /= length(output.S_sample)
+    # end 
+    props = sort(collect(d), by=x->x[2], rev=true)
+    title = "\nPosterior probability of mode"
+    println(title)
+    println("-"^length(title), "\n")
+    for i in 1:min(top_num, length(d))
+        println(props[i][2],"  ", props[i][1])
+    end    
+    println("\n...showing top $(min(top_num, length(d))) interaction multisets.")
 end 
 
 
