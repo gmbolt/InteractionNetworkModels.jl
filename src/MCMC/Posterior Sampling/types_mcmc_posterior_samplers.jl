@@ -1,5 +1,5 @@
-export SisIexInsertDeleteEdit, SisIexInsertDeleteGibbs, SisPosteriorSampler
-export SimIexInsertDeleteEdit, SimPosteriorSampler
+export SisIexInsertDelete, SisIexInsertDeleteGibbs, SisPosteriorSampler
+export SimIexInsertDelete, SimPosteriorSampler
 
 # SIS Model 
 # ---------
@@ -46,12 +46,12 @@ struct SisIexInsertDeleteGibbs <: SisPosteriorSampler
     end 
 end 
 
-struct SisIexInsertDeleteEdit<: SisPosteriorSampler
+struct SisIexInsertDelete<: SisPosteriorSampler
     ν_ed::Int  # Maximum number of edit operations
     ν_td::Int  # Maximum increase/decrease in dimension
     β::Real  # Probability of trans-dimensional move
     α::Float64  # How much vertex proposal is informed by data (0.0 max and ∞ is uniform over vertice)
-    path_dist::PathDistribution  # Distribution used to introduce new interactions
+    len_dist::DiscreteUnivariateDistribution  # Distribution used to introduce new interactions
     ε::Float64 # Neighborhood for sampling γ
     aux_mcmc::SisMcmcSampler
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
@@ -66,11 +66,10 @@ struct SisIexInsertDeleteEdit<: SisPosteriorSampler
     vals::Vector{Int} # Storage for values where are deleted from interactions
     ind_update::Vector{Int} # Storage of which values have been updated
     ind_td::Vector{Int} # Storage of where to insert/delete 
-    function SisIexInsertDeleteEdit(
-        path_dist::PathDistribution,
+    function SisIexInsertDelete(
         aux_mcmc::SisMcmcSampler;
         K=100,
-        ν_ed=2, ν_td=1 , β=0.7, α=0.0,
+        ν_ed=2, ν_td=1 , β=0.7, α=0.0, len_dist=TrGeometric(0.8,1,K),
         ε=0.05,
         desired_samples=1000, lag=1, burn_in=0
         ) 
@@ -84,7 +83,7 @@ struct SisIexInsertDeleteEdit<: SisPosteriorSampler
         par_info = Dict()
         par_info[:ν_ed] = "(maximum number of edit operations)"
         par_info[:ν_td] = "(maximum change in dimension)"
-        par_info[:path_dist] = "(path distribution for insertions)"
+        par_info[:len_dist] = "(distribution to sample length of path insertions)"
         par_info[:α] = "(controls how much data informs entry insertion proposals)"
         par_info[:aux_mcmc] = "(mcmc sampler from auxiliary data)"
         par_info[:β] = "(probability of update move)"
@@ -93,7 +92,7 @@ struct SisIexInsertDeleteEdit<: SisPosteriorSampler
 
         new(
             ν_ed, ν_td, β, α,
-            path_dist, 
+            len_dist, 
             ε,
             aux_mcmc, K,
             desired_samples, burn_in, lag, 
@@ -109,12 +108,12 @@ end
 
 abstract type SimPosteriorSampler end 
 
-struct SimIexInsertDeleteEdit <: SimPosteriorSampler
+struct SimIexInsertDelete <: SimPosteriorSampler
     ν_ed::Int  # Maximum number of edit operations
     ν_td::Int  # Maximum increase/decrease in dimension
     β::Real  # Probability of trans-dimensional move
     α::Float64  # How much vertex proposal is informed by data (0.0 max and ∞ is uniform over vertice)
-    path_dist::PathDistribution  # Distribution used to introduce new interactions
+    len_dist::DiscreteUnivariateDistribution  # Distribution used to introduce new interactions
     ε::Float64
     aux_mcmc::SimMcmcSampler
     K::Int # Max number of interactions (used to determined how many pointers to store interactions)
@@ -129,11 +128,10 @@ struct SimIexInsertDeleteEdit <: SimPosteriorSampler
     vals::Vector{Int} # Storage for values where are deleted from interactions
     ind_update::Vector{Int} # Storage of which values have been updated
     ind_td::Vector{Int} # Storage of where to insert/delete 
-    function SimIexInsertDeleteEdit(
-        path_dist::PathDistribution,
+    function SimIexInsertDelete(
         aux_mcmc::SimMcmcSampler;
         K=100,
-        ν_ed=2, ν_td=1 , β=0.7, α=0.0,
+        ν_ed=2, ν_td=1 , β=0.7, α=0.0, len_dist=TrGeometric(0.9,1,K),
         ε=0.1,
         desired_samples=1000, lag=1, burn_in=0
         ) 
@@ -147,7 +145,7 @@ struct SimIexInsertDeleteEdit <: SimPosteriorSampler
         par_info = Dict()
         par_info[:ν_ed] = "(maximum number of edit operations)"
         par_info[:ν_td] = "(maximum change in dimension)"
-        par_info[:path_dist] = "(path distribution for insertions)"
+        par_info[:len_dist] = "(distribution to sample length of path insertions)"
         par_info[:α] = "(controls how much data informs entry insertion proposals)"
         par_info[:aux_mcmc] = "(mcmc sampler from auxiliary data)"
         par_info[:β] = "(probability of update move)"
@@ -156,7 +154,7 @@ struct SimIexInsertDeleteEdit <: SimPosteriorSampler
 
         new(
             ν_ed, ν_td, β, α,
-            path_dist, 
+            len_dist, 
             ε,
             aux_mcmc, K,
             desired_samples, burn_in, lag, 

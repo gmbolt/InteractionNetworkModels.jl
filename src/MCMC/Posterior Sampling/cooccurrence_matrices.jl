@@ -3,6 +3,7 @@ using GraphRecipes
 export get_cooccurrence_matrix, get_cooccurrence_prob_matrix, plot_cooccurrence_graph
 export get_informed_proposal_matrix
 
+
 function get_cooccurrence_matrix(posterior::Union{SisPosterior,SimPosterior})
     V = length(posterior.V)
     C = zeros(Int, V, V)

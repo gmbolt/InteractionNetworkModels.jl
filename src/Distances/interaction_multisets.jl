@@ -377,29 +377,3 @@ end
 
 # end 
 
-
-"""
-`Distance.pairwise(d::Metric, a::Vector{InteractionSequence{T}}) where {T<:Union{Int,String}})`
-
-Distance matrix calculation between elements of Vectors. This is a custom extension
-of the function in the Distances.jl package to allow vectors of general type. The
-function in Distances.jl is designed for univariate/multivariate data and so takes
-as input either vectors or matrices (data points as rows).
-
-This version takes a single vector and will evaluate all pairwise distances
-"""
-function Distances.pairwise(
-    d::Union{InteractionSeqDistance,InteractionSetDistance},
-    a::Vector{InteractionSequence{T}} where {T<:Union{Int,String}}
-    )
-
-    D = zeros(length(a), length(a))
-    for j in 1:length(a)
-        for i in (j+1):length(a)
-            tmp = d(a[i],a[j])
-            D[i,j] = tmp 
-            D[j,i] = tmp
-        end
-    end
-    return D
-end

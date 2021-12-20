@@ -1,4 +1,4 @@
-using Distances, StatsBase
+using Distances, StatsBase, ProgressMeter
 
 # Here we simply extend the pairwise() and pairwise!() functions of the Distances.jl package. 
 
@@ -60,9 +60,9 @@ as input either vectors or matrices (data points as rows).
 """
 function Distances.pairwise(
     metric::Metric,
-    a::Vector{T} where T,
-    b::Vector{T} where T
-    )
+    a::Vector{T},
+    b::Vector{T} 
+    ) where {T}
 
     D = Array{Float64,2}(undef, length(a), length(b))
     for j in 1:length(b)
@@ -71,6 +71,38 @@ function Distances.pairwise(
         end
     end
     return D
+end
+
+"""
+Distance matrix calculation between elements of Vectors. This is a custom extension
+of the function in the Distances.jl package to allow vectors of interaction sequences.
+"""
+function Distances.pairwise(
+    d::Metric,
+    a::Vector{T};
+    show_progress=false
+    ) where {T<:Union{InteractionSequence{Int},InteractionSequence{String}}}
+
+    D = zeros(length(a), length(a))
+    if show_progress
+        iter = Progress(Int(length(a)*(length(a)-1)/2), 1)
+        for j in 1:length(a)
+            for i in 1:(j-1)
+                D[i,j] = d(a[i],a[j])
+                next!(iter)
+            end
+        end
+        D += D'
+        return D
+    else 
+        for j in 1:length(a)
+            for i in 1:(j-1)
+                D[i,j] = d(a[i],a[j])
+            end
+        end
+        D += D'
+        return D
+    end 
 end
 
 function StatsBase.counts(
