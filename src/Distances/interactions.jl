@@ -1,6 +1,7 @@
 using Distances, InvertedIndices
 
-export InteractionDistance, PathDistance, LCS, FastLCS, NormLCS, FastNormLCS, lcs, get_lcs, lcs_norm, ACS, get_lcs_locations
+export InteractionDistance, PathDistance, LCS, FastLCS, NormLCS, FastNormLCS, lcs, get_lcs, lcs_norm, get_lcs_locations
+export LSP, FastLSP
 ## Interaction Distances
 
 abstract type InteractionDistance <: Metric end
@@ -211,3 +212,86 @@ function get_lcs_locations(X::AbstractVector, Y::AbstractVector)
     return indx, indy
 end
 
+# Longest Common Subpath (LSP)
+
+struct LSP <: PathDistance end
+
+function (dist::LSP)(X::AbstractVector,Y::AbstractVector)::Float64
+
+    # Here we consider a Dynamic programming approach
+    n = length(X)
+    m = length(Y)
+
+    @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
+
+    prev_row = zeros(Float64, m + 1)
+    curr_row = zeros(Float64, m + 1)
+    z = 0.0
+
+    for i = 1:n
+        for j = 1:m
+            if X[i] == Y[j]
+                tmp = prev_row[j] + 1.0 # Subpath length increment
+                curr_row[j+1] = tmp
+                if tmp > z 
+                    z = curr_row[j+1]
+                end 
+            else
+                if m-j ≤ z 
+                    break 
+                end 
+                curr_row[j+1] = 0.0
+            end
+        end
+        prev_row = copy(curr_row)
+    end
+    return n + m - 2*z
+end
+
+struct FastLSP <: PathDistance 
+    curr_row::Vector{Float64}
+    prev_row::Vector{Float64}
+    function FastLSP(K::Int)
+        new(zeros(Float64,K), zeros(Float64,K))
+    end 
+end 
+
+function (dist::FastLSP)(X::AbstractVector,Y::AbstractVector)::Float64
+    # Here we take a Dynamic programming approach, but use pre-allocated arrays for storage.
+    n = length(X)
+    m = length(Y)
+
+    @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
+
+    prev_row = view(dist.prev_row, 1:(m+1))
+    curr_row = view(dist.curr_row, 1:(m+1))
+    z = 0.0
+
+    for i = 1:n
+        for j = 1:m
+            if X[i] == Y[j]
+                curr_row[j+1] = prev_row[j] + 1.0 # Subpath length increment
+                if curr_row[j+1] > z 
+                    z = curr_row[j+1]
+                end 
+            else
+                if m-j ≤ z 
+                    break 
+                end 
+                curr_row[j+1] = 0.0
+            end
+        end
+        copy!(prev_row, curr_row)
+    end
+    return n + m - 2*z
+end
+
+function (dist::Union{LSP,FastLSP})(X::Nothing, Y::Path{T}) where {T<:Union{Int,String}}
+    return length(Y)
+end 
+function (dist::Union{LSP,FastLSP})(X::Path{T}, Y::Nothing) where {T<:Union{Int,String}}
+    return length(X)
+end 
+function (dist::Union{LSP,FastLSP})(X::Nothing, Y::Nothing) where {T<:Union{Int,String}}
+    return 0.0
+end 

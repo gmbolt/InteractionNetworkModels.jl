@@ -52,6 +52,8 @@ include("MCMC/Posterior Sampling/informed_insertion_distribution.jl")
 include("MCMC/Posterior Sampling/iex_paths.jl")
 include("MCMC/Posterior Sampling/iex_SIS.jl")
 include("MCMC/Posterior Sampling/iex_SIM.jl")
+include("MCMC/Posterior Sampling/iex_SIM_dependent.jl")
+include("MCMC/Posterior Sampling/iex_SIM_with_kick.jl")
 include("MCMC/Posterior Sampling/summarys.jl")
 include("MCMC/Posterior Sampling/predictives.jl")
 

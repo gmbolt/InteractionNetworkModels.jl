@@ -415,9 +415,10 @@ function double_iex_trans_dim_informed_accept_reject!(
 
     draw_sample!(aux_data, aux_mcmc, aux_model)
 
+    aux_suff_stat_curr = mapreduce(x -> dist(x, S_curr), + , aux_data)
+    aux_suff_stat_prop = mapreduce(x -> dist(x, S_prop), +, aux_data)
     aux_log_lik_ratio = -γ_curr * (
-        mapreduce(x -> dist(x, S_curr), + , aux_data)
-        - mapreduce(x -> dist(x, S_prop), +, aux_data)
+        aux_suff_stat_curr - aux_suff_stat_prop
     )
 
     suff_stat_prop = mapreduce(x -> dist(x, S_prop), + , data)
@@ -434,6 +435,8 @@ function double_iex_trans_dim_informed_accept_reject!(
     # Log acceptance probability
     log_α = log_lik_ratio + log_prior_ratio + aux_log_lik_ratio + log_ratio + log_multinom_term
 
+    # println("Acceptance prob: $(exp(log_α))") 
+    # @show is_insert, suff_stat_curr, suff_stat_prop, log_lik_ratio, aux_suff_stat_curr, aux_suff_stat_prop, aux_log_lik_ratio, log_ratio, log_multinom_term, log_prior_ratio, log_α, exp(log_α)
     # Note that we copy interactions between S_prop (resp. S_curr) and prop_pointers (resp .curr_pointers) by hand.
     if log(rand()) < log_α
         if is_insert
@@ -478,7 +481,7 @@ function draw_sample_mode!(
 
     if loading_bar
         iter = Progress(
-            length(sample_out), # How many iters 
+            length(sample_out) * lag + burn_in, # How many iters 
             1,  # At which granularity to update loading bar
             "Chain for γ = $(γ_fixed) and n = $(posterior.sample_size) (mode conditional)....")  # Loading bar. Minimum update interval: 1 second
     end 
@@ -532,7 +535,7 @@ function draw_sample_mode!(
     while sample_count ≤ length(sample_out)
         i += 1
         # Store value 
-        if (i > burn_in) & (((i-1) % lag)==0)
+        if (i > burn_in) & (((i - burn_in - 1) % lag)==0)
             sample_out[sample_count] = deepcopy(S_curr)
             sample_count += 1
         end 
@@ -673,7 +676,7 @@ function draw_sample_gamma!(
 
     if loading_bar
         iter = Progress(
-            length(sample_out), # How many iters 
+            length(sample_out) * lag + burn_in, # How many iters 
             1,  # At which granularity to update loading bar
             "Chain for n = $(posterior.sample_size) (dispersion conditional)....")  # Loading bar. Minimum update interval: 1 second
     end 
@@ -922,7 +925,7 @@ function draw_sample!(
 
     if loading_bar
         iter = Progress(
-            length(sample_out_S), # How many iters 
+            length(sample_out_S) * lag + burn_in, # How many iters 
             1,  # At which granularity to update loading bar
             "Chain for n = $(posterior.sample_size) (joint)....")  # Loading bar. Minimum update interval: 1 second
     end 

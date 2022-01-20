@@ -1,4 +1,4 @@
-using RecipesBase, Measures, Multisets
+using RecipesBase, Measures, Multisets, IterTools
 
 export print_map_est
 # =======
@@ -23,6 +23,27 @@ export print_map_est
     hcat(y1,y2)
 end 
 
+@recipe function f(
+    outputs::Vector{SisPosteriorMcmcOutput},
+    S_true::InteractionSequence{Int}
+    ) 
+    d = outputs[1].posterior.dist
+    S_samples = [x.S_sample for x in outputs]
+    γ_samples = [x.γ_sample for x in outputs]
+    layout := (2,1)
+    k = length(outputs)
+    subplot := [i ≤ k ? 1 : 2 for i in 1:(2*k)]
+    legend --> [true false]
+    label --> ["Chain $i" for j in 1:1, i in ncycle(1:k, 2)]
+    xguide --> "Index"
+    yguide --> ["Distance from Reference" "γ"]
+    size --> (800, 600)
+    margin --> 5mm
+    alpha --> 0.5
+    y1 = [map(y->d(S_true,y), x) for x in S_samples]
+    y2 = γ_samples 
+    vcat(y1,y2)
+end 
 
 @recipe function f(output::SisPosteriorModeConditionalMcmcOutput, S_true::Vector{Path{Int}}) 
     S_sample = output.S_sample
@@ -96,6 +117,28 @@ end
     hcat(y1,y2)
 end 
 
+@recipe function f(
+    outputs::Vector{SimPosteriorMcmcOutput},
+    S_true::InteractionSequence{Int}
+    ) 
+    d = outputs[1].posterior.dist
+    S_samples = [x.S_sample for x in outputs]
+    γ_samples = [x.γ_sample for x in outputs]
+    layout := (2,1)
+    k = length(outputs)
+    subplot := [i ≤ k ? 1 : 2 for i in 1:(2*k)]
+    legend --> [true false]
+    label --> ["Chain $i" for j in 1:1, i in ncycle(1:k, 2)]
+    legend --> false
+    xguide --> "Index"
+    yguide --> ["Distance from True Reference" "γ"]
+    size --> (800, 600)
+    margin --> 5mm
+    alpha --> [i ≤ k ? 1.0 : 0.5 for j in 1:1, i in 1:(2*k)]
+    y1 = [map(y->d(S_true,y), x) for x in S_samples]
+    y2 = γ_samples 
+    vcat(y1,y2)
+end 
 
 @recipe function f(output::SimPosteriorModeConditionalMcmcOutput, S_true::Vector{Path{Int}}) 
     S_sample = output.S_sample

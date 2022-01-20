@@ -507,7 +507,7 @@ end
 function imcmc_multi_insert_prop_sample!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int},
-    mcmc::Union{SisIexInsertDelete,SimIexInsertDelete},
+    mcmc::Union{SisIexInsertDelete,SimIexInsertDelete,SimIexInsertDeleteWithKick},
     ind::AbstractVector{Int},
     V::UnitRange, 
     K_in_ub::Int
@@ -527,7 +527,7 @@ function imcmc_multi_insert_prop_sample!(
         insert!(S_prop, i, tmp)
         log_ratio += - logpdf(len_dist, m) + m*log(length(V)) - Inf * (m > K_in_ub)
     end 
-    # log_ratio += log(ν_td) - log(min(ν_td,N)) 
+    log_ratio += log(ν_td) - log(min(ν_td,N)) 
     return log_ratio 
 
 end 
@@ -535,7 +535,7 @@ end
 function imcmc_multi_insert_prop_sample_informed!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int},
-    mcmc::Union{SisIexInsertDelete,SimIexInsertDelete},
+    mcmc::Union{SisIexInsertDelete,SimIexInsertDelete,SimIexInsertDeleteDependent,SimIexInsertDeleteWithKick},
     ind::AbstractVector{Int},
     p_ins::Categorical, 
     K_in_ub::Int
@@ -556,11 +556,12 @@ function imcmc_multi_insert_prop_sample_informed!(
             tmp[i] = v 
             log_ratio += - logpdf(p_ins, v)
         end 
+        # println("Proposed insertion: $(tmp)")
         insert!(S_prop, i, tmp)
         
         log_ratio += - logpdf(len_dist, m) - Inf * (m > K_in_ub)
     end 
-    # log_ratio += log(ν_td) - log(min(ν_td,N)) 
+    log_ratio += log(ν_td) - log(min(ν_td,N)) 
     return log_ratio 
 
 end 
@@ -569,7 +570,7 @@ end
 function imcmc_multi_delete_prop_sample!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int}, 
-    mcmc::Union{SisIexInsertDelete,SimIexInsertDelete},
+    mcmc::Union{SisIexInsertDelete,SimIexInsertDelete,SimIexInsertDeleteDependent,SimIexInsertDeleteWithKick},
     ind::AbstractVector{Int},
     V::UnitRange
     ) 
@@ -588,7 +589,7 @@ function imcmc_multi_delete_prop_sample!(
         log_ratio += logpdf(len_dist, m) - m * log(length(V))
     end 
 
-    # log_ratio += log(min(ν_td,N)) - log(ν_td)
+    log_ratio += log(min(ν_td,N)) - log(ν_td)
     return log_ratio
 
 end 
@@ -596,7 +597,7 @@ end
 function imcmc_multi_delete_prop_sample_informed!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int}, 
-    mcmc::Union{SisIexInsertDelete,SimIexInsertDelete},
+    mcmc::Union{SisIexInsertDelete,SimIexInsertDelete,SimIexInsertDeleteDependent,SimIexInsertDeleteWithKick},
     ind::AbstractVector{Int},
     p_ins::Categorical
     ) 
@@ -618,7 +619,7 @@ function imcmc_multi_delete_prop_sample_informed!(
         log_ratio += logpdf(len_dist, m) 
     end 
 
-    # log_ratio += log(min(ν_td,N)) - log(ν_td)
+    log_ratio += log(min(ν_td,N)) - log(ν_td)
     return log_ratio
 
 end 
@@ -667,7 +668,7 @@ function double_iex_trans_dim_accept_reject!(
             ind_tr_dim,
             V, K_in_ub
         ) # Enact move and catch log ratio term 
-        log_ratio += log(ν_td) - log(min(ν_td,N)) 
+        # log_ratio += log(ν_td) - log(min(ν_td,N)) 
     else 
         ε = rand(1:min(ν_td, N)) # How many to delete
         # Catch invalid proposal (would go to empty inter seq)
@@ -682,7 +683,7 @@ function double_iex_trans_dim_accept_reject!(
             ind_tr_dim,
             V
         ) # Enact move and catch log ratio 
-        log_ratio += log(min(ν_td,N)) - log(ν_td)
+        # log_ratio += log(min(ν_td,N)) - log(ν_td)
     end 
 
     # Now do accept-reject step (**THIS IS WHERE WE DIFFER FROM MODEL SAMPLER***)
@@ -788,7 +789,7 @@ function double_iex_trans_dim_informed_accept_reject!(
             p_ins,
             K_in_ub
         ) # Enact move and catch log ratio term 
-        log_ratio += log(ν_td) - log(min(ν_td,N)) 
+        # log_ratio += log(ν_td) - log(min(ν_td,N)) 
     else 
         ε = rand(1:min(ν_td, N)) # How many to delete
         # Catch invalid proposal (would go to empty inter seq)
@@ -803,7 +804,7 @@ function double_iex_trans_dim_informed_accept_reject!(
             ind_tr_dim,
             p_ins
         ) # Enact move and catch log ratio 
-        log_ratio += log(min(ν_td,N)) - log(ν_td)
+        # log_ratio += log(min(ν_td,N)) - log(ν_td)
     end 
 
     # Now do accept-reject step (**THIS IS WHERE WE DIFFER FROM MODEL SAMPLER***)
@@ -833,6 +834,7 @@ function double_iex_trans_dim_informed_accept_reject!(
     # Log acceptance probability
     log_α = log_lik_ratio + log_prior_ratio + aux_log_lik_ratio + log_ratio 
 
+    # @show is_insert, suff_stat_curr, suff_stat_prop, exp(log_α)
     # Note that we copy interactions between S_prop (resp. S_curr) and prop_pointers (resp .curr_pointers) by hand.
     if log(rand()) < log_α
         if is_insert
