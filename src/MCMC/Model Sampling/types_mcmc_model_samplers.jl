@@ -6,6 +6,7 @@ export SimMcmcInsertDelete, SimMcmcInsertDeleteGibbs
 export SisMcmcInitialiser, SisInitMode, SisInitRandEdit, get_init
 export SisMcmcInitialiser, SimInitMode
 export SpfInvolutiveMcmcCentSubseq, SpfInvolutiveMcmcEdit
+export perturb
 
 
 # ====================
@@ -136,7 +137,7 @@ struct SisInitRandEdit <: SisMcmcInitialiser
     end 
 end 
 
-function get_rand_init(
+function perturb(
     S::InteractionSequence,
     V::AbstractArray,
     K_inner::Int, 
@@ -197,7 +198,7 @@ function get_init(
     initialiser::SisInitRandEdit,
     model::SIS
     )
-    return get_rand_init(model.mode, model.V, model.K_inner, initialiser.δ)
+    return perturb(model.mode, model.V, model.K_inner, initialiser.δ)
 end 
 
 
