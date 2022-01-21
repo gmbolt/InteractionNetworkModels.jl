@@ -140,7 +140,7 @@ end
 function perturb(
     S::InteractionSequence,
     V::AbstractArray,
-    K_inner::Int, 
+    K_inner::DimensionRange, 
     δ::Int
     )
 
@@ -167,7 +167,7 @@ function perturb(
 
             
             n = length(S[i])
-            d = rand(max(0, ceil(Int, (n + δ_tmp + - K_inner)/2)):min(n-1, δ_tmp))
+            d = rand(max(0, ceil(Int, (n + δ_tmp + - K_inner.u)/2)):min(n-K_inner.l, δ_tmp))
             m = n + δ_tmp - 2*d
 
             ind_del_v = view(ind_del, 1:d)
