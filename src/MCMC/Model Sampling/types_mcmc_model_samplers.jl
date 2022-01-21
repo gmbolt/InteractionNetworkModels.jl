@@ -136,14 +136,13 @@ struct SisInitRandEdit <: SisMcmcInitialiser
     end 
 end 
 
-function get_init(
-    initialiser::SisInitRandEdit,
+function get_rand_init(
     S::InteractionSequence,
     V::AbstractArray,
-    K_inner::Int
+    K_inner::Int, 
+    δ::Int
     )
 
-    δ = initialiser.δ 
     S_init = deepcopy(S)
     N = length(S)
 
@@ -192,11 +191,13 @@ function get_init(
     return S_init
 
 end 
+
+
 function get_init(
     initialiser::SisInitRandEdit,
     model::SIS
     )
-    return get_init(initialiser, model.mode, model.V, model.K_inner)
+    return get_rand_init(model.mode, model.V, model.K_inner, initialiser.δ)
 end 
 
 
