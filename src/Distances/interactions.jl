@@ -231,19 +231,15 @@ function (dist::LSP)(X::AbstractVector,Y::AbstractVector)::Float64
     for i = 1:n
         for j = 1:m
             if X[i] == Y[j]
-                tmp = prev_row[j] + 1.0 # Subpath length increment
-                curr_row[j+1] = tmp
-                if tmp > z 
+                curr_row[j+1] = prev_row[j] + 1.0 # Subpath length increment
+                if curr_row[j+1] > z 
                     z = curr_row[j+1]
                 end 
             else
-                if m-j ≤ z 
-                    break 
-                end 
                 curr_row[j+1] = 0.0
             end
         end
-        prev_row = copy(curr_row)
+        copy!(prev_row, curr_row)
     end
     return n + m - 2*z
 end
@@ -265,6 +261,9 @@ function (dist::FastLSP)(X::AbstractVector,Y::AbstractVector)::Float64
 
     prev_row = view(dist.prev_row, 1:(m+1))
     curr_row = view(dist.curr_row, 1:(m+1))
+    
+    prev_row .= 0.0
+    curr_row .= 0.0
     z = 0.0
 
     for i = 1:n
@@ -275,9 +274,6 @@ function (dist::FastLSP)(X::AbstractVector,Y::AbstractVector)::Float64
                     z = curr_row[j+1]
                 end 
             else
-                if m-j ≤ z 
-                    break 
-                end 
                 curr_row[j+1] = 0.0
             end
         end
@@ -286,10 +282,10 @@ function (dist::FastLSP)(X::AbstractVector,Y::AbstractVector)::Float64
     return n + m - 2*z
 end
 
-function (dist::Union{LSP,FastLSP})(X::Nothing, Y::Path{T}) where {T<:Union{Int,String}}
+function (dist::Union{LSP,FastLSP})(X::Nothing, Y::Path{T})::Float64 where {T<:Union{Int,String}}
     return length(Y)
 end 
-function (dist::Union{LSP,FastLSP})(X::Path{T}, Y::Nothing) where {T<:Union{Int,String}}
+function (dist::Union{LSP,FastLSP})(X::Path{T}, Y::Nothing)::Float64 where {T<:Union{Int,String}}
     return length(X)
 end 
 function (dist::Union{LSP,FastLSP})(X::Nothing, Y::Nothing) where {T<:Union{Int,String}}

@@ -63,7 +63,6 @@ function Distances.pairwise(
     a::Vector{T},
     b::Vector{T} 
     ) where {T}
-
     D = Array{Float64,2}(undef, length(a), length(b))
     for j in 1:length(b)
         for i in 1:length(a)

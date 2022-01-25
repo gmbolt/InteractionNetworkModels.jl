@@ -20,8 +20,10 @@ function (d::MatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence{T
     else
         C = Distances.pairwise(d.ground_dist, S1, S2)
         if length(S1) == length(S2)
+            # println("Same length")
             return hungarian(C)[2]
         else 
+            # println("Diff length")
             null_dists = [d.ground_dist(nothing, p) for p in S1]
             size_diff = length(S1)-length(S2)
             C = [C [x for x∈null_dists, j=1:size_diff]]

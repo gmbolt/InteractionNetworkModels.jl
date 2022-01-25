@@ -2,9 +2,7 @@ using Distributions
 export SisMcmcSampler, SimMcmcSampler, SpfMcmcSampler
 export SisMcmcInsertDelete, SisMcmcInsertDeleteGibbs, SisMcmcSplitMerge
 export SisMcmcInsertDeleteCenter
-export SimMcmcInsertDelete, SimMcmcInsertDeleteGibbs
-export SisMcmcInitialiser, SisInitMode, SisInitRandEdit, get_init
-export SisMcmcInitialiser, SimInitMode
+export SimMcmcInsertDelete, SimMcmcInsertDeleteGibbs, SimMcmcInsertDeleteSubpath
 export SpfInvolutiveMcmcCentSubseq, SpfInvolutiveMcmcEdit
 export perturb
 
@@ -103,103 +101,6 @@ end
 #      SIS 
 # =====================================
 
-# Initilisers 
-# -----------
-
-# These can be passed to mcmc samplers to determine the defualt initialisation scheme. 
-
-""" 
-Abstract type representing initialisation schemes for SIS model samplers. 
-"""
-abstract type SisMcmcInitialiser end
-
-
-"""
-`SisInitMode <: SisMcmcInitialiser` - this is a MCMC initialisation scheme for SIS model samplers which starts the MCMC chain at the model mode by default.
-"""
-struct SisInitMode <: SisMcmcInitialiser
-    function SisInitMode()
-        return new() 
-    end 
-end 
-
-function get_init(
-    initiliaser::SisInitMode,
-    model::SIS, 
-    )
-    return model.mode
-end 
-
-struct SisInitRandEdit <: SisMcmcInitialiser
-    δ::Int
-    function SisInitRandEdit(δ::Int) 
-        return new(δ)
-    end 
-end 
-
-function perturb(
-    S::InteractionSequence,
-    V::AbstractArray,
-    K_inner::DimensionRange, 
-    δ::Int
-    )
-
-    S_init = deepcopy(S)
-    N = length(S)
-
-    ind_del = zeros(Int, δ)
-    ind_add = zeros(Int, δ)
-    vals = zeros(Int, δ)
-
-    rem_edits = δ
-
-    for i in 1:N 
-        if i == N 
-            δ_tmp = rem_edits
-        else 
-            p = 1/(N-i+1)
-            δ_tmp = rand(Binomial(rem_edits, p))
-        end 
-
-        if δ_tmp == 0
-            continue 
-        else
-
-            
-            n = length(S[i])
-            d = rand(max(0, ceil(Int, (n + δ_tmp + - K_inner.u)/2)):min(n-K_inner.l, δ_tmp))
-            m = n + δ_tmp - 2*d
-
-            ind_del_v = view(ind_del, 1:d)
-            ind_add_v = view(ind_add, 1:(δ_tmp-d))
-            vals_v = view(vals, 1:(δ_tmp-d))
-
-            StatsBase.seqsample_a!(1:n, ind_del_v)
-            StatsBase.seqsample_a!(1:m, ind_add_v)
-            sample!(V, vals)
-
-            delete_insert!(S_init[i], ind_del_v, ind_add_v, vals_v)
-
-        end 
-
-        rem_edits -= δ_tmp 
-
-        if rem_edits == 0 
-            break 
-        end 
-    end 
-
-    return S_init
-
-end 
-
-
-function get_init(
-    initialiser::SisInitRandEdit,
-    model::SIS
-    )
-    return perturb(model.mode, model.V, model.K_inner, initialiser.δ)
-end 
 
 
 abstract type SisMcmcSampler end 
@@ -218,7 +119,7 @@ struct SisMcmcInsertDeleteGibbs<: SisMcmcSampler
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
     lag::Int
-    init::SisMcmcInitialiser
+    init::McmcInitialiser
     par_info::Dict
     curr_pointers::InteractionSequence{Int} # Storage for prev value in MCMC
     prop_pointers::InteractionSequence{Int} # Storage for curr value in MCMC
@@ -231,7 +132,7 @@ struct SisMcmcInsertDeleteGibbs<: SisMcmcSampler
         K=100,
         ν_gibbs=4, ν_td=2,  β=0.6,
         desired_samples=1000, lag=1, burn_in=0,
-        init=SisInitMode()
+        init=InitMode()
         ) where {T<:PathDistribution}
         curr_pointers = [Int[] for i in 1:K]
         prop_pointers = [Int[] for i in 1:K]
@@ -259,7 +160,7 @@ SisMcmcInsertDeleteGibbs(
     model::SIS;
     K=100,
     ν=4, β=0.0,
-    desired_samples=1000, lag=1, burn_in=0, init=SisInitMode()
+    desired_samples=1000, lag=1, burn_in=0, init=InitMode()
     ) = SisMcmcInsertDeleteGibbs(
         PathPseudoUniform(model.V, TrGeometric(0.8, 1, model.K_inner));
         K=K, ν=ν, β=β, desired_samples=desired_samples, lag=lag, burn_in=burn_in
@@ -292,7 +193,7 @@ struct SisMcmcInsertDelete <: SisMcmcSampler
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
     lag::Int
-    init::SisMcmcInitialiser
+    init::McmcInitialiser
     par_info::Dict
     curr_pointers::InteractionSequence{Int} # Storage for prev value in MCMC
     prop_pointers::InteractionSequence{Int} # Storage for curr value in MCMC
@@ -302,7 +203,7 @@ struct SisMcmcInsertDelete <: SisMcmcSampler
         ;
         K=100,
         ν_ed=2, ν_td=2, β=0.4, len_dist=TrGeometric(0.8,1,K),
-        desired_samples=1000, lag=1, burn_in=0, init=SisInitMode()
+        desired_samples=1000, lag=1, burn_in=0, init=InitMode()
         ) 
         curr_pointers = [Int[] for i in 1:K]
         prop_pointers = [Int[] for i in 1:K]
@@ -355,7 +256,7 @@ struct SisMcmcInsertDeleteCenter <: SisMcmcSampler
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
     lag::Int
-    init::SisMcmcInitialiser
+    init::McmcInitialiser
     par_info::Dict
     curr_pointers::InteractionSequence{Int} # Storage for prev value in MCMC
     prop_pointers::InteractionSequence{Int} # Storage for curr value in MCMC
@@ -365,7 +266,7 @@ struct SisMcmcInsertDeleteCenter <: SisMcmcSampler
         ;
         K=100,
         ν_ed=2, ν_td=2, β=0.4, p=0.7,
-        desired_samples=1000, lag=1, burn_in=0, init=SisInitMode()
+        desired_samples=1000, lag=1, burn_in=0, init=InitMode()
         ) 
         curr_pointers = [Int[] for i in 1:K]
         prop_pointers = [Int[] for i in 1:K]
@@ -419,7 +320,7 @@ struct SisMcmcSplitMerge <: SisMcmcSampler
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
     lag::Int
-    init::SisMcmcInitialiser
+    init::McmcInitialiser
     par_info::Dict
     curr_pointers::InteractionSequence{Int} # Storage for prev value in MCMC
     prop_pointers::InteractionSequence{Int} # Storage for curr value in MCMC
@@ -433,7 +334,7 @@ struct SisMcmcSplitMerge <: SisMcmcSampler
         ;ν_ed=2, ν_td=2, β=0.7,
         η=0.7, p=0.7,
         K=100,
-        desired_samples=1000, lag=1, burn_in=0, init=SisInitMode()
+        desired_samples=1000, lag=1, burn_in=0, init=InitMode()
         ) 
         curr_pointers = [Int[] for i in 1:K]
         prop_pointers = [Int[] for i in 1:K]
@@ -488,28 +389,8 @@ end
 # Intialisers 
 # -----------
 
-# These are fed into samplers to define an intialisation scheme. Though in general we just intialise at the mode via SimInitMode(). 
+# These are fed into samplers to define an intialisation scheme. Though in general we just intialise at the mode via InitMode(). 
 
-""" 
-Abstract type representing initialisation schemes for SIM model samplers. 
-"""
-abstract type SimMcmcInitialiser end
-
-"""
-`SisInitMode <: SisMcmcInitialiser` - this is a MCMC initialisation scheme for SIS model samplers which starts the MCMC chain at the model mode by default.
-"""
-struct SimInitMode <: SimMcmcInitialiser
-    function SimInitMode()
-        return new() 
-    end 
-end 
-
-function get_init(
-    initiliaser::SimInitMode,
-    model::SIM
-    )
-    return model.mode
-end 
 
 # Samplers 
 # --------
@@ -530,7 +411,7 @@ struct SimMcmcInsertDelete <: SimMcmcSampler
     desired_samples::Int  # Final three set default values for MCMC samplers 
     burn_in::Int
     lag::Int
-    init::SimMcmcInitialiser
+    init::McmcInitialiser
     par_info::Dict
     curr_pointers::InteractionSequence{Int} # Storage for prev value in MCMC
     prop_pointers::InteractionSequence{Int} # Storage for curr value in MCMC
@@ -543,7 +424,7 @@ struct SimMcmcInsertDelete <: SimMcmcSampler
         ;
         K=100,
         ν_ed=2, ν_td=2, β=0.4, len_dist=TrGeometric(0.8,1,K),
-        desired_samples=1000, lag=1, burn_in=0, init=SimInitMode()
+        desired_samples=1000, lag=1, burn_in=0, init=InitMode()
         ) 
         curr_pointers = [Int[] for i in 1:K]
         prop_pointers = [Int[] for i in 1:K]
@@ -586,6 +467,79 @@ function Base.show(io::IO, sampler::SimMcmcInsertDelete)
         println(io, par, " = $(getfield(sampler, par))  ")
     end 
 end 
+
+
+# Edit Allocation Sampler (for LSP ground dist) 
+# ---------------------------------------------
+
+
+struct SimMcmcInsertDeleteSubpath <: SimMcmcSampler
+    ν_ed::Int  # Maximum number of edit operations
+    ν_td::Int  # Maximum change in outer dimension
+    β::Real  # Probability of trans-dimensional move
+    len_dist::DiscreteUnivariateDistribution
+    K::Int # Max number of interactions (used to determined how many pointers to store interactions)
+    desired_samples::Int  # Final three set default values for MCMC samplers 
+    burn_in::Int
+    lag::Int
+    init::McmcInitialiser
+    par_info::Dict
+    curr_pointers::InteractionSequence{Int} # Storage for prev value in MCMC
+    prop_pointers::InteractionSequence{Int} # Storage for curr value in MCMC
+    ind_del::Vector{Int} # Storage for indexing of deletions of interactions
+    ind_add::Vector{Int} # Storage for indexing of additions of interactions
+    vals::Vector{Int} # Storage for values to insert in interactions
+    ind_update::Vector{Int} # Storage of which values have been updated
+    ind_td::Vector{Int} # Storage of where to insert/delete 
+    function SimMcmcInsertDeleteSubpath(
+        ;
+        K=100,
+        ν_ed=2, ν_td=2, β=0.4, len_dist=TrGeometric(0.8,1,K),
+        desired_samples=1000, lag=1, burn_in=0, init=InitMode()
+        ) 
+        curr_pointers = [Int[] for i in 1:K]
+        prop_pointers = [Int[] for i in 1:K]
+        ind_del = zeros(Int, ν_ed)
+        ind_add = zeros(Int, ν_ed)
+        vals = zeros(Int, ν_ed)
+        ind_update = zeros(Int, ν_ed)
+        ind_td = zeros(Int, ν_td)
+        par_info = Dict()
+        par_info[:ν_ed] = "(maximum number of edit operations)"
+        par_info[:ν_td] = "(maximum increase/decrease in dimension)"
+        par_info[:len_dist] = "(distribution to sample length of path insertions)"
+        par_info[:β] = "(probability of update move)"
+        par_info[:K] = "(maximum number of interactions, used to initialise storage)"
+
+        new(
+            ν_ed, ν_td, β, 
+            len_dist, K,
+            desired_samples, burn_in, lag, init,
+            par_info,
+            curr_pointers, prop_pointers, ind_del, ind_add, vals,
+            ind_update, ind_td
+            )
+    end  
+end 
+
+function Base.show(io::IO, sampler::SimMcmcInsertDeleteSubpath)
+    title = "MCMC Sampler for SIM Models"
+    n = length(title)
+    println(io, title)
+    println(io, "-"^n)
+    println(io, "Description: interaction insertion/deletion with edit allocation updates preserving subpaths.")
+    println(io, "Parameters:")
+    num_of_pars = 5
+    for par in fieldnames(typeof(sampler))[1:num_of_pars]
+        println(io, par, " = $(getfield(sampler, par))  ", sampler.par_info[par])
+    end 
+    println(io, "\nDefault output parameters:")
+    for par in fieldnames(typeof(sampler))[(num_of_pars+1):(num_of_pars+4)]
+        println(io, par, " = $(getfield(sampler, par))  ")
+    end 
+end 
+
+
 
 # Gibbs Scan Sampler
 # ------------------
