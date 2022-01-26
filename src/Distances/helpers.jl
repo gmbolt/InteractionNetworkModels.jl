@@ -1,5 +1,5 @@
 using Distances, StatsBase, ProgressMeter
-
+export pairwise_inbounds, pairwise_inbounds!
 # Here we simply extend the pairwise() and pairwise!() functions of the Distances.jl package. 
 
 """
@@ -18,6 +18,22 @@ function Distances.pairwise!(
         end
     end
 end
+
+function pairwise_inbounds!(
+    A::AbstractArray,
+    metric::Metric,
+    a::Vector{T},
+    b::Vector{T} 
+    ) where {T}
+    @inbounds begin
+        for j in eachindex(b)
+            for i in eachindex(a)
+                A[i,j] = metric(a[i],b[j])
+            end
+        end
+    end 
+end
+
 """
 In-place distance matrix calculation between elements of Vectors. (For SubArray)
 """
@@ -34,6 +50,21 @@ function Distances.pairwise!(
         end
     end
 end
+
+# function pairwise_inbounds!(
+#     A::SubArray,
+#     metric::Metric,
+#     a::Vector{T},
+#     b::Vector{T} 
+#     ) where {T}
+#     @inbounds begin
+#         for j in eachindex(b)
+#             for i in eachindex(a)
+#                 A[i,j] = metric(a[i],b[j])
+#             end
+#         end
+#     end 
+# end
 
 """
 In-place distance matrix calculation between elements of Vectors. (For SubArray)
@@ -52,6 +83,7 @@ function Distances.pairwise!(
     end
 end
 
+
 """
 Distance matrix calculation between elements of Vectors. This is a custom extension
 of the function in the Distances.jl package to allow vectors of general type. The
@@ -69,6 +101,22 @@ function Distances.pairwise(
             D[i,j] = metric(a[i],b[j])
         end
     end
+    return D
+end
+
+function pairwise_inbounds(
+    metric::Metric,
+    a::Vector{T},
+    b::Vector{T} 
+    ) where {T}
+    D = Array{Float64,2}(undef, length(a), length(b))
+    @inbounds begin
+        for j in eachindex(b)
+            for i in eachindex(a)
+                D[i,j] = metric(a[i],b[j])
+            end
+        end
+    end 
     return D
 end
 

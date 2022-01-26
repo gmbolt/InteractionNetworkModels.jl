@@ -48,7 +48,7 @@ function imcmc_multinomial_edit_accept_reject!(
             if (m < K_in_lb) | (m > K_in_ub)
                 # Here we just reject the proposal
                 for i in 1:N
-                    copy!(S_prop[i], S_curr[i])
+                    @inbounds copy!(S_prop[i], S_curr[i])
                 end 
                 return 0 
             end 
@@ -66,9 +66,9 @@ function imcmc_multinomial_edit_accept_reject!(
             StatsBase.seqsample_a!(1:m, ind_add)
             sample!(model.V, vals)
 
-            delete_insert!(S_prop[i], ind_del, ind_add, vals)
+            @inbounds delete_insert!(S_prop[i], ind_del, ind_add, vals)
 
-            mcmc.ind_update[j] = i # Store which interaction was updated
+            @inbounds mcmc.ind_update[j] = i # Store which interaction was updated
             
             # Add to log_ratio
             # log_prod_term += log(b - a + 1) - log(ub(m, δ_tmp) - lb(m, δ_tmp, model) +1)
@@ -102,12 +102,12 @@ function imcmc_multinomial_edit_accept_reject!(
     # Accept-reject step. Use info in mcmc.ind_update to know which interaction are to be copied over 
     if log(rand()) < log_α
         for i in view(mcmc.ind_update, 1:j)
-            copy!(S_curr[i], S_prop[i])
+            @inbounds copy!(S_curr[i], S_prop[i])
         end
         return 1 
     else 
         for i in view(mcmc.ind_update, 1:j)
-            copy!(S_prop[i], S_curr[i])
+            @inbounds copy!(S_prop[i], S_curr[i])
         end 
         return 0 
     end 
@@ -227,7 +227,7 @@ function imcmc_trans_dim_accept_reject!(
         if is_insert
             for i in ind_tr_dim
                 migrate!(S_curr, curr_pointers, i, 1)
-                copy!(S_curr[i], S_prop[i])
+                @inbounds copy!(S_curr[i], S_prop[i])
             end 
         else 
             for i in Iterators.reverse(ind_tr_dim)
@@ -245,7 +245,7 @@ function imcmc_trans_dim_accept_reject!(
         else 
             for i in ind_tr_dim
                 migrate!(S_prop, prop_pointers, i, 1)
-                copy!(S_prop[i], S_curr[i])
+                @inbounds copy!(S_prop[i], S_curr[i])
             end 
         end 
         return 0
@@ -303,10 +303,9 @@ function draw_sample!(
 
     while sample_count ≤ length(sample_out)
         i += 1 
-
         # Store value 
         if (i > burn_in) & (((i-1) % lag)==0)
-            sample_out[sample_count] = deepcopy(S_curr)
+            @inbounds sample_out[sample_count] = deepcopy(S_curr)
             sample_count += 1
         end 
         # W.P. do update move (accept-reject done internally by function call)

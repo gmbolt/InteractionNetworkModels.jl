@@ -190,8 +190,8 @@ end
 function migrate!(
     y::Vector{Vector{Int}}, x::Vector{Vector{Int}},
     j::Int, i::Int)
-    insert!(y, j, x[i])
-    deleteat!(x, i)
+    @inbounds insert!(y, j, x[i])
+    @inbounds deleteat!(x, i)
 end 
 
 function imcmc_multi_insert_prop_sample!(
@@ -214,7 +214,7 @@ function imcmc_multi_insert_prop_sample!(
         m = rand(len_dist)
         resize!(tmp, m)
         sample!(V, tmp)
-        insert!(S_prop, i, tmp)
+        @inbounds insert!(S_prop, i, tmp)
         log_ratio += - logpdf(len_dist, m) + m*log(length(V)) - Inf * (m > K_in_ub)
     end 
     log_ratio += log(ν_td) - log(min(ν_td,N)) 
@@ -259,7 +259,7 @@ function imcmc_multi_insert_prop_sample!(
         m = rand(len_dist)  # Sample length 
         resize!(tmp, m) # Resize 
         sample!(V, tmp) # Sample new entries uniformly
-        insert!(S_prop, i, tmp) # Insert path into S_prop
+        @inbounds insert!(S_prop, i, tmp) # Insert path into S_prop
         log_ratio += - logpdf(len_dist, m) + m*log(length(V)) - Inf * (m > K_in_ub)  # Add to log_ratio term
         n -= 1
         k -= 1
@@ -285,7 +285,7 @@ function imcmc_multi_delete_prop_sample!(
     log_ratio = 0.0
 
     for i in Iterators.reverse(ind)
-        tmp = popat!(S_prop, i)
+        @inbounds tmp = popat!(S_prop, i)
         pushfirst!(prop_pointers, tmp)
         m = length(tmp)
         log_ratio += logpdf(len_dist, m) - m * log(length(V))
@@ -327,8 +327,8 @@ function imcmc_multi_delete_prop_sample!(
         j+=1
         # Delete path 
         # i is now index to delete 
-        ind[j] = i
-        tmp = popat!(S_prop, i - live_index)
+        @inbounds ind[j] = i
+        @inbounds tmp = popat!(S_prop, i - live_index)
         pushfirst!(prop_pointers, tmp)
         m = length(tmp)
         log_ratio += logpdf(len_dist, m) - m * log(length(V))

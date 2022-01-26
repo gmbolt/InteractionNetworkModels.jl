@@ -4,6 +4,7 @@ export InteractionSetDistance, LengthDistance
 export MatchingDist, FastMatchingDist, FpMatchingDist, print_matching
 export CouplingDistance, PenalisedCouplingDistance
 export AvgSizeFpMatchingDist, NormFpMatchingDist
+export matching_dist_with_memory!
 
 abstract type InteractionSetDistance <: Metric end
 
@@ -18,7 +19,7 @@ function (d::MatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence{T
     if length(S1) < length(S2)  # Ensure first is seq longest
         d(S2,S1)
     else
-        C = Distances.pairwise(d.ground_dist, S1, S2)
+        C = pairwise_inbounds(d.ground_dist, S1, S2)
         if length(S1) == length(S2)
             # println("Same length")
             return hungarian(C)[2]
@@ -80,7 +81,7 @@ function (d::FastMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequen
         d(S2,S1)
     else
         C = view(d.C, 1:length(S1), 1:length(S1)) # S1 is the longest
-        pairwise!(C, d.ground_dist, S1, S2)
+        pairwise_inbounds!(C, d.ground_dist, S1, S2)
         if length(S1) == length(S2)
             return hungarian(C)[2]
         else 
@@ -97,6 +98,33 @@ function (d::FastMatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequen
     end
 end
 
+function matching_dist_with_memory!(
+    S1::InteractionSequence{T}, 
+    S2::InteractionSequence{T},
+    d::InteractionDistance,
+    C::AbstractArray
+    ) where {T<:Union{Int, String}}
+    
+    if length(S1) < length(S2)  # Ensure first is seq longest
+        matching_dist_with_memory!(S2,S1,d,C)
+    else
+        Cv = view(C, 1:length(S1), 1:length(S1)) # S1 is the longest
+        pairwise_inbounds!(Cv, d, S1, S2)
+        if length(S1) == length(S2)
+            return hungarian(Cv)[2]
+        else 
+            for i in eachindex(S1)
+                @inbounds Cv[i,length(S2)+1] = d(nothing, S1[i])
+            end 
+            for j in (length(S2)+2):length(S1)
+                for i in eachindex(S1)
+                    @inbounds Cv[i,j] = Cv[i,j-1]
+                end 
+            end 
+            return hungarian(Cv)[2]
+        end 
+    end
+end
 
 # Fixed Penalty Matching Distance(s)
 # ----------------------------------

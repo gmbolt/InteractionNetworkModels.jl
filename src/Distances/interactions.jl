@@ -35,7 +35,7 @@ function (dist::LCS)(X::AbstractVector,Y::AbstractVector)::Float64
     n = length(X)
     m = length(Y)
 
-    @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
+    # @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
 
     # Code only needs previous row to update next row using the rule from
     # Wagner-Fisher algorithm
@@ -46,17 +46,19 @@ function (dist::LCS)(X::AbstractVector,Y::AbstractVector)::Float64
     #       2
     prevRow = 0:m
     currRow = zeros(Int, m + 1)
-    for i = 1:n
-        currRow[1] = i
-        for j = 1:m
-            if X[i] == Y[j]
-                currRow[j+1] = prevRow[j]
-            else
-                currRow[j+1] = min(currRow[j], prevRow[j+1]) + 1
+    @inbounds begin 
+        for i = 1:n
+            currRow[1] = i
+            for j = 1:m
+                if X[i] == Y[j]
+                    currRow[j+1] = prevRow[j]
+                else
+                    currRow[j+1] = min(currRow[j], prevRow[j+1]) + 1
+                end
             end
-        end
-        prevRow = copy(currRow)
-    end
+            prevRow = copy(currRow)
+        end 
+    end 
     return currRow[end]
 end
 
@@ -69,13 +71,6 @@ function (d::FastLCS)(
     m = length(Y)
 
     @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
-    # Code only needs previous row to update next row using the rule from
-    # Wagner-Fisher algorithm
-
-    #            Y
-    #       0 1 2   ...
-    #    X  1 0
-    #       2
 
     prev_row = view(d.prev_row, 1:(m+1))
     curr_row = view(d.curr_row, 1:(m+1))
@@ -83,19 +78,20 @@ function (d::FastLCS)(
     copy!(prev_row, 0:m)
     curr_row .= 0
 
-    # @show prev_row, curr_row
 
-    for i = 1:n
-        curr_row[1] = i
-        for j = 1:m
-            if X[i] == Y[j]
-                curr_row[j+1] = prev_row[j]
-            else
-                curr_row[j+1] = min(curr_row[j], prev_row[j+1]) + 1
+    @inbounds begin 
+        for i = 1:n
+            curr_row[1] = i
+            for j = 1:m
+                if X[i] == Y[j]
+                    curr_row[j+1] = prev_row[j]
+                else
+                    curr_row[j+1] = min(curr_row[j], prev_row[j+1]) + 1
+                end
             end
+            copy!(prev_row, curr_row)
         end
-        copy!(prev_row, curr_row)
-    end
+    end 
     return curr_row[m+1]
 end
 
@@ -129,34 +125,28 @@ function (d::FastNormLCS)(
 
     @assert (n>0) & (m>0) "both paths must be either of type Nothing or of nonzero length."
 
-    # Code only needs previous row to update next row using the rule from
-    # Wagner-Fisher algorithm
-
-    #            Y
-    #       0 1 2   ...
-    #    X  1 0
-    #       2
-
-    prev_row = view(d.prev_row, 1:(m+1))
-    curr_row = view(d.curr_row, 1:(m+1))
+    @inbounds prev_row = view(d.prev_row, 1:(m+1))
+    @inbounds curr_row = view(d.curr_row, 1:(m+1))
 
     copy!(prev_row, 0:m)
     curr_row .= 0
 
     # @show prev_row, curr_row
 
-    for i = 1:n
-        curr_row[1] = i
-        for j = 1:m
-            if X[i] == Y[j]
-                curr_row[j+1] = prev_row[j]
-            else
-                curr_row[j+1] = min(curr_row[j], prev_row[j+1]) + 1
+    @inbounds begin 
+        for i = 1:n
+            curr_row[1] = i
+            for j = 1:m
+                if X[i] == Y[j]
+                    curr_row[j+1] = prev_row[j]
+                else
+                    curr_row[j+1] = min(curr_row[j], prev_row[j+1]) + 1
+                end
             end
+            copy!(prev_row, curr_row)
         end
-        copy!(prev_row, curr_row)
-    end
-    d_lcs = curr_row[m+1]
+        d_lcs = curr_row[m+1]
+    end 
     return 2 * d_lcs / (n + m + d_lcs)
 end
 
@@ -228,19 +218,21 @@ function (dist::LSP)(X::AbstractVector,Y::AbstractVector)::Float64
     curr_row = zeros(Float64, m + 1)
     z = 0.0
 
-    for i = 1:n
-        for j = 1:m
-            if X[i] == Y[j]
-                curr_row[j+1] = prev_row[j] + 1.0 # Subpath length increment
-                if curr_row[j+1] > z 
-                    z = curr_row[j+1]
-                end 
-            else
-                curr_row[j+1] = 0.0
+    @inbounds begin 
+        for i = 1:n
+            for j = 1:m
+                if X[i] == Y[j]
+                    curr_row[j+1] = prev_row[j] + 1.0 # Subpath length increment
+                    if curr_row[j+1] > z 
+                        z = curr_row[j+1]
+                    end 
+                else
+                    curr_row[j+1] = 0.0
+                end
             end
+            copy!(prev_row, curr_row)
         end
-        copy!(prev_row, curr_row)
-    end
+    end 
     return n + m - 2*z
 end
 
@@ -266,18 +258,20 @@ function (dist::FastLSP)(X::AbstractVector,Y::AbstractVector)::Float64
     curr_row .= 0.0
     z = 0.0
 
-    for i = 1:n
-        for j = 1:m
-            if X[i] == Y[j]
-                curr_row[j+1] = prev_row[j] + 1.0 # Subpath length increment
-                if curr_row[j+1] > z 
-                    z = curr_row[j+1]
-                end 
-            else
-                curr_row[j+1] = 0.0
+    @inbounds begin 
+        for i = 1:n
+            for j = 1:m
+                if X[i] == Y[j]
+                    curr_row[j+1] = prev_row[j] + 1.0 # Subpath length increment
+                    if curr_row[j+1] > z 
+                        z = curr_row[j+1]
+                    end 
+                else
+                    curr_row[j+1] = 0.0
+                end
             end
+            copy!(prev_row, curr_row)
         end
-        copy!(prev_row, curr_row)
     end
     return n + m - 2*z
 end
