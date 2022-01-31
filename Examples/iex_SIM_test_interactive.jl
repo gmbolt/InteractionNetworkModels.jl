@@ -13,16 +13,16 @@ E = [[1,2,1,2],
 d = MatchingDist(FastLCS(101))
 K_inner, K_outer = (DimensionRange(2,100), DimensionRange(1,25))
 model = SIM(
-    E, 2.75, 
+    E, 5.0, 
     d,
     1:10,
     K_inner, K_outer)
 
 
 mcmc_sampler = SimMcmcInsertDelete(
-    ν_ed=6, ν_td=1, β=0.7,
+    ν_ed=1, ν_td=1, β=0.7,
     len_dist=TrGeometric(0.8, 1, model.K_inner.u),
-    burn_in=1000, lag=50, init=InitRandIns(20)
+    burn_in=2000, lag=75, init=InitRandIns(10)
 )
 
 
@@ -76,13 +76,13 @@ d(E_init, E)
     S_init=E_init, γ_init=2.8,
     aux_init_at_prev=true,
 );
-
+plot(posterior_out, E)
 posterior_out.S_sample
 plot(posterior_out, E)
 plot(length.(posterior_out.S_sample))
 findall(diff(length.(posterior_out.S_sample)).>0)
 
-
+plot(length.(posterior_out.S_sample))
 print_map_est(posterior_out)
 
 plot(posterior_out, E)

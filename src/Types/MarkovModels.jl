@@ -14,6 +14,18 @@ MarkovChain(P::Matrix{Float64}, x::Int) = MarkovChain(
     Categorical([i==x ? 1.0 : 0.0 for i in 1:size(P,1)])
 )
 
+MarkovChain(P::Matrix{Float64}, μ::Categorical) = MarkovChain(
+    P, 
+    cumsum(P, dims=2), 
+    μ
+)
+
+MarkovChain(P::Matrix{Float64}) = MarkovChain(
+    P, 
+    cumsum(P, dims=2), 
+    Categorical([1/size(P,1) for i in 1:size(P,1)])
+)
+
 function rand_categorical(μ_cusum::AbstractArray{Float64})
     β = rand()
     for i in 1:length(μ_cusum)

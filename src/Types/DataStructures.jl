@@ -1,7 +1,7 @@
 using InvertedIndices, StatsBase, Printf, ProgressMeter
 
 export CondProbMatrix, CumCondProbMatrix, vertices, vertex_countmap, vertex_counts
-export sample_frechet_mean, BoundedInteractionSequence
+export sample_frechet_mean, sample_frechet_var, BoundedInteractionSequence
 export insert_entry!, delete_entry!, delete_entries!, insert_interaction!, delete_interaction!
 export insert_interaction_rand!, delete_insert_interaction!
 export copy_interaction!
@@ -40,9 +40,15 @@ end
 function sample_frechet_mean(
     data::InteractionSequenceSample{T}, 
     d::Union{InteractionSeqDistance,InteractionSetDistance};
-    show_progress::Bool=false
+    show_progress::Bool=false,
+    with_memory::Bool=false
     ) where T <:Union{Int, String}
-    if show_progress
+
+    if with_memory 
+        return sample_frechet_mean_mem(
+            data, d, show_progress=show_progress
+        )
+    elseif show_progress
         iter = Progress(length(data), 1)
     end 
     z_best = Inf
@@ -52,7 +58,7 @@ function sample_frechet_mean(
         z = 0.0
         j = 1 + (i==1)
         while (z < z_best) & (j ≤ n)
-            z += d(data[i], data[j])
+            z += d(data[i], data[j])^2
             j += 1 + (j==(i-1))
         end 
         if z < z_best 
@@ -63,7 +69,52 @@ function sample_frechet_mean(
             next!(iter)
         end 
     end 
-    return data[ind_best], ind_best
+    return data[ind_best], ind_best, z_best
+end 
+
+function sample_frechet_mean_mem(
+    data::InteractionSequenceSample{T}, 
+    d::Union{InteractionSeqDistance,InteractionSetDistance};
+    show_progress::Bool=false
+    ) where T <:Union{Int, String}
+    if show_progress
+        iter = Progress(length(data), 1)
+    end 
+    data_unq = unique(data)
+    weights = countmap(data)
+    z_best = Inf
+    ind_best_unq = 1
+    for i in eachindex(data_unq)
+        z = 0.0
+        j = 1 + (i==1)
+        S1 = data_unq[i]
+        while (z < z_best) & (j ≤ length(data_unq))
+            S2 = data_unq[j]
+            dist = d(S1,S2)
+            z += weights[S2] * dist^2
+            j += 1 + (j==(i-1))
+        end 
+        if z < z_best 
+            z_best = copy(z)
+            ind_best_unq = i
+        end 
+        if show_progress
+            next!(iter)
+        end 
+    end 
+    ind_best = findfirst(x->x==data_unq[ind_best_unq], data)
+    return data[ind_best], ind_best, z_best
+end 
+
+function sample_frechet_var(
+    data::InteractionSequenceSample{T}, 
+    d::Union{InteractionSeqDistance,InteractionSetDistance};
+    show_progress::Bool=false,
+    with_memory::Bool=false
+    ) where T <:Union{Int, String}
+
+    S, i, out = sample_frechet_mean(data, d, show_progress=show_progress, with_memory=with_memory)
+    return out/length(data)
 end 
 
 # Probability Matrices - Used in informed proposal for SIS/SIM posterior sampling

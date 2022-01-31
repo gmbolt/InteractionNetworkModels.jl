@@ -21,7 +21,8 @@ mcmc_sampler = SimMcmcInsertDelete(
     ν_ed=5, β=0.6, ν_td=3,  
     len_dist=TrGeometric(0.1, model.K_inner.l, model.K_inner.u),
     lag=1,
-    K=200
+    K=200, 
+    burn_in=1000
 )
 mcmc_sampler_sp = SimMcmcInsertDeleteSubpath(
     ν_ed=5, β=0.6, ν_td=3,  
@@ -34,10 +35,16 @@ mcmc_sampler_sp = SimMcmcInsertDeleteSubpath(
     model, 
     lag=1, 
     init=model.mode, 
-    desired_samples=10000,
-    burn_in=0
+    desired_samples=1000
 )
 plot(out)
+sample_frechet_var(out.sample, d_lcs, with_memory=true)
+
+n = 1000
+m = 4
+samples = [draw_sample(mcmc_sampler, model, desired_samples=n) for i in 1:m]
+
+mean_dists_summary(samples, d_lcs)
 
 
 @time out_sp=mcmc_sampler_sp(
