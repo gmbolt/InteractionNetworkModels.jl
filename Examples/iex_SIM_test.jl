@@ -38,7 +38,7 @@ E = [[1,2,1,2],
     [4,5],
     [7,8]
 ]
-γ = 2.75
+γ = 2.6
 V = 1:10
 d = MatchingDist(FastLCS(101))
 K_inner, K_outer = (DimensionRange(2,100), DimensionRange(1,25))
@@ -70,19 +70,15 @@ E_prior = SIM(E, 0.1, model.dist, model.V, model.K_inner, model.K_outer)
 γ_prior = Uniform(0.5,7.0)
 posterior = SimPosterior(data, E_prior, γ_prior)
 
+
 # Construct posterior sampler
 posterior_sampler = SimIexInsertDelete(
     mcmc_sampler,
-    len_dist=TrGeometric(0.9,K_inner.l,K_inner.u),
-    ν_ed=1, ν_td=1,
-    β=0.7, ε=0.3
-)
-# Construct posterior sampler
-posterior_sampler = SimIexInsertDelete(
-    mcmc_sampler,
-    len_dist=TrGeometric(0.9,K_inner.l,K_inner.u),
-    ν_ed=1, ν_td=1,
-    β=0.7, ε=0.3
+    ν_ed=1, ν_td=1, len_dist=TrGeometric(0.8, K_inner.l, K_inner.u),
+    ε=0.1,
+    K=200,
+    α=0.0,
+    desired_samples=n_samples, burn_in=0, lag=1
 )
 
 println("Setting-up mapper to workers....")
@@ -99,7 +95,7 @@ println("Setting-up mapper to workers....")
         posterior,
         S_init=S_init,
         γ_init=γ_init,
-        desired_samples=20,
+        desired_samples=5,
         burn_in=0, lag=1,
         loading_bar=false,
         aux_init_at_prev=true
