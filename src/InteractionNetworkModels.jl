@@ -59,4 +59,8 @@ include("MCMC/Posterior Sampling/iex_SIM_with_kick.jl")
 include("MCMC/Posterior Sampling/summarys.jl")
 include("MCMC/Posterior Sampling/predictives.jl")
 
+# Graphs Models
+include("Graph Models/model_types.jl")
+include("Graph Models/model_samplers.jl")
+
 end
