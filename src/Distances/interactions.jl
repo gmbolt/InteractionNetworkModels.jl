@@ -28,7 +28,6 @@ struct FastNormLCS <: PathDistance
     end 
 end 
 
-
 # LCS
 function (dist::LCS)(X::AbstractVector,Y::AbstractVector)::Float64
 

@@ -11,6 +11,7 @@ include("Distances/interactions.jl")
 include("Distances/interaction_sequences.jl")
 include("Distances/interaction_multisets.jl")
 include("Distances/graph_distances.jl")
+include("Distances/normalised.jl")
 
 # Types
 include("Types/PathDistributions.jl")

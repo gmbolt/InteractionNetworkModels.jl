@@ -1,5 +1,6 @@
 using InteractionNetworkModels, BenchmarkTools, Distances
 
+
 d_lcs = LCS()
 
 x,y = (rand(1:3,10), rand(1:3, 10))
@@ -23,3 +24,13 @@ C = zeros(100,100)
 
 @btime pairwise_inbounds(d_lcs, x,y)
 @btime Distances.pairwise(d_lcs, x,y)
+
+d = MatchingDist(LCS())
+d_norm = Normalised(d)
+
+d_norm([[1,2,1]], [[1,2,3,4,5,4],[1]])
+
+typeof(Normalised(d)) <: InteractionSetDistance
+
+supertype(typeof(Normalised(d)))
+supertype(typeof(Euclidean()))

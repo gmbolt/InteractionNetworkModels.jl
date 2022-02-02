@@ -33,6 +33,17 @@ function (d::MatchingDist)(S1::InteractionSequence{T}, S2::InteractionSequence{T
     end
 end
 
+function (dist::MatchingDist)(X::Nothing, Y::InteractionSequence{T})::Float64 where {T<:Union{Int,String}}
+    return sum(p->dist.ground_dist(nothing,p), Y)
+end 
+function (dist::MatchingDist)(X::InteractionSequence{T}, Y::Nothing)::Float64 where {T<:Union{Int,String}}
+    return sum(p->dist.ground_dist(nothing,p), X)
+end 
+
+function (dist::MatchingDist)(X::Nothing, Y::Nothing)::Float64 where {T<:Union{Int,String}}
+    return 0.0
+end 
+
 function print_matching(
     d::MatchingDist, 
     S1::InteractionSequence{T}, S2::InteractionSequence{T}
