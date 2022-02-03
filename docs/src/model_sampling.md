@@ -1,7 +1,7 @@
 # Model Sampling 
 
 ```@docs
-SisMcmcInitialiser
+McmcInitialiser
 ```
 
 
