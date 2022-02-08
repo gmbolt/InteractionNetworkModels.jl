@@ -507,11 +507,11 @@ end
 function imcmc_multi_insert_prop_sample!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int},
-    mcmc::Union{SisIexInsertDelete,SimIexInsertDelete,SimIexInsertDeleteWithKick},
+    mcmc::T,
     ind::AbstractVector{Int},
     V::UnitRange, 
     K_in_ub::Int
-    ) 
+    ) where {T<:Union{SisPosteriorSampler,SimPosteriorSampler}}
 
     prop_pointers = mcmc.prop_pointers
     ν_td = mcmc.ν_td
@@ -535,11 +535,11 @@ end
 function imcmc_multi_insert_prop_sample_informed!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int},
-    mcmc::Union{SisIexInsertDelete,SimIexInsertDelete,SimIexInsertDeleteDependent,SimIexInsertDeleteWithKick},
+    mcmc::T,
     ind::AbstractVector{Int},
     p_ins::Categorical, 
     K_in_ub::Int
-    ) 
+    ) where {T<:Union{SisPosteriorSampler,SimPosteriorSampler}}
 
     prop_pointers = mcmc.prop_pointers
     ν_td = mcmc.ν_td
@@ -570,10 +570,10 @@ end
 function imcmc_multi_delete_prop_sample!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int}, 
-    mcmc::Union{SisIexInsertDelete,SimIexInsertDelete,SimIexInsertDeleteDependent,SimIexInsertDeleteWithKick},
+    mcmc::T,
     ind::AbstractVector{Int},
     V::UnitRange
-    ) 
+    ) where {T<:Union{SisPosteriorSampler,SimPosteriorSampler}}
 
     prop_pointers = mcmc.prop_pointers
     ν_td = mcmc.ν_td
@@ -597,10 +597,10 @@ end
 function imcmc_multi_delete_prop_sample_informed!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int}, 
-    mcmc::Union{SisIexInsertDelete,SimIexInsertDelete,SimIexInsertDeleteDependent,SimIexInsertDeleteWithKick},
+    mcmc::T,
     ind::AbstractVector{Int},
     p_ins::Categorical
-    ) 
+    ) where {T<:Union{SisPosteriorSampler,SimPosteriorSampler}}
 
     prop_pointers = mcmc.prop_pointers
     ν_td = mcmc.ν_td

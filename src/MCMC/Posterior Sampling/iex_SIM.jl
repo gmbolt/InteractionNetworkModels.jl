@@ -150,7 +150,7 @@ function double_iex_flip_accept_reject!(
     S_prop::InteractionSequence{Int},
     posterior::SimPosterior,
     γ_curr::Float64,
-    mcmc::SimIexInsertDelete,
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
     P::CumCondProbMatrix,
     aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64, 
@@ -237,7 +237,7 @@ function double_iex_trans_dim_accept_reject!(
     S_prop::InteractionSequence{Int},
     posterior::SimPosterior, 
     γ_curr::Float64,
-    mcmc::SimIexInsertDelete,
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
     aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64,
     aux_init_at_prev::Bool
@@ -365,7 +365,7 @@ function double_iex_trans_dim_informed_accept_reject!(
     S_prop::InteractionSequence{Int},
     posterior::SimPosterior, 
     γ_curr::Float64,
-    mcmc::SimIexInsertDelete,
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
     p_ins::Categorical,
     aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64,
@@ -494,7 +494,7 @@ end
 
 function draw_sample_mode!(
     sample_out::Union{InteractionSequenceSample{Int}, SubArray},
-    mcmc::SimIexInsertDelete,
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
     posterior::SimPosterior,
     γ_fixed::Float64;
     burn_in::Int=mcmc.burn_in,
@@ -621,7 +621,7 @@ function draw_sample_mode!(
 end 
 
 function draw_sample_mode(
-    mcmc::SimIexInsertDelete,
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
     posterior::SimPosterior,
     γ_fixed::Float64;
     desired_samples::Int=mcmc.desired_samples,
@@ -645,7 +645,7 @@ function draw_sample_mode(
 
 end 
 
-function (mcmc::SimIexInsertDelete)(
+function (mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional})(
     posterior::SimPosterior, 
     γ_fixed::Float64;
     desired_samples::Int=mcmc.desired_samples,
@@ -697,7 +697,7 @@ end
 
 function draw_sample_gamma!(
     sample_out::Union{Vector{Float64}, SubArray},
-    mcmc::SimIexInsertDelete,
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
     posterior::SimPosterior,
     S_fixed::InteractionSequence{Int};
     burn_in::Int=mcmc.burn_in,
@@ -791,7 +791,7 @@ function draw_sample_gamma!(
 end 
 
 function draw_sample_gamma(
-    mcmc::SimIexInsertDelete,
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
     posterior::SimPosterior,
     S_fixed::InteractionSequence{Int};
     desired_samples::Int=mcmc.desired_samples,
@@ -816,7 +816,7 @@ function draw_sample_gamma(
 end 
 
 
-function (mcmc::SimIexInsertDelete)(
+function (mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional})(
     posterior::SimPosterior, 
     S_fixed::InteractionSequence{Int};
     desired_samples::Int=mcmc.desired_samples,
@@ -867,7 +867,7 @@ function accept_reject_mode!(
     S_prop::InteractionSequence{Int},
     posterior::SimPosterior,
     γ_curr::Float64, 
-    mcmc::SimIexInsertDelete,
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
     P::CumCondProbMatrix,
     p_ins::Categorical,
     aux_data::InteractionSequenceSample{Int},
@@ -923,7 +923,7 @@ function accept_reject_gamma!(
     γ_curr::Float64,
     S_curr::InteractionSequence{Int},
     posterior::SimPosterior,
-    mcmc::SimIexInsertDelete,
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
     aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64,
     aux_init_at_prev::Bool=false
@@ -968,7 +968,7 @@ end
 function draw_sample!(
     sample_out_S::Union{InteractionSequenceSample{Int},SubArray},
     sample_out_gamma::Union{Vector{Float64},SubArray},
-    mcmc::SimIexInsertDelete,
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
     posterior::SimPosterior;
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
@@ -1077,7 +1077,7 @@ function draw_sample!(
 end 
 
 function draw_sample(
-    mcmc::SimIexInsertDelete,
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
     posterior::SimPosterior;
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,
@@ -1105,7 +1105,7 @@ function draw_sample(
     return (S=sample_out_S, gamma=sample_out_gamma)
 end 
 
-function (mcmc::SimIexInsertDelete)(
+function (mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional})(
     posterior::SimPosterior;
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,

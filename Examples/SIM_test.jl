@@ -13,7 +13,7 @@ d_lsp = MatchingDist(FastLSP(100))
 K_inner = DimensionRange(2, 50)
 K_outer = DimensionRange(1, 50)
 
-model = SIM(S, 3.2, d_lsp, V, K_inner, K_outer)
+model = SIM(S, 4.0, d_lcs, V, K_inner, K_outer)
 
 # model_f = SIM(S, 4.0, d_f, V, 50, 50)
 
@@ -31,13 +31,32 @@ mcmc_sampler_sp = SimMcmcInsertDeleteSubpath(
     K=200
 )
 
+mcmc_sampler_prop = SimMcmcInsertDeleteProportional(
+    ν_ed=1, β=0.6, ν_td=3,  
+    len_dist=TrGeometric(0.1, model.K_inner.l, model.K_inner.u),
+    lag=1,
+    K=200, burn_in=1000
+)
+
 @time out=mcmc_sampler(
     model, 
     lag=1, 
     init=model.mode, 
-    desired_samples=1000
+    desired_samples=10000
 )
 plot(out)
+summaryplot(out)
+
+@time out_prop=mcmc_sampler_prop(
+    model, 
+    lag=1, 
+    init=model.mode, 
+    desired_samples=10000
+)
+plot(out_prop)
+summaryplot(out_prop)
+out_prop.sample
+
 sample_frechet_var(out.sample, d_lcs, with_memory=true)
 
 n = 1000
