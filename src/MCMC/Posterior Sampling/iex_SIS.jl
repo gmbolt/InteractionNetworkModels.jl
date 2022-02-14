@@ -942,6 +942,7 @@ function draw_sample_mode!(
         # Store value 
         if (i > burn_in) & (((i-1) % lag)==0)
             sample_out[sample_count] = deepcopy(S_curr)
+            push!(suff_stats, suff_stat_curr)
             sample_count += 1
         end 
         # W.P. do update move (accept-reject done internally by function call)
@@ -983,7 +984,6 @@ function draw_sample_mode!(
         if loading_bar
             next!(iter)
         end 
-        push!(suff_stats, suff_stat_curr)
     end 
     for i in 1:length(S_curr)
         migrate!(curr_pointers, S_curr, 1, 1)
@@ -1377,6 +1377,7 @@ function draw_sample!(
         if (i > burn_in) & (((i-1) % lag)==0)
             sample_out_S[sample_count] = deepcopy(S_curr)
             sample_out_gamma[sample_count] = copy(γ_curr)
+            push!(suff_stats, suff_stat_curr)
             sample_count += 1
         end 
 
@@ -1390,7 +1391,6 @@ function draw_sample!(
             acc_count, count,
             suff_stat_curr
         )
-        push!(suff_stats, suff_stat_curr)
         # Update gamma 
         # ------------
         γ_curr, tmp =  accept_reject_gamma!(

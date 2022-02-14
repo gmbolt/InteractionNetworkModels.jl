@@ -546,7 +546,7 @@ function draw_sample_mode!(
         posterior.V, 
         posterior.K_inner, 
         posterior.K_outer)
-    draw_sample!(aux_data, aux_mcmc, aux_model)
+    draw_sample!(aux_data, aux_mcmc, aux_model, burn_in=10000)
 
     # Evaluate sufficient statistic
     suff_stat_curr = mapreduce(
@@ -562,6 +562,7 @@ function draw_sample_mode!(
         # Store value 
         if (i > burn_in) & (((i - burn_in - 1) % lag)==0)
             @inbounds sample_out[sample_count] = deepcopy(S_curr)
+            push!(suff_stats, suff_stat_curr)
             sample_count += 1
         end 
         # W.P. do update move (accept-reject done internally by function call)
@@ -606,7 +607,6 @@ function draw_sample_mode!(
         if loading_bar
             next!(iter)
         end 
-        push!(suff_stats, suff_stat_curr)
     end 
     for i in 1:length(S_curr)
         migrate!(curr_pointers, S_curr, 1, 1)
@@ -742,7 +742,7 @@ function draw_sample_gamma!(
         posterior.K_outer
     )
     
-    draw_sample!(aux_data, aux_mcmc, aux_model)
+    draw_sample!(aux_data, aux_mcmc, aux_model, burn_in=10000)
 
     while sample_count ≤ length(sample_out)
         # Store value 
@@ -1015,7 +1015,7 @@ function draw_sample!(
         posterior.V, 
         posterior.K_inner, 
         posterior.K_outer)
-    draw_sample!(aux_data, aux_mcmc, aux_model)
+    draw_sample!(aux_data, aux_mcmc, aux_model, burn_in=10000)
     # Initialise sufficient statistic
     suff_stat_curr = mapreduce(
         x -> posterior.dist(S_curr, x), 
@@ -1031,6 +1031,7 @@ function draw_sample!(
         if (i > burn_in) & (((i-1) % lag)==0)
             @inbounds sample_out_S[sample_count] = deepcopy(S_curr)
             @inbounds sample_out_gamma[sample_count] = copy(γ_curr)
+            push!(suff_stats, suff_stat_curr)
             sample_count += 1
         end 
 
@@ -1045,7 +1046,6 @@ function draw_sample!(
             suff_stat_curr,
             aux_init_at_prev
         )
-        push!(suff_stats, suff_stat_curr)
         # Update gamma 
         # ------------
         γ_curr, tmp =  accept_reject_gamma!(
