@@ -3,23 +3,31 @@ using InteractionNetworkModels, Distributions, BenchmarkTools, Plots
 # The Model(s)
 model_mode = Hollywood(-3.0, Poisson(7), 10)
 S = sample(model_mode, 10)
-S = [[1,1,1,1], [2,2,2,2], [3,3,3,3]]
+S = [[1,1,1,1], [2,2,2,2], [3,3,3,3,3,3]]
 V = 1:20
 
 d_lcs = MatchingDist(FastLCS(100))
 d_lsp = MatchingDist(FastLSP(100))
 # d_f = FastMatchingDist(FastLCS(100), 51)
+d_lsp_fp = FpMatchingDist(FastLSP(100), 100.0)
 
-K_inner = DimensionRange(2, 50)
+d_c = CouplingDistance(FastLSP(100))
+
+K_inner = DimensionRange(1, 50)
 K_outer = DimensionRange(1, 50)
 
-model = SIM(S, 4.0, d_lcs, V, K_inner, K_outer)
+d_lsp_as = AvgSizeMatchingDist(FastLSP(100), 0.5)
+d_lsp_sc = SizeConstrainedMatchingDist(FastLSP(100), 1.0, 4)
+model = SIM(S, 6.0, d_lsp_as, V, K_inner, K_outer)
+
+@time d_lsp_as([[1,2]], [[1,2], [1,3,3,4,5]])
+@time d_lsp_sc([[1,2]], [[1,2], [1,3,3,4,5,12,3]])
+@time d_lsp([[1,2]], [[1,2], [1,3,3,4,5,12,3]])
 
 # model_f = SIM(S, 4.0, d_f, V, 50, 50)
-
 mcmc_sampler = SimMcmcInsertDelete(
     ν_ed=5, β=0.6, ν_td=3,  
-    len_dist=TrGeometric(0.1, model.K_inner.l, model.K_inner.u),
+    len_dist=truncated(Poisson(d_lsp_sc.mean_length), model.K_inner.l, model.K_inner.u),
     lag=1,
     K=200, 
     burn_in=1000
@@ -38,14 +46,39 @@ mcmc_sampler_prop = SimMcmcInsertDeleteProportional(
     K=200, burn_in=1000
 )
 
+mcmc_sampler_len = SimMcmcInsertDeleteLengthCentered(
+    ν_ed=1, β=0.6, ν_td=3,  
+    lag=1,
+    K=200, burn_in=1000
+)
+
 @time out=mcmc_sampler(
     model, 
     lag=1, 
     init=model.mode, 
+    burn_in=0,
     desired_samples=10000
 )
 plot(out)
 summaryplot(out)
+out.sample[100]
+
+d_lsp_sc(, model.mode)
+
+d_lsp_sc([[1,1,1], [2,2,2]], [[1,1,1],[2,2,2],[3,4,4,4]])
+
+
+@time out=mcmc_sampler_len(
+    model, 
+    lag=1, 
+    init=model.mode, 
+    burn_in=0,
+    desired_samples=10000
+)
+plot(out)
+summaryplot(out)
+out.sample
+
 
 @time out_prop=mcmc_sampler_prop(
     model, 
@@ -97,3 +130,5 @@ V = 1:10
 p = zeros(length(V))
 p .+= [i ∈ tmp for i in V]
 p ./= sum(p)
+
+
