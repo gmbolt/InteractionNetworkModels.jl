@@ -52,6 +52,7 @@ function vec_to_adj_mat(
         V = round(Int, √(M))
         A = zeros(eltype(x), V, V)
         A[:] = copy(x)
+        return A
     elseif directed & !self_loops
         V = round(Int, √(M+1/4) + 1/2)
         A = zeros(eltype(x), V, V)

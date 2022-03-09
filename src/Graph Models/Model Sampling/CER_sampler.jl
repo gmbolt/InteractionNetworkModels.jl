@@ -11,7 +11,7 @@ function draw_sample!(
         for c in eachcol(A)
             for i in eachindex(c)
                 if rand() < model.α
-                    c[i] = (c[i] + 1) % 2
+                    c[i] = !c[i]
                 end 
             end 
         end 
@@ -20,14 +20,14 @@ function draw_sample!(
 end 
 
 function draw_sample_no_copy!(
-    out::Vector{Matrix},
+    out::Vector{Matrix{Bool}},
     model::CER
     )
     for A in out 
         for c in eachcol(A)
             for i in eachindex(c)
                 if rand() < model.α
-                    c[i] = (c[i] + 1) % 2
+                    c[i] = !c[i]
                 end 
             end 
         end 
@@ -38,10 +38,9 @@ function draw_sample(
     model::CER,
     n::Int
     )
-    out = fill(copy(A), n)
+    out = [copy(model.mode) for i in 1:n]
     draw_sample_no_copy!(out, model)
     return out
 end 
 
-# The SNF in general requires some MCMC 
 

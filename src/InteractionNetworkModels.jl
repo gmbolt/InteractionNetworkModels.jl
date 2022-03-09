@@ -84,8 +84,12 @@ include("Metric Models/Posterior Sampling/Summaries/predictive_summaries.jl")
 include("Graph Models/utils.jl")
 include("Graph Models/CER.jl")
 include("Graph Models/SNF.jl")
+include("Graph Models/Model Sampling/Types/SNF_samplers.jl")
+include("Graph Models/Model Sampling/Types/outputs.jl")
 include("Graph Models/Model Sampling/CER_sampler.jl")
-include("Graph Models/Model Sampling/SNF_samplers.jl")
 include("Graph Models/Model Sampling/SNF_multigraph.jl")
+include("Graph Models/Model Sampling/SNF_multigraph_gibbs.jl")
+
+include("Graph Models/Model Sampling/Summaries/plot_recipes.jl")
 
 end

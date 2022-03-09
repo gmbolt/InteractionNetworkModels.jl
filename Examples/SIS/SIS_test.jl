@@ -1,4 +1,5 @@
-using InteractionNetworkModels, Distributions, BenchmarkTools, Plots
+using InteractionNetworkModels, Distributions, BenchmarkTools, Distances, StructuredDistances
+using Plots
 
 # The Model(s)
 model_mode = Hollywood(-3.0, Poisson(7), 10)
@@ -16,12 +17,15 @@ mcmc_sampler = SisMcmcInsertDelete(
     lag=1,
     K=200)
 
-@time out=mcmc_sampler(
+mcmc_sampler.prop_pointers
+
+@time out = mcmc_sampler(
     model, 
     lag=20, 
     init=model.mode, 
     desired_samples=2000,
-    burn_in=200)
+    burn_in=0
+)
 
 plot(out)
 summaryplot(out)
