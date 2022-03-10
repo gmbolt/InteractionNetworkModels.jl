@@ -66,6 +66,7 @@ include("Metric Models/Posterior Sampling/Types/SPF_samplers.jl")
 include("Metric Models/Posterior Sampling/Types/outputs.jl")
 include("Metric Models/Posterior Sampling/Types/predictives.jl")
 # Sampler files
+include("Metric Models/Posterior Sampling/auxiliary_terms_eval.jl")
 include("Metric Models/Posterior Sampling/cooccurrence_matrices.jl")
 include("Metric Models/Posterior Sampling/informed_insertion_distribution.jl")
 include("Metric Models/Posterior Sampling/iex_SIM.jl")

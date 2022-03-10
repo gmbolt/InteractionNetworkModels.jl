@@ -100,6 +100,7 @@ struct SisMcmcInsertDelete <: SisMcmcSampler
     ind_update::Vector{Int} # Storage of which values have been updated
     ind_td_add::Vector{Int} # Storage of where to insert/delete 
     ind_td_del::Vector{Int} # Storage of where to insert/delete 
+    dist_curr::Vector{Float64}
     function SisMcmcInsertDelete(
         ;
         K=100,
@@ -111,6 +112,7 @@ struct SisMcmcInsertDelete <: SisMcmcSampler
         ind_update = zeros(Int, ν_ed)
         ind_td_add = zeros(Int, ν_td)
         ind_td_del = zeros(Int, ν_td)
+        dist_curr = [0.0]
         par_info = Dict()
         par_info[:ν_ed] = "(maximum number of edit operations)"
         par_info[:ν_td] = "(maximum increase/decrease in dimension)"
@@ -124,7 +126,8 @@ struct SisMcmcInsertDelete <: SisMcmcSampler
             desired_samples, burn_in, lag, init,
             par_info,
             curr_pointers, prop_pointers,
-            ind_update, ind_td_add, ind_td_del
+            ind_update, ind_td_add, ind_td_del, 
+            dist_curr
             )
     end 
 end 

@@ -25,18 +25,18 @@ end
 
 struct SIS
     mode::Vector{Path{Int}} # Mode
-    γ::Real # Precision
+    γ::Float64 # Precision
     dist::Metric # Distance metric
-    V::UnitRange # Vertex Set
+    V::UnitRange{Int} # Vertex Set
     K_inner::DimensionRange # Maximum interaction sequence size
     K_outer::DimensionRange # Maximum path (interaction) length
 end
 
 SIS(
     mode::InteractionSequence{Int}, 
-    γ::Real, 
+    γ::Float64, 
     dist::Metric, 
-    V::UnitRange
+    V::UnitRange{Int}
 ) = SIS(
         mode, γ, dist, V, 
         DimensionRange(1,Inf), 
@@ -45,9 +45,9 @@ SIS(
 
 SIS(
     mode::InteractionSequence{Int}, 
-    γ::Real, 
+    γ::Float64, 
     dist::Metric, 
-    V::UnitRange,
+    V::UnitRange{Int},
     K_inner::Real, K_outer::Real
 ) = SIS(
         mode, γ, dist, V, 

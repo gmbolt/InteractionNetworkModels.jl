@@ -1,4 +1,5 @@
 using InteractionNetworkModels, Plots, Distributions
+using StructuredDistances
 using StatsPlots, Plots.Measures, StatsBase
 
 E = [[1,2,1,2],
@@ -10,8 +11,8 @@ E = [[1,2,1,2],
     [1,2,3],
     [4,5],
     [7,8]]
-d = MatchingDist(FastLCS(101))
-K_inner, K_outer = (DimensionRange(2,100), DimensionRange(1,25))
+d = MatchingDistance(FastLCS(101))
+K_inner, K_outer = (DimensionRange(1,10), DimensionRange(1,25))
 model = SIM(
     E, 3.5, 
     d,
@@ -89,7 +90,7 @@ d(E_init, E)
 @time posterior_out = posterior_sampler(
     posterior,
     # 4.9,
-    desired_samples=4, lag=1, burn_in=0,
+    desired_samples=100, lag=1, burn_in=0,
     S_init=E_init, γ_init=2.8,
     aux_init_at_prev=true,
 );

@@ -2,7 +2,7 @@ using Distributions, StatsBase
 
 export imcmc_multinomial_edit_accept_reject!, unif_multinomial_sample_tester
 export imcmc_trans_dim_accept_reject!, draw_sample!, draw_sample
-export rand_delete!, rand_insert!
+export rand_delete!, rand_insert!, accept_reject!
 
 function rand_delete!(x::Path{Int}, d::Int)
 
@@ -55,13 +55,20 @@ end
 function imcmc_multinomial_edit_accept_reject!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int}, 
-    model::SIS, 
+    mode::InteractionSequence{Int}, 
+    γ::Float64, 
+    dist::Metric, 
+    V::UnitRange, 
+    K_inner::DimensionRange, 
+    K_outer::DimensionRange,
     mcmc::Union{SisMcmcInsertDelete,SisMcmcSplitMerge}
     ) 
 
+    dist_curr = mcmc.dist_curr
+
     N = length(S_curr)  
-    K_in_lb = model.K_inner.l
-    K_in_ub = model.K_inner.u
+    K_in_lb = K_inner.l
+    K_in_ub = K_inner.u
     δ = rand(1:mcmc.ν_ed)  # Number of edits to enact 
     rem_edits = δ # Remaining edits to allocate
     len_diffs = 0
@@ -102,28 +109,12 @@ function imcmc_multinomial_edit_accept_reject!(
                 return 0 
             end 
 
-            # tot_dels += d
-            # println("       Deleting $d and adding $(δ_tmp-d)")
-            # ind_del = view(mcmc.ind_del, 1:d)
-            # ind_add = view(mcmc.ind_add, 1:(δ_tmp-d))
-            # vals = view(mcmc.vals, 1:(δ_tmp-d))
-
-            # println("           ind_del: $ind_del ; ind_add: $ind_add")
-
-            # Sample indexing info and new entries (all in-place)
-            # StatsBase.seqsample_a!(1:n, ind_del)
-            # StatsBase.seqsample_a!(1:m, ind_add)
-            # sample!(model.V, vals)
-
             I_tmp = S_prop[i]
             rand_delete!(I_tmp, d)
-            rand_insert!(I_tmp, δ_tmp-d, model.V)
-            # delete_insert!(S_prop[i], ind_del, ind_add, vals)
+            rand_insert!(I_tmp, δ_tmp-d, V)
 
             mcmc.ind_update[j] = i # Store which interaction was updated
             
-            # Add to log_ratio
-            # log_prod_term += log(b - a + 1) - log(ub(m, δ_tmp) - lb(m, δ_tmp, model) +1)
             log_prod_term += log(min(n, δ_tmp)+1) - log(min(m, δ_tmp)+1)
             len_diffs += m-n  # How much bigger the new interaction is 
         end 
@@ -139,27 +130,22 @@ function imcmc_multinomial_edit_accept_reject!(
     end 
 
     # # Add final part of log_ratio term
-    log_ratio = log(length(model.V)) * len_diffs + log_prod_term
+    log_ratio = log(length(V)) * len_diffs + log_prod_term
     # log_ratio = log_dim_diff + log_prod_term
-    log_lik_ratio = -model.γ * (
-        model.dist(model.mode, S_prop)-model.dist(model.mode, S_curr)
-        )
+    dist_prop = dist(mode, S_prop)
+    log_lik_ratio = -γ * (
+        dist_prop - dist_curr[1]
+    )
 
-    # @show log_dim_diff, log_prod_term, log_lik_ratio
-        
     # Log acceptance probability
     log_α = log_lik_ratio + log_ratio
-
-    # mean_len_prop = mean(length.(S_prop))
-    # mean_len_curr = mean(length.(S_curr))
-
-    # @show log_dim_diff, log_prod_term, log_lik_ratio, log_α, mean_len_curr, mean_len_prop
 
     # Accept-reject step. Use info in mcmc.ind_update to know which interaction are to be copied over 
     if log(rand()) < log_α
         for i in view(mcmc.ind_update, 1:j)
             copy!(S_curr[i], S_prop[i])
         end
+        dist_curr[1] = dist_prop # Update stored distance
         return 1 
     else 
         for i in view(mcmc.ind_update, 1:j)
@@ -167,6 +153,22 @@ function imcmc_multinomial_edit_accept_reject!(
         end 
         return 0 
     end 
+end 
+
+function imcmc_multinomial_edit_accept_reject!(
+    S_curr::InteractionSequence{Int}, 
+    S_prop::InteractionSequence{Int}, 
+    model::SIS, 
+    mcmc::Union{SisMcmcInsertDelete,SisMcmcSplitMerge}
+    ) 
+
+    return imcmc_multinomial_edit_accept_reject!(
+        S_curr, S_prop, 
+        model.mode, model.γ,
+        model.dist, model.V, 
+        model.K_inner, model.K_outer, 
+        mcmc
+    )
 end 
 
 # To check the above code is doing as required. Output should be samples from a uniform
@@ -336,21 +338,26 @@ function imcmc_multi_delete_prop_sample!(
     return log_ratio
 end 
 
-
 function imcmc_trans_dim_accept_reject!(
     S_curr::InteractionSequence{Int},
     S_prop::InteractionSequence{Int}, 
-    model::SIS, 
+    mode::InteractionSequence{Int}, 
+    γ::Float64, 
+    dist::Metric, 
+    V::UnitRange, 
+    K_inner::DimensionRange, 
+    K_outer::DimensionRange,
     mcmc::Union{SisMcmcInsertDeleteGibbs,SisMcmcInsertDelete}
     ) 
 
-    K_out_lb = model.K_outer.l
-    K_out_ub = model.K_outer.u
-    K_in_ub = model.K_inner.u
+    K_out_lb = K_outer.l
+    K_out_ub = K_outer.u
+    K_in_ub = K_inner.u
     ν_td = mcmc.ν_td
-    V = model.V
     curr_pointers = mcmc.curr_pointers
     prop_pointers = mcmc.prop_pointers
+
+    dist_curr = mcmc.dist_curr
 
     log_ratio = 0.0
 
@@ -385,8 +392,9 @@ function imcmc_trans_dim_accept_reject!(
     log_ratio += log(min(ν_td, N) + 1) - log(min(ν_td, M) + 1)
 
     # Now do accept-reject step 
-    log_α = - model.γ * (
-        model.dist(model.mode, S_prop) - model.dist(model.mode, S_curr)
+    dist_prop = dist(mode, S_prop)
+    log_α = - γ * (
+        dist_prop - dist_curr[1]
     ) + log_ratio
 
     # Note that we copy interactions between S_prop (resp. S_curr) and prop_pointers (resp .curr_pointers) by hand.
@@ -404,6 +412,7 @@ function imcmc_trans_dim_accept_reject!(
             copy!(tmp, S_prop[i])
             insert!(S_curr, i, tmp)
         end 
+        dist_curr[1] = dist_prop  # Update stored distance
         return true 
     else 
         # Remove insertions and return to prop_pointers 
@@ -421,6 +430,99 @@ function imcmc_trans_dim_accept_reject!(
         end
         return false 
     end 
+end 
+
+function imcmc_trans_dim_accept_reject!(
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int}, 
+    model::SIS, 
+    mcmc::Union{SisMcmcInsertDeleteGibbs,SisMcmcInsertDelete}
+    ) 
+    return imcmc_trans_dim_accept_reject!(
+        S_curr, S_prop,
+        model.mode, model.γ, 
+        model.dist, model.V, 
+        model.K_inner, model.K_outer, 
+        mcmc
+    )
+end 
+
+function accept_reject!(
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int}, 
+    mode::InteractionSequence{Int}, 
+    γ::Float64, 
+    dist::Metric, 
+    V::UnitRange, 
+    K_inner::DimensionRange, 
+    K_outer::DimensionRange,
+    mcmc::Union{SisMcmcInsertDeleteGibbs,SisMcmcInsertDelete}
+    )
+
+    β = mcmc.β
+    if rand() < β
+        return imcmc_multinomial_edit_accept_reject!(
+            S_curr, S_prop, 
+            mode, γ, dist, V, K_inner, K_outer,
+            mcmc
+        )
+    else 
+        return imcmc_trans_dim_accept_reject!(
+            S_curr, S_prop, 
+            mode, γ, dist, V, K_inner, K_outer,
+            mcmc
+        )
+    end 
+
+end 
+
+function accept_reject!(
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int}, 
+    model::SIS, 
+    mcmc::SisMcmcInsertDelete
+    ) 
+    β = mcmc.β
+    if rand() < β
+        return imcmc_multinomial_edit_accept_reject!(
+            S_curr, S_prop, 
+            model, mcmc
+        )
+    else 
+        return imcmc_trans_dim_accept_reject!(
+            S_curr, S_prop, 
+            model, mcmc
+        )
+    end 
+
+end 
+
+function accept_reject!(
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int}, 
+    model::SIS, 
+    mcmc::SisMcmcInsertDelete,
+    count::Vector{Int},
+    acc_count::Vector{Int}
+    ) 
+    β = mcmc.β
+    if rand() < β
+
+        was_acc = imcmc_multinomial_edit_accept_reject!(
+            S_curr, S_prop, 
+            model, mcmc
+        )
+        count[1] += 1
+        acc_count[1] += was_acc
+    else 
+        was_acc = imcmc_trans_dim_accept_reject!(
+            S_curr, S_prop, 
+            model, mcmc
+        )
+        count[2] += 1
+        acc_count[2] += was_acc
+    end 
+
 end 
 
 # Sampler Functions 
@@ -451,7 +553,6 @@ function draw_sample!(
     # Define aliases for pointers to the storage of current vals and proposals
     curr_pointers = mcmc.curr_pointers
     prop_pointers = mcmc.prop_pointers
-    β = mcmc.β
 
     S_curr = InteractionSequence{Int}()
     S_prop = InteractionSequence{Int}()
@@ -464,43 +565,26 @@ function draw_sample!(
 
     sample_count = 1 # Keeps which sample to be stored we are working to get 
     i = 0 # Keeps track all samples (included lags and burn_ins) 
-    upd_count = 0
-    upd_acc_count = 0
-    tr_dim_count = 0 
-    tr_dim_acc_count = 0
+    count = [0,0]
+    acc_count = [0,0]
+
+    mcmc.dist_curr[1] = model.dist(S_curr, model.mode) # Initialise stored distance
 
     while sample_count ≤ length(sample_out)
         i += 1 
-
         # Store value 
         if (i > burn_in) & (((i-1) % lag)==0)
             sample_out[sample_count] = deepcopy(S_curr)
             sample_count += 1
         end 
-        # W.P. do update move (accept-reject done internally by function call)
-        if rand() < β
-            upd_acc_count += imcmc_multinomial_edit_accept_reject!(
-                S_curr, S_prop, 
-                model, mcmc
-                )
-            upd_count += 1
-        # Else do trans-dim move. We will do accept-reject move here 
-        else 
-            tr_dim_acc_count += imcmc_trans_dim_accept_reject!(
-                S_curr, S_prop, 
-                model, mcmc
-            )
-            tr_dim_count += 1
-        end 
+        # Accept reject
+        accept_reject!(S_curr, S_prop, model, mcmc, count, acc_count)
     end 
     for i in 1:length(S_curr)
         migrate!(curr_pointers, S_curr, 1, 1)
         migrate!(prop_pointers, S_prop, 1, 1)
     end 
-    return (
-                upd_count, upd_acc_count,
-                tr_dim_count, tr_dim_acc_count
-            )
+    return count, acc_count
 end 
 
 """
@@ -528,7 +612,6 @@ function draw_sample(
 
 end 
 
-
 function (mcmc::SisMcmcInsertDelete)(
     model::SIS;
     desired_samples::Int=mcmc.desired_samples, 
@@ -538,16 +621,12 @@ function (mcmc::SisMcmcInsertDelete)(
     ) 
 
     sample_out = InteractionSequenceSample{Int}(undef, desired_samples)
-    # @show sample_out
-    (
-        update_count, update_acc_count, 
-        trans_dim_count, trans_dim_acc_count
-        ) = draw_sample!(sample_out, mcmc, model, burn_in=burn_in, lag=lag, init=init)
+    (count, acc_count) = draw_sample!(sample_out, mcmc, model, burn_in=burn_in, lag=lag, init=init)
 
     p_measures = Dict(
-            "Proportion Update Moves" => update_count/(update_count+trans_dim_count),
-            "Update Move Acceptance Probability" => update_acc_count / update_count,
-            "Trans-Dimensional Move Acceptance Probability" => trans_dim_acc_count / trans_dim_count
+            "Proportion Update Moves" => count[1]/sum(count),
+            "Update Move Acceptance Probability" => acc_count[1] / count[1],
+            "Trans-Dimensional Move Acceptance Probability" => acc_count[2] / count[2]
         )
     output = SisMcmcOutput(
             model, 

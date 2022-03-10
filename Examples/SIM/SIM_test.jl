@@ -52,7 +52,7 @@ mcmc_sampler_len = SimMcmcInsertDeleteLengthCentered(
     K=200, burn_in=1000
 )
 
-@btime out=mcmc_sampler(
+@time out=mcmc_sampler(
     model, 
     lag=20, 
     init=model.mode, 

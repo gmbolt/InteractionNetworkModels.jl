@@ -266,7 +266,8 @@ function double_iex_multinomial_edit_accept_reject!(
     mcmc::SisIexInsertDelete,
     P::CumCondProbMatrix,
     aux_data::InteractionSequenceSample{Int},
-    suff_stat_curr::Float64
+    suff_stat_curr::Float64,
+    aux_init_at_prev::Bool
     )
     
     N = length(S_curr)  
@@ -362,7 +363,12 @@ function double_iex_multinomial_edit_accept_reject!(
         K_outer
         )
 
-    draw_sample!(aux_data, aux_mcmc, aux_model)
+    if aux_init_at_prev
+        @inbounds tmp = deepcopy(aux_data[end])
+        draw_sample!(aux_data, aux_mcmc, aux_model, init=tmp)
+    else 
+        draw_sample!(aux_data, aux_mcmc, aux_model)
+    end 
 
     aux_log_lik_ratio = -γ_curr * (
         mapreduce(x -> dist(x, S_curr), + , aux_data)
@@ -404,7 +410,8 @@ function double_iex_flip_accept_reject!(
     mcmc::SisIexInsertDelete,
     P::CumCondProbMatrix,
     aux_data::InteractionSequenceSample{Int},
-    suff_stat_curr::Float64
+    suff_stat_curr::Float64,
+    aux_init_at_prev::Bool
     ) 
     
     dist = posterior.dist
@@ -441,7 +448,12 @@ function double_iex_flip_accept_reject!(
         K_outer
         )
 
-    draw_sample!(aux_data, aux_mcmc, aux_model)
+    if aux_init_at_prev
+        tmp = deepcopy(aux_data[end])
+        draw_sample!(aux_data, aux_mcmc, aux_model, init=tmp)
+    else 
+        draw_sample!(aux_data, aux_mcmc, aux_model)
+    end 
 
     aux_log_lik_ratio = -γ_curr * (
         mapreduce(x -> dist(x, S_curr), + , aux_data)
@@ -725,7 +737,8 @@ function double_iex_trans_dim_accept_reject!(
     γ_curr::Float64,
     mcmc::SisIexInsertDelete,
     aux_data::InteractionSequenceSample{Int},
-    suff_stat_curr::Float64
+    suff_stat_curr::Float64,
+    aux_init_at_prev::Bool
     ) 
     K_inner, K_outer = (posterior.K_inner, posterior.K_outer)
     K_out_lb, K_out_ub = (K_outer.l, K_outer.u)
@@ -782,7 +795,12 @@ function double_iex_trans_dim_accept_reject!(
         K_outer
         )
 
-    draw_sample!(aux_data, aux_mcmc, aux_model)
+    if aux_init_at_prev
+        tmp = deepcopy(aux_data[end])
+        draw_sample!(aux_data, aux_mcmc, aux_model, init=tmp)
+    else 
+        draw_sample!(aux_data, aux_mcmc, aux_model)
+    end 
 
     aux_log_lik_ratio = -γ_curr * (
         mapreduce(x -> dist(x, S_curr), + , aux_data)
@@ -842,7 +860,8 @@ function double_iex_trans_dim_informed_accept_reject!(
     mcmc::SisIexInsertDelete,
     p_ins::Categorical,
     aux_data::InteractionSequenceSample{Int},
-    suff_stat_curr::Float64
+    suff_stat_curr::Float64,
+    aux_init_at_prev::Bool
     ) 
     K_inner, K_outer = (posterior.K_inner, posterior.K_outer)
     K_out_lb, K_out_ub = (K_outer.l, K_outer.u)
@@ -900,7 +919,12 @@ function double_iex_trans_dim_informed_accept_reject!(
         K_outer
         )
 
-    draw_sample!(aux_data, aux_mcmc, aux_model)
+    if aux_init_at_prev
+        tmp = deepcopy(aux_data[end])
+        draw_sample!(aux_data, aux_mcmc, aux_model, init=tmp)
+    else 
+        draw_sample!(aux_data, aux_mcmc, aux_model)
+    end 
 
     aux_log_lik_ratio = -γ_curr * (
         mapreduce(x -> dist(x, S_curr), + , aux_data)
@@ -969,7 +993,8 @@ function draw_sample_mode!(
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
     S_init::Vector{Path{Int}}=sample_frechet_mean(posterior.data, posterior.dist),
-    loading_bar::Bool=true
+    loading_bar::Bool=true,
+    aux_init_at_prev::Bool=false
     ) 
 
     if loading_bar
@@ -1042,7 +1067,8 @@ function draw_sample_mode!(
                     posterior, γ_curr,
                     mcmc, P, 
                     aux_data,
-                    suff_stat_curr
+                    suff_stat_curr,
+                    aux_init_at_prev
                 )
                 ed_acc_count += was_acc
                 ed_count += 1
@@ -1052,7 +1078,8 @@ function draw_sample_mode!(
                     posterior, γ_curr,
                     mcmc, P, 
                     aux_data,
-                    suff_stat_curr
+                    suff_stat_curr,
+                    aux_init_at_prev
                 )
                 flp_acc_count += was_acc
                 flp_count += 1
@@ -1065,7 +1092,8 @@ function draw_sample_mode!(
                 mcmc,
                 p_ins,
                 aux_data,
-                suff_stat_curr
+                suff_stat_curr,
+                aux_init_at_prev
             )
             tr_dim_acc_count += was_acc
             tr_dim_count += 1
@@ -1094,7 +1122,8 @@ function draw_sample_mode(
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
     S_init::Vector{Path{Int}}=sample_frechet_mean(posterior.data, posterior.dist),
-    loading_bar::Bool=true
+    loading_bar::Bool=true, 
+    aux_init_at_prev::Bool=false
     ) 
 
     sample_out = Vector{Vector{Path{Int}}}(undef, desired_samples)
@@ -1103,7 +1132,8 @@ function draw_sample_mode(
         mcmc, posterior, 
         γ_fixed, 
         burn_in=burn_in, lag=lag, S_init=S_init,
-        loading_bar=loading_bar
+        loading_bar=loading_bar,
+        aux_init_at_prev=aux_init_at_prev
         )
     return sample_out
 
@@ -1116,7 +1146,8 @@ function (mcmc::SisIexInsertDelete)(
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
     S_init::Vector{Path{Int}}=sample_frechet_mean(posterior.data, posterior.dist),
-    loading_bar::Bool=true
+    loading_bar::Bool=true, 
+    aux_init_at_prev::Bool=false
     ) 
     sample_out = Vector{Vector{Path{Int}}}(undef, desired_samples)
 
@@ -1132,7 +1163,8 @@ function (mcmc::SisIexInsertDelete)(
             burn_in=burn_in, 
             lag=lag, 
             S_init=S_init,
-            loading_bar=loading_bar
+            loading_bar=loading_bar,
+            aux_init_at_prev=aux_init_at_prev
             )
 
     p_measures = Dict(
@@ -1164,7 +1196,8 @@ function draw_sample_gamma!(
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
     γ_init::Float64=4.0,
-    loading_bar::Bool=true
+    loading_bar::Bool=true, 
+    aux_init_at_prev::Bool=false
     )
 
     if loading_bar
@@ -1215,7 +1248,12 @@ function draw_sample_gamma!(
             posterior.V, 
             posterior.K_inner, posterior.K_outer
             )
-        draw_sample!(aux_data, aux_mcmc, aux_model)
+        if aux_init_at_prev
+            tmp = deepcopy(aux_data[end])
+            draw_sample!(aux_data, aux_mcmc, aux_model, init=tmp)
+        else 
+            draw_sample!(aux_data, aux_mcmc, aux_model)
+        end 
 
         # Accept reject
 
@@ -1250,7 +1288,8 @@ function draw_sample_gamma(
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
     γ_init::Float64,
-    loading_bar::Bool=true
+    loading_bar::Bool=true, 
+    aux_init_at_prev::Bool=false
     ) 
 
     sample_out = Vector{Float64}(undef, desired_samples)
@@ -1259,7 +1298,8 @@ function draw_sample_gamma(
         mcmc, posterior, 
         S_fixed, 
         burn_in=burn_in, lag=lag, γ_init=γ_init,
-        loading_bar=loading_bar
+        loading_bar=loading_bar,
+        aux_init_at_prev=aux_init_at_prev
         )
     return sample_out
 
@@ -1273,7 +1313,8 @@ function (mcmc::SisIexInsertDelete)(
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
     γ_init::Float64=5.0,
-    loading_bar::Bool=true
+    loading_bar::Bool=true, 
+    aux_init_at_prev::Bool=false
     ) 
 
     sample_out = Vector{Float64}(undef, desired_samples)
@@ -1286,7 +1327,8 @@ function (mcmc::SisIexInsertDelete)(
             burn_in=burn_in, 
             lag=lag, 
             γ_init=γ_init,
-            loading_bar=loading_bar
+            loading_bar=loading_bar,
+            aux_init_at_prev=aux_init_at_prev
             )
 
     p_measures = Dict(
@@ -1320,7 +1362,8 @@ function accept_reject_mode!(
     aux_data::InteractionSequenceSample{Int},
     acc_count::Vector{Int},
     count::Vector{Int},
-    suff_stat_curr::Float64
+    suff_stat_curr::Float64,
+    aux_init_at_prev::Bool
     )
     
     β = mcmc.β
@@ -1331,7 +1374,8 @@ function accept_reject_mode!(
                 posterior, γ_curr, 
                 mcmc, P, 
                 aux_data,
-                suff_stat_curr
+                suff_stat_curr,
+                aux_init_at_prev
             )
             acc_count[1] += was_accepted
             count[1] += 1
@@ -1341,7 +1385,8 @@ function accept_reject_mode!(
                 posterior, γ_curr, 
                 mcmc, P, 
                 aux_data,
-                suff_stat_curr
+                suff_stat_curr,
+                aux_init_at_prev
             )
             acc_count[2] += was_accepted
             count[2] += 1
@@ -1355,7 +1400,8 @@ function accept_reject_mode!(
             mcmc, 
             p_ins,
             aux_data,
-            suff_stat_curr
+            suff_stat_curr,
+            aux_init_at_prev
         )
         
         acc_count[3] += was_accepted 
@@ -1370,7 +1416,8 @@ function accept_reject_gamma!(
     posterior::SisPosterior,
     mcmc::SisIexInsertDelete,
     aux_data::InteractionSequenceSample{Int},
-    suff_stat_curr::Float64
+    suff_stat_curr::Float64, 
+    aux_init_at_prev::Bool
     ) 
 
     ε = mcmc.ε
@@ -1384,7 +1431,12 @@ function accept_reject_gamma!(
         posterior.V, 
         posterior.K_inner, posterior.K_outer
         )
-    draw_sample!(aux_data, aux_mcmc, aux_model)
+    if aux_init_at_prev
+        tmp = deepcopy(aux_data[end])
+        draw_sample!(aux_data, aux_mcmc, aux_model, init=tmp)
+    else 
+        draw_sample!(aux_data, aux_mcmc, aux_model)
+    end 
 
     # Accept reject
 
@@ -1415,7 +1467,8 @@ function draw_sample!(
     lag::Int=mcmc.lag,
     S_init::Vector{Path{Int}}=sample_frechet_mean(posterior.data, posterior.dist),
     γ_init::Float64=5.0,
-    loading_bar::Bool=true
+    loading_bar::Bool=true,
+    aux_init_at_prev::Bool=false
     )
 
     if loading_bar
@@ -1483,7 +1536,8 @@ function draw_sample!(
             mcmc, P, p_ins,
             aux_data, 
             acc_count, count,
-            suff_stat_curr
+            suff_stat_curr,
+            aux_init_at_prev
         )
         # Update gamma 
         # ------------
@@ -1494,6 +1548,7 @@ function draw_sample!(
             mcmc, 
             aux_data,
             suff_stat_curr, 
+            aux_init_at_prev
         )
         γ_acc_count += tmp
         if loading_bar 
@@ -1522,7 +1577,8 @@ function draw_sample(
     lag::Int=mcmc.lag,
     S_init::InteractionSequence{Int}=sample_frechet_mean(posterior.data, posterior.dist),
     γ_init::Float64=5.0,
-    loading_bar::Bool=true
+    loading_bar::Bool=true,
+    aux_init_at_prev::Bool=false
     )
 
     sample_out_S = Vector{InteractionSequence}(undef, desired_samples)
@@ -1535,7 +1591,8 @@ function draw_sample(
         posterior, 
         burn_in=burn_in, lag=lag, 
         S_init=S_init, γ_init=γ_init,
-        loading_bar=loading_bar
+        loading_bar=loading_bar,
+        aux_init_at_prev=aux_init_at_prev
     )
 
     return (S=sample_out_S, gamma=sample_out_gamma)
@@ -1548,7 +1605,8 @@ function (mcmc::SisIexInsertDelete)(
     lag::Int=mcmc.lag,
     S_init::InteractionSequence{Int}=sample_frechet_mean(posterior.data, posterior.dist),
     γ_init::Float64=5.0,
-    loading_bar::Bool=true
+    loading_bar::Bool=true,
+    aux_init_at_prev::Bool=false
     ) 
 
     sample_out_S = Vector{InteractionSequence{Int}}(undef, desired_samples)
@@ -1561,7 +1619,8 @@ function (mcmc::SisIexInsertDelete)(
         posterior, 
         burn_in=burn_in, lag=lag, 
         S_init=S_init, γ_init=γ_init,
-        loading_bar=loading_bar
+        loading_bar=loading_bar,
+        aux_init_at_prev=aux_init_at_prev
     )
 
     p_measures = Dict(

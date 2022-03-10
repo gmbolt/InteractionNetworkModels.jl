@@ -6,13 +6,18 @@ using Distributions, StatsBase
 function imcmc_multinomial_edit_accept_reject!(
     S_curr::InteractionSequence, 
     S_prop::InteractionSequence, 
-    model::SIM, 
+    mode::InteractionSequence{Int}, 
+    γ::Float64, 
+    dist::Metric, 
+    V::UnitRange, 
+    K_inner::DimensionRange, 
+    K_outer::DimensionRange,
     mcmc::T
     ) where {T<:SimMcmcSampler}
 
     N = length(S_curr)  
-    K_in_lb = model.K_inner.l
-    K_in_ub = model.K_inner.u
+    K_in_lb = K_inner.l
+    K_in_ub = K_inner.u
     δ = rand(1:mcmc.ν_ed)  # Number of edits to enact 
     rem_edits = δ # Remaining edits to allocate
     len_diffs = 0
@@ -64,7 +69,7 @@ function imcmc_multinomial_edit_accept_reject!(
             # Sample indexing info and new entries (all in-place)
             StatsBase.seqsample_a!(1:n, ind_del)
             StatsBase.seqsample_a!(1:m, ind_add)
-            sample!(model.V, vals)
+            sample!(V, vals)
 
             @inbounds delete_insert!(S_prop[i], ind_del, ind_add, vals)
 
@@ -87,10 +92,10 @@ function imcmc_multinomial_edit_accept_reject!(
     end 
 
     # # Add final part of log_ratio term
-    log_ratio = log(length(model.V)) * len_diffs + log_prod_term
+    log_ratio = log(length(V)) * len_diffs + log_prod_term
     # log_ratio = log_dim_diff + log_prod_term
-    log_lik_ratio = -model.γ * (
-        model.dist(model.mode, S_prop)-model.dist(model.mode, S_curr)
+    log_lik_ratio = -γ * (
+        dist(mode, S_prop)-dist(mode, S_curr)
         )
 
     log_multinom_ratio_term = log_multinomial_ratio(S_curr, S_prop)
@@ -113,21 +118,41 @@ function imcmc_multinomial_edit_accept_reject!(
     end 
 end 
 
+function imcmc_multinomial_edit_accept_reject!(
+    S_curr::InteractionSequence{Int}, 
+    S_prop::InteractionSequence{Int}, 
+    model::SIM, 
+    mcmc::T
+    ) where {T<:SimMcmcSampler}
+
+    return imcmc_multinomial_edit_accept_reject!(
+        S_curr, S_prop, 
+        model.mode, model.γ,
+        model.dist, model.V, 
+        model.K_inner, model.K_outer, 
+        mcmc
+    )
+end 
+
 # Trans-dimensional Move 
 # ----------------------
 
 function imcmc_trans_dim_accept_reject!(
     S_curr::InteractionSequence{Int},
     S_prop::InteractionSequence{Int}, 
-    model::SIM, 
+    mode::InteractionSequence{Int}, 
+    γ::Float64, 
+    dist::Metric, 
+    V::UnitRange, 
+    K_inner::DimensionRange, 
+    K_outer::DimensionRange,
     mcmc::T
     ) where {T<:SimMcmcSampler}
 
-    K_out_lb = model.K_outer.l
-    K_out_ub = model.K_outer.u
-    K_in_ub = model.K_inner.u
+    K_out_lb = K_outer.l
+    K_out_ub = K_outer.u
+    K_in_ub = K_inner.u
     ν_td = mcmc.ν_td
-    V = model.V
     curr_pointers = mcmc.curr_pointers
     prop_pointers = mcmc.prop_pointers
 
@@ -165,8 +190,8 @@ function imcmc_trans_dim_accept_reject!(
     log_multinom_term = log_multinomial_ratio(S_curr, S_prop)
 
     # Now do accept-reject step 
-    log_α = - model.γ * (
-        model.dist(model.mode, S_prop) - model.dist(model.mode, S_curr)
+    log_α = - γ * (
+        dist(mode, S_prop) - dist(mode, S_curr)
     ) + log_ratio + log_multinom_term
 
     # Note that we copy interactions between S_prop (resp. S_curr) and prop_pointers (resp .curr_pointers) by hand.
@@ -201,6 +226,21 @@ function imcmc_trans_dim_accept_reject!(
         end
         return false 
     end 
+end 
+
+function imcmc_trans_dim_accept_reject!(
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int}, 
+    model::SIM, 
+    mcmc::T
+    ) where {T<:SimMcmcSampler}
+    return imcmc_trans_dim_accept_reject!(
+        S_curr, S_prop,
+        model.mode, model.γ, 
+        model.dist, model.V, 
+        model.K_inner, model.K_outer, 
+        mcmc
+    )
 end 
 
 # Sampler Functions 

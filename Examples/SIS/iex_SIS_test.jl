@@ -5,7 +5,7 @@ using Distances, StructuredDistances
 V = 50
 Sᵐ = [rand(1:V,rand(2:5)) for i in 1:10]
 d = FastEditDistance(FastLCS(100), 100)
-γ = 5.0
+γ = 6.0
 K_inner, K_outer = (DimensionRange(1,10), DimensionRange(1,25))
 # K_inner, K_outer = (Inf,Inf)
 model = SIS(
@@ -23,7 +23,7 @@ mcmc_sampler = SisMcmcInsertDelete(
 )
 
 @time test = mcmc_sampler(
-    model, desired_samples=500)
+    model, desired_samples=50000, burn_in=0, lag=1)
 
 plot(test)
 summaryplot(test)
@@ -51,8 +51,10 @@ posterior_sampler = SisIexInsertDelete(
     ν_ed=1, ν_td=1, len_dist=TrGeometric(0.8, 1, K_inner.u),
     ε=0.2, β=0.7,
     K=200,
+    α=0.0,
     desired_samples=50, burn_in=0, lag=1
 )
+
 
 # Mode Conditional
 S_init, ind = sample_frechet_mean(posterior.data, posterior.dist)
@@ -63,6 +65,7 @@ initialiser = InitRandEdit(2)
     posterior,
     S_init=S_init, 
     γ_init=4.0,
+    # aux_init_at_prev=true,
     desired_samples=100
 );
 
