@@ -221,6 +221,32 @@ function imcmc_multi_insert_prop_sample!(
 
 end 
 
+function imcmc_multi_delete_prop_sample!(
+    S_curr::InteractionSequence{Int}, 
+    S_prop::InteractionSequence{Int}, 
+    mcmc::T,
+    ind::AbstractVector{Int}, 
+    V::UnitRange
+    ) where {T<:Union{SisMcmcSampler,SimMcmcSampler}}
+
+    prop_pointers = mcmc.prop_pointers
+    ν_td = mcmc.ν_td
+    N = length(S_curr)
+    len_dist = mcmc.len_dist
+
+    log_ratio = 0.0
+
+    for i in Iterators.reverse(ind)
+        @inbounds tmp = popat!(S_prop, i)
+        pushfirst!(prop_pointers, tmp)
+        m = length(tmp)
+        log_ratio += logpdf(len_dist, m) - m * log(length(V))
+    end 
+    return log_ratio
+
+end 
+
+
 function imcmc_multi_insert_prop_sample!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int},
@@ -271,31 +297,6 @@ function imcmc_multi_delete_prop_sample!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int}, 
     mcmc::T,
-    ind::AbstractVector{Int}, 
-    V::UnitRange
-    ) where {T<:Union{SisMcmcSampler,SimMcmcSampler}}
-
-    prop_pointers = mcmc.prop_pointers
-    ν_td = mcmc.ν_td
-    N = length(S_curr)
-    len_dist = mcmc.len_dist
-
-    log_ratio = 0.0
-
-    for i in Iterators.reverse(ind)
-        @inbounds tmp = popat!(S_prop, i)
-        pushfirst!(prop_pointers, tmp)
-        m = length(tmp)
-        log_ratio += logpdf(len_dist, m) - m * log(length(V))
-    end 
-    return log_ratio
-
-end 
-
-function imcmc_multi_delete_prop_sample!(
-    S_curr::InteractionSequence{Int}, 
-    S_prop::InteractionSequence{Int}, 
-    mcmc::T,
     ε::Int,
     V::UnitRange
     ) where {T<:Union{SisMcmcSampler,SimMcmcSampler}}
@@ -334,6 +335,7 @@ function imcmc_multi_delete_prop_sample!(
     end
     return log_ratio
 end 
+
 
 function imcmc_trans_dim_accept_reject!(
     S_curr::InteractionSequence{Int},

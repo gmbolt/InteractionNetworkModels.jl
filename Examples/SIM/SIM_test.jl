@@ -1,13 +1,13 @@
 using InteractionNetworkModels, Distributions, BenchmarkTools, Plots
-
+using Distances, StructuredDistances
 # The Model(s)
 model_mode = Hollywood(-3.0, Poisson(7), 10)
 S = sample(model_mode, 10)
 S = [[1,1,1,1], [2,2,2,2], [3,3,3,3,3,3]]
 V = 1:20
 
-d_lcs = MatchingDist(FastLCS(100))
-d_lsp = MatchingDist(FastLSP(100))
+d_lcs = MatchingDistance(FastLCS(100))
+d_lsp = MatchingDistance(FastLSP(100))
 # d_f = FastMatchingDist(FastLCS(100), 51)
 d_lsp_fp = FpMatchingDist(FastLSP(100), 100.0)
 
@@ -18,7 +18,7 @@ K_outer = DimensionRange(1, 50)
 
 d_lsp_as = AvgSizeMatchingDist(FastLSP(100), 0.5)
 d_lsp_sc = SizeConstrainedMatchingDist(FastLSP(100), 1.0, 4)
-model = SIM(S, 6.0, d_lsp_as, V, K_inner, K_outer)
+model = SIM(S, 5.0, d_lsp, V, K_inner, K_outer)
 
 @time d_lsp_as([[1,2]], [[1,2], [1,3,3,4,5]])
 @time d_lsp_sc([[1,2]], [[1,2], [1,3,3,4,5,12,3]])
@@ -27,7 +27,7 @@ model = SIM(S, 6.0, d_lsp_as, V, K_inner, K_outer)
 # model_f = SIM(S, 4.0, d_f, V, 50, 50)
 mcmc_sampler = SimMcmcInsertDelete(
     ν_ed=5, β=0.6, ν_td=3,  
-    len_dist=truncated(Poisson(d_lsp_sc.mean_length), model.K_inner.l, model.K_inner.u),
+    len_dist=TrGeometric(0.8, K_inner.l, K_inner.u),
     lag=1,
     K=200, 
     burn_in=1000
@@ -52,13 +52,14 @@ mcmc_sampler_len = SimMcmcInsertDeleteLengthCentered(
     K=200, burn_in=1000
 )
 
-@time out=mcmc_sampler(
+@btime out=mcmc_sampler(
     model, 
-    lag=1, 
+    lag=20, 
     init=model.mode, 
     burn_in=0,
-    desired_samples=10000
+    desired_samples=200
 )
+
 plot(out)
 summaryplot(out)
 out.sample[100]

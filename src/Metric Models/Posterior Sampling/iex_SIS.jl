@@ -395,35 +395,6 @@ function double_iex_multinomial_edit_accept_reject!(
     end 
 end 
 
-# function multinomial_flip_test!(
-#     S_curr::InteractionSequence{Int},
-#     S_prop::InteractionSequence{Int},
-#     mcmc::SisIexInsertDelete,
-#     P::CumCondProbMatrix
-#     ) where {T<:Int}
-
-#     δ = rand(1:mcmc.ν_ed)  # Number of edits to enact 
-#     log_ratio = 0.0
-#     p_z = cumsum(length.(S_curr))
-#     p_z = p_z ./ p_z[end]
-#     pushfirst!(p_z,0.0)
-#     alloc = rand_multinomial_dict(p_z, δ)
-
-#     for (i,nflips) in pairs(alloc)
-#         ind_flip = view(mcmc.ind_add, 1:nflips)
-#         StatsBase.seqsample_a!(1:length(S_prop[i]), ind_flip)
-#         log_ratio += flip_informed!(
-#                 S_prop[i],
-#                 ind_flip,
-#                 P
-#             )
-#     end 
-    
-
-# end
-
-
-
 
 function double_iex_flip_accept_reject!(
     S_curr::InteractionSequence{Int},
@@ -504,6 +475,11 @@ function double_iex_flip_accept_reject!(
 
 end 
 
+# Insertion/deletion proposal generation functions 
+# ================================================
+
+# With vector of indices (uninformed)
+# -----------------------------------
 function imcmc_multi_insert_prop_sample!(
     S_curr::InteractionSequence{Int}, 
     S_prop::InteractionSequence{Int},
@@ -527,10 +503,126 @@ function imcmc_multi_insert_prop_sample!(
         insert!(S_prop, i, tmp)
         log_ratio += - logpdf(len_dist, m) + m*log(length(V)) - Inf * (m > K_in_ub)
     end 
-    log_ratio += log(ν_td) - log(min(ν_td,N)) 
     return log_ratio 
 
 end 
+
+function imcmc_multi_delete_prop_sample!(
+    S_curr::InteractionSequence{Int}, 
+    S_prop::InteractionSequence{Int}, 
+    mcmc::T,
+    ind::AbstractVector{Int},
+    V::UnitRange
+    ) where {T<:Union{SisPosteriorSampler,SimPosteriorSampler}}
+
+    prop_pointers = mcmc.prop_pointers
+    ν_td = mcmc.ν_td
+    len_dist = mcmc.len_dist
+    N = length(S_curr)
+
+    log_ratio = 0.0
+
+    for i in Iterators.reverse(ind)
+        tmp = popat!(S_prop, i)
+        pushfirst!(prop_pointers, tmp)
+        m = length(tmp)
+        log_ratio += logpdf(len_dist, m) - m * log(length(V))
+    end 
+    return log_ratio
+
+end 
+
+# With number of insertions/deletions
+# -----------------------------------
+function imcmc_multi_insert_prop_sample!(
+    S_curr::InteractionSequence{Int}, 
+    S_prop::InteractionSequence{Int},
+    mcmc::T,
+    ε::Int,
+    V::UnitRange,
+    K_in_ub::Int
+    ) where {T<:Union{SisPosteriorSampler,SimPosteriorSampler}}
+
+    prop_pointers = mcmc.prop_pointers
+    ν_td = mcmc.ν_td
+    N = length(S_curr)
+    len_dist = mcmc.len_dist
+    log_ratio = 0.0
+    ind = mcmc.ind_td_add
+    
+    n = length(S_prop)+ε
+    k = ε
+    i = 0 
+    j = 0
+    while k > 0
+        u = rand()
+        q = (n - k) / n
+        while q > u  # skip
+            i += 1
+            n -= 1
+            q *= (n - k) / n
+        end
+        i += 1
+        j += 1
+        # Insert path at index i
+        # i is now index to insert
+        ind[j] = i
+        tmp = popfirst!(prop_pointers) # Get storage 
+        m = rand(len_dist)  # Sample length 
+        resize!(tmp, m) # Resize 
+        sample!(V, tmp) # Sample new entries uniformly
+        @inbounds insert!(S_prop, i, tmp) # Insert path into S_prop
+        log_ratio += - logpdf(len_dist, m) + m*log(length(V)) - Inf * (m > K_in_ub)  # Add to log_ratio term
+        n -= 1
+        k -= 1
+    end
+    return log_ratio 
+
+end 
+
+function imcmc_multi_delete_prop_sample!(
+    S_curr::InteractionSequence{Int}, 
+    S_prop::InteractionSequence{Int}, 
+    mcmc::T,
+    ε::Int,
+    V::UnitRange
+    ) where {T<:Union{SisPosteriorSampler,SimPosteriorSampler}}
+
+    prop_pointers = mcmc.prop_pointers
+    N = length(S_curr)
+    len_dist = mcmc.len_dist
+    log_ratio = 0.0
+    ind = mcmc.ind_td_del # Store which entries were deleted 
+
+    n = length(S_prop)
+    k = ε   
+    i = 0 
+    j = 0
+    live_index = 0
+    while k > 0
+        u = rand()
+        q = (n - k) / n
+        while q > u  # skip
+            i += 1
+            n -= 1
+            q *= (n - k) / n
+        end
+        i+=1
+        j+=1
+        # Delete path 
+        # i is now index to delete 
+        @inbounds ind[j] = i
+        @inbounds tmp = popat!(S_prop, i - live_index)
+        pushfirst!(prop_pointers, tmp)
+        m = length(tmp)
+        log_ratio += logpdf(len_dist, m) - m * log(length(V))
+        live_index += 1
+        n -= 1
+        k -= 1
+    end
+    return log_ratio
+end 
+
 
 function imcmc_multi_insert_prop_sample_informed!(
     S_curr::InteractionSequence{Int}, 
@@ -561,38 +653,12 @@ function imcmc_multi_insert_prop_sample_informed!(
         
         log_ratio += - logpdf(len_dist, m) - Inf * (m > K_in_ub)
     end 
-    log_ratio += log(ν_td) - log(min(ν_td,N)) 
     return log_ratio 
 
 end 
 
 
-function imcmc_multi_delete_prop_sample!(
-    S_curr::InteractionSequence{Int}, 
-    S_prop::InteractionSequence{Int}, 
-    mcmc::T,
-    ind::AbstractVector{Int},
-    V::UnitRange
-    ) where {T<:Union{SisPosteriorSampler,SimPosteriorSampler}}
 
-    prop_pointers = mcmc.prop_pointers
-    ν_td = mcmc.ν_td
-    len_dist = mcmc.len_dist
-    N = length(S_curr)
-
-    log_ratio = 0.0
-
-    for i in Iterators.reverse(ind)
-        tmp = popat!(S_prop, i)
-        pushfirst!(prop_pointers, tmp)
-        m = length(tmp)
-        log_ratio += logpdf(len_dist, m) - m * log(length(V))
-    end 
-
-    log_ratio += log(min(ν_td,N)) - log(ν_td)
-    return log_ratio
-
-end 
 
 function imcmc_multi_delete_prop_sample_informed!(
     S_curr::InteractionSequence{Int}, 
@@ -618,8 +684,6 @@ function imcmc_multi_delete_prop_sample_informed!(
         end 
         log_ratio += logpdf(len_dist, m) 
     end 
-
-    log_ratio += log(min(ν_td,N)) - log(ν_td)
     return log_ratio
 
 end 
@@ -652,39 +716,32 @@ function double_iex_trans_dim_accept_reject!(
 
     # Enact insertion / deletion 
     N = length(S_curr)
-    is_insert = rand(Bernoulli(0.5))
-    if is_insert
-        ε = rand(1:ν_td) # How many to insert 
-        # Catch invalid proposal (ones which have zero probability)
-        if (N + ε) > K_out_ub
-            # Make no changes and imediately reject  
-            return 0, suff_stat_curr
-        end 
-        ind_tr_dim = view(mcmc.ind_td, 1:ε) # Storage for where to insert 
-        StatsBase.seqsample_a!(1:(N+ε), ind_tr_dim) # Sample where to insert 
-        log_ratio += imcmc_multi_insert_prop_sample!(
-            S_curr, S_prop, 
-            mcmc, 
-            ind_tr_dim,
-            V, K_in_ub
-        ) # Enact move and catch log ratio term 
-        # log_ratio += log(ν_td) - log(min(ν_td,N)) 
-    else 
-        ε = rand(1:min(ν_td, N)) # How many to delete
-        # Catch invalid proposal (would go to empty inter seq)
-        if (N - ε) < K_out_lb
-            return 0, suff_stat_curr
-        end  
-        ind_tr_dim = view(mcmc.ind_td, 1:ε) # Storage
-        StatsBase.seqsample_a!(1:N, ind_tr_dim) # Sample which to delete 
+    ε = rand(1:ν_td)
+    d = rand(0:min(ν_td, N))
+    a = ε - d
+    # Catch invalid proposal (outside dimension bounds)
+    M = N - d + a  # Number of paths in proposal
+    if (M < K_out_lb) | (M > K_out_ub)
+        return 0, suff_stat_curr
+    end 
+    if d > 0 
         log_ratio += imcmc_multi_delete_prop_sample!(
             S_curr, S_prop, 
             mcmc, 
-            ind_tr_dim,
+            d, 
             V
-        ) # Enact move and catch log ratio 
-        # log_ratio += log(min(ν_td,N)) - log(ν_td)
+        )
     end 
+    if a > 0 
+        log_ratio += imcmc_multi_insert_prop_sample!(
+            S_curr, S_prop, 
+            mcmc, 
+            a, 
+            V, K_in_ub
+        )
+    end 
+
+    log_ratio += log(min(ν_td, N) + 1) - log(min(ν_td, M) + 1)
 
     # Now do accept-reject step (**THIS IS WHERE WE DIFFER FROM MODEL SAMPLER***)
     aux_model = SIS(
@@ -715,30 +772,34 @@ function double_iex_trans_dim_accept_reject!(
 
     # Note that we copy interactions between S_prop (resp. S_curr) and prop_pointers (resp .curr_pointers) by hand.
     if log(rand()) < log_α
-        if is_insert
-            for i in ind_tr_dim
-                migrate!(S_curr, curr_pointers, i, 1)
-                copy!(S_curr[i], S_prop[i])
-            end 
-        else 
-            for i in Iterators.reverse(ind_tr_dim)
-            migrate!(curr_pointers , S_curr, 1, i)
-            end 
+        # Do deletions to S_curr
+        ind = view(mcmc.ind_td_del, 1:d)
+        for i in Iterators.reverse(ind) # If we didnt do reverse would have to update indices 
+            @inbounds tmp = popat!(S_curr, i)
+            pushfirst!(curr_pointers, tmp)
+        end
+        # Do insertions 
+        ind = view(mcmc.ind_td_add, 1:a)
+        for i in ind 
+            tmp = popfirst!(curr_pointers)
+            copy!(tmp, S_prop[i])
+            insert!(S_curr, i, tmp)
         end 
         return 1, suff_stat_prop
     else 
-        # Here we must delete the interactions which were added to S_prop
-        if is_insert
-            for i in Iterators.reverse(ind_tr_dim)
-                migrate!(prop_pointers, S_prop, 1, i)
-            end 
-        # Or reinsert the interactions which were deleted 
-        else 
-            for i in ind_tr_dim
-                migrate!(S_prop, prop_pointers, i, 1)
-                copy!(S_prop[i], S_curr[i])
-            end 
+        # Remove insertions and return to prop_pointers 
+        ind = view(mcmc.ind_td_add, 1:a)
+        for i in Iterators.reverse(ind)
+            @inbounds tmp = popat!(S_prop, i)
+            pushfirst!(prop_pointers, tmp)
         end 
+        # Re-insert deletions 
+        ind = view(mcmc.ind_td_del, 1:d)
+        for i in ind 
+            @inbounds tmp = popfirst!(prop_pointers)
+            copy!(tmp, S_curr[i])
+            insert!(S_prop, i, tmp)
+        end
         return 0, suff_stat_curr
     end 
 end 
@@ -780,7 +841,7 @@ function double_iex_trans_dim_informed_accept_reject!(
             # Make no changes and imediately reject  
             return 0, suff_stat_curr
         end 
-        ind_tr_dim = view(mcmc.ind_td, 1:ε) # Storage for where to insert 
+        ind_tr_dim = view(mcmc.ind_td_add, 1:ε) # Storage for where to insert 
         StatsBase.seqsample_a!(1:(N+ε), ind_tr_dim) # Sample where to insert 
         log_ratio += imcmc_multi_insert_prop_sample_informed!(
             S_curr, S_prop, 
@@ -796,7 +857,7 @@ function double_iex_trans_dim_informed_accept_reject!(
         if (N - ε) < K_out_lb
             return 0, suff_stat_curr
         end  
-        ind_tr_dim = view(mcmc.ind_td, 1:ε) # Storage
+        ind_tr_dim = view(mcmc.ind_td_del, 1:ε) # Storage
         StatsBase.seqsample_a!(1:N, ind_tr_dim) # Sample which to delete 
         log_ratio += imcmc_multi_delete_prop_sample_informed!(
             S_curr, S_prop, 
@@ -970,11 +1031,18 @@ function draw_sample_mode!(
             end 
         # Else do trans-dim move. We will do accept-reject move here 
         else 
-            was_acc, suff_stat_curr = double_iex_trans_dim_informed_accept_reject!(
+            # was_acc, suff_stat_curr = double_iex_trans_dim_informed_accept_reject!(
+            #     S_curr, S_prop, 
+            #     posterior, γ_curr,
+            #     mcmc,
+            #     p_ins,
+            #     aux_data,
+            #     suff_stat_curr
+            # )
+            was_acc, suff_stat_curr = double_iex_trans_dim_accept_reject!(
                 S_curr, S_prop, 
                 posterior, γ_curr,
                 mcmc,
-                p_ins,
                 aux_data,
                 suff_stat_curr
             )
@@ -1098,9 +1166,8 @@ function draw_sample_gamma!(
     aux_data = [[Int[]] for i in 1:posterior.sample_size]
 
     # Evaluate sufficient statistic
-    suff_stat = mapreduce(
+    suff_stat = sum(
         x -> posterior.dist(S_curr, x), 
-        +, 
         posterior.data
         )
     # Initialise the aux_data 
@@ -1132,7 +1199,9 @@ function draw_sample_gamma!(
         # Accept reject
 
         log_lik_ratio = (γ_curr - γ_prop) * suff_stat
-        aux_log_lik_ratio = (γ_prop - γ_curr) * sum_of_dists(aux_data, S_curr, posterior.dist)
+
+        dist = posterior.dist
+        aux_log_lik_ratio = (γ_prop - γ_curr) * sum(x->dist(x,S_curr),aux_data)
 
         log_α = (
             logpdf(posterior.γ_prior, γ_prop) 
@@ -1258,13 +1327,16 @@ function accept_reject_mode!(
         end 
 
     else 
-        was_accepted, suff_stat_curr = double_iex_trans_dim_informed_accept_reject!(
+        was_accepted, suff_stat_curr = double_iex_trans_dim_accept_reject!(
             S_curr, S_prop, 
-            posterior, γ_curr, 
-            mcmc, p_ins,
+            posterior, 
+            γ_curr, 
+            mcmc, 
+            # p_ins,
             aux_data,
             suff_stat_curr
         )
+        
         acc_count[3] += was_accepted 
         count[3] += 1
     end 
@@ -1296,7 +1368,8 @@ function accept_reject_gamma!(
     # Accept reject
 
     log_lik_ratio = (γ_curr - γ_prop) * suff_stat_curr
-    aux_log_lik_ratio = (γ_prop - γ_curr) * sum_of_dists(aux_data, S_curr, posterior.dist)
+    dist = posterior.dist
+    aux_log_lik_ratio = (γ_prop - γ_curr) * sum(x->dist(x,S_curr),aux_data)
 
     log_α = (
         logpdf(posterior.γ_prior, γ_prop) 

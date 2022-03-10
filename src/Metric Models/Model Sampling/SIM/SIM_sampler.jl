@@ -116,58 +116,9 @@ end
 # Trans-dimensional Move 
 # ----------------------
 
-# function imcmc_multi_insert_prop_sample!(
-#     S_curr::InteractionSequence, 
-#     S_prop::InteractionSequence,
-#     mcmc::SimMcmcInsertDelete,
-#     ind::AbstractVector{Int},
-#     V::UnitRange,
-#     K_in_ub::Int
-#     ) 
-
-#     prop_pointers = mcmc.prop_pointers
-#     ν_td = mcmc.ν_td
-#     N = length(S_curr)
-#     len_dist = mcmc.len_dist
-
-#     log_ratio = 0.0 
-#     for i in ind 
-#         migrate!(S_prop, prop_pointers, i, 1)
-#         rand!(S_prop[i], path_dist)
-#         log_ratio += - logpdf(path_dist, S_prop[i])
-#     end 
-#     log_ratio += log(ν_td) - log(min(ν_td,N)) 
-#     return log_ratio 
-
-# end 
-
-# function imcmc_multi_delete_prop_sample!(
-#     S_curr::InteractionSequence, 
-#     S_prop::InteractionSequence, 
-#     mcmc::SimMcmcInsertDelete,
-#     ind::AbstractVector{Int}
-#     ) 
-
-#     prop_pointers = mcmc.prop_pointers
-#     ν_td = mcmc.ν_td
-#     N = length(S_curr)
-#     path_dist = mcmc.path_dist
-
-#     log_ratio = 0.0
-
-#     for i in Iterators.reverse(ind)
-#         migrate!(prop_pointers, S_prop, 1, i)
-#         log_ratio += logpdf(path_dist, S_curr[i])
-#     end 
-
-#     log_ratio += log(min(ν_td,N)) - log(ν_td)
-#     return log_ratio
-
-# end 
-
 function imcmc_trans_dim_accept_reject!(
-    S_curr::InteractionSequence,
-    S_prop::InteractionSequence, 
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int}, 
     model::SIM, 
     mcmc::T
     ) where {T<:SimMcmcSampler}
@@ -175,8 +126,8 @@ function imcmc_trans_dim_accept_reject!(
     K_out_lb = model.K_outer.l
     K_out_ub = model.K_outer.u
     K_in_ub = model.K_inner.u
-    V = model.V
     ν_td = mcmc.ν_td
+    V = model.V
     curr_pointers = mcmc.curr_pointers
     prop_pointers = mcmc.prop_pointers
 
@@ -184,39 +135,35 @@ function imcmc_trans_dim_accept_reject!(
 
     # Enact insertion / deletion 
     N = length(S_curr)
-    is_insert = rand(Bernoulli(0.5))
-    if is_insert
-        ε = rand(1:ν_td) # How many to insert 
-        # Catch invalid proposal (ones which have zero probability)
-        if (N + ε) > K_out_ub
-            # Make no changes and imediately reject  
-            return 0  
-        end 
-        ind_tr_dim = view(mcmc.ind_td, 1:ε) # Storage for where to insert 
-        StatsBase.seqsample_a!(1:(N+ε), ind_tr_dim) # Sample where to insert 
+    ε = rand(1:ν_td)
+    d = rand(0:min(ν_td, N))
+    a = ε - d
+
+    # Catch invalid proposal (outside dimension bounds)
+    M = N - d + a  # Number of paths in proposal
+    if (M < K_out_lb) | (M > K_out_ub)
+        return false
+    end 
+    if d > 0 
+        log_ratio +=  imcmc_multi_delete_prop_sample!(
+            S_curr, S_prop, 
+            mcmc, 
+            d, 
+            V
+        ) # Enact deletion move and catch log ratio term 
+    end
+    if a > 0  # Number of insertions 
         log_ratio += imcmc_multi_insert_prop_sample!(
             S_curr, S_prop, 
             mcmc, 
-            ind_tr_dim,
+            a, 
             V, K_in_ub
-            ) # Enact move and catch log ratio term 
-    else 
-        ε = rand(1:min(ν_td, N)) # How many to delete
-        # Catch invalid proposal (would go to empty inter seq)
-        if (N - ε) < K_out_lb
-            return 0 
-        end  
-        ind_tr_dim = view(mcmc.ind_td, 1:ε) # Storage
-        StatsBase.seqsample_a!(1:N, ind_tr_dim) # Sample which to delete 
-        log_ratio += imcmc_multi_delete_prop_sample!(
-            S_curr, S_prop, 
-            mcmc, 
-            ind_tr_dim,
-            V
-            ) # Enact move and catch log ratio 
+        )
     end 
+    log_ratio += log(min(ν_td, N) + 1) - log(min(ν_td, M) + 1)
 
     log_multinom_term = log_multinomial_ratio(S_curr, S_prop)
+
     # Now do accept-reject step 
     log_α = - model.γ * (
         model.dist(model.mode, S_prop) - model.dist(model.mode, S_curr)
@@ -224,33 +171,36 @@ function imcmc_trans_dim_accept_reject!(
 
     # Note that we copy interactions between S_prop (resp. S_curr) and prop_pointers (resp .curr_pointers) by hand.
     if log(rand()) < log_α
-        if is_insert
-            for i in ind_tr_dim
-                migrate!(S_curr, curr_pointers, i, 1)
-                @inbounds copy!(S_curr[i], S_prop[i])
-            end 
-        else 
-            for i in Iterators.reverse(ind_tr_dim)
-            migrate!(curr_pointers , S_curr, 1, i)
-            end 
+        # Do deletions to S_curr
+        ind = view(mcmc.ind_td_del, 1:d)
+        for i in Iterators.reverse(ind) # If we didnt do reverse would have to update indices 
+            @inbounds tmp = popat!(S_curr, i)
+            pushfirst!(curr_pointers, tmp)
+        end
+        # Do insertions 
+        ind = view(mcmc.ind_td_add, 1:a)
+        for i in ind 
+            tmp = popfirst!(curr_pointers)
+            copy!(tmp, S_prop[i])
+            insert!(S_curr, i, tmp)
         end 
-        return 1
+        return true 
     else 
-        # Here we must delete the interactions which were added to S_prop
-        if is_insert
-            for i in Iterators.reverse(ind_tr_dim)
-                migrate!(prop_pointers, S_prop, 1, i)
-            end 
-        # Or reinsert the interactions which were deleted 
-        else 
-            for i in ind_tr_dim
-                migrate!(S_prop, prop_pointers, i, 1)
-                @inbounds copy!(S_prop[i], S_curr[i])
-            end 
+        # Remove insertions and return to prop_pointers 
+        ind = view(mcmc.ind_td_add, 1:a)
+        for i in Iterators.reverse(ind)
+            @inbounds tmp = popat!(S_prop, i)
+            pushfirst!(prop_pointers, tmp)
         end 
-        return 0
+        # Re-insert deletions 
+        ind = view(mcmc.ind_td_del, 1:d)
+        for i in ind 
+            @inbounds tmp = popfirst!(prop_pointers)
+            copy!(tmp, S_curr[i])
+            insert!(S_prop, i, tmp)
+        end
+        return false 
     end 
-
 end 
 
 # Sampler Functions 

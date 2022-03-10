@@ -1,11 +1,12 @@
 using InteractionNetworkModels, Plots, Distributions
 using StatsPlots, Plots.Measures, StatsBase
+using Distances, StructuredDistances
 
 V = 50
-Sᵐ = [[1,2],[1,2],[1,2], [1]]
+Sᵐ = [rand(1:V,rand(2:5)) for i in 1:10]
 d = FastEditDistance(FastLCS(100), 100)
-γ = 5.5
-K_inner, K_outer = (DimensionRange(2,50), DimensionRange(1,50))
+γ = 5.0
+K_inner, K_outer = (DimensionRange(1,10), DimensionRange(1,25))
 # K_inner, K_outer = (Inf,Inf)
 model = SIS(
     Sᵐ, γ,
@@ -16,7 +17,7 @@ model = SIS(
 d(Sᵐ,Sᵐ)
 
 mcmc_sampler = SisMcmcInsertDelete(
-    ν_ed=1, ν_td=1, β=0.7, len_dist=TrGeometric(0.9,1,K_inner),
+    ν_ed=1, ν_td=1, β=0.7, len_dist=TrGeometric(0.9,1,K_inner.u),
     lag=30, burn_in=1000,
     K=200
 )
@@ -30,7 +31,7 @@ test.sample
 
 @time mcmc_out = mcmc_sampler(
     model,
-    desired_samples=50,
+    desired_samples=100,
     lag=500,
     burn_in=10000
     )
@@ -47,24 +48,22 @@ posterior = SisPosterior(data, S_prior, γ_prior)
 
 posterior_sampler = SisIexInsertDelete(
     mcmc_sampler,
-    ν_ed=1, ν_td=1, len_dist=TrGeometric(0.8, 1, K_inner),
+    ν_ed=1, ν_td=1, len_dist=TrGeometric(0.8, 1, K_inner.u),
     ε=0.2, β=0.7,
     K=200,
     desired_samples=50, burn_in=0, lag=1
 )
 
 # Mode Conditional
-
 S_init, ind = sample_frechet_mean(posterior.data, posterior.dist)
 d(S_init, Sᵐ)
-initialiser = SisInitRandEdit(2)
-
+initialiser = InitRandEdit(2)
 
 @time posterior_out = posterior_sampler(
     posterior,
-    S_init=[[4]], 
+    S_init=S_init, 
     γ_init=4.0,
-    desired_samples=1000
+    desired_samples=100
 );
 
 posterior_out

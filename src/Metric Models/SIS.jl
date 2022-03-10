@@ -1,5 +1,5 @@
 using Distributions, Distances
-export SIS, SisPosterior 
+export SIS, SisPosterior, DimensionRange
 
 struct DimensionRange
     l::Real 

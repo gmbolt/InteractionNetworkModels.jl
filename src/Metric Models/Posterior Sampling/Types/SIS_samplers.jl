@@ -61,7 +61,8 @@ struct SisIexInsertDelete<: SisPosteriorSampler
     ind_add::Vector{Int} # Storage for indexing of additions of interactions
     vals::Vector{Int} # Storage for values where are deleted from interactions
     ind_update::Vector{Int} # Storage of which values have been updated
-    ind_td::Vector{Int} # Storage of where to insert/delete 
+    ind_td_add::Vector{Int} # Storage of where to insert/delete 
+    ind_td_del::Vector{Int} # Storage of where to insert/delete 
     function SisIexInsertDelete(
         aux_mcmc::SisMcmcSampler;
         K=100,
@@ -75,7 +76,8 @@ struct SisIexInsertDelete<: SisPosteriorSampler
         ind_add = zeros(Int, ν_ed)
         vals = zeros(Int, ν_ed)
         ind_update = zeros(Int, ν_ed)
-        ind_td = zeros(Int, ν_td)
+        ind_td_add = zeros(Int, ν_td)
+        ind_td_del = zeros(Int, ν_td)
         par_info = Dict()
         par_info[:ν_ed] = "(maximum number of edit operations)"
         par_info[:ν_td] = "(maximum change in dimension)"
@@ -94,7 +96,7 @@ struct SisIexInsertDelete<: SisPosteriorSampler
             desired_samples, burn_in, lag, 
             par_info,
             curr_pointers, prop_pointers, ind_del, ind_add, vals,
-            ind_update, ind_td
+            ind_update, ind_td_add, ind_td_del
             )
     end 
 end 

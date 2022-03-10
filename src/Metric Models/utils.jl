@@ -4,6 +4,7 @@ export get_sample_space, get_normalising_const
 export get_true_dist_dict, get_true_dist_vec 
 export get_entropy
 export log_multinomial_ratio, myaddcounts!
+export sample_frechet_mean, sample_frechet_mean_mem, sample_frechet_var
 
 
 function sample_frechet_mean(
