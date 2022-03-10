@@ -872,7 +872,7 @@ function double_iex_trans_dim_informed_accept_reject!(
         return 0, suff_stat_curr
     end 
     if d > 0 
-        log_ratio += imcmc_multi_delete_prop_sample!(
+        log_ratio += imcmc_multi_delete_prop_sample_informed!(
             S_curr, S_prop, 
             mcmc, 
             d, 
@@ -880,7 +880,7 @@ function double_iex_trans_dim_informed_accept_reject!(
         )
     end 
     if a > 0 
-        log_ratio += imcmc_multi_insert_prop_sample!(
+        log_ratio += imcmc_multi_insert_prop_sample_informed!(
             S_curr, S_prop, 
             mcmc, 
             a, 
@@ -1058,18 +1058,11 @@ function draw_sample_mode!(
             end 
         # Else do trans-dim move. We will do accept-reject move here 
         else 
-            # was_acc, suff_stat_curr = double_iex_trans_dim_informed_accept_reject!(
-            #     S_curr, S_prop, 
-            #     posterior, γ_curr,
-            #     mcmc,
-            #     p_ins,
-            #     aux_data,
-            #     suff_stat_curr
-            # )
-            was_acc, suff_stat_curr = double_iex_trans_dim_accept_reject!(
+            was_acc, suff_stat_curr = double_iex_trans_dim_informed_accept_reject!(
                 S_curr, S_prop, 
                 posterior, γ_curr,
                 mcmc,
+                p_ins,
                 aux_data,
                 suff_stat_curr
             )
