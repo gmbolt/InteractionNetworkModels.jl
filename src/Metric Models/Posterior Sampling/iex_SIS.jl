@@ -876,7 +876,7 @@ function double_iex_trans_dim_informed_accept_reject!(
             S_curr, S_prop, 
             mcmc, 
             d, 
-            V
+            p_ins
         )
     end 
     if a > 0 
@@ -884,7 +884,8 @@ function double_iex_trans_dim_informed_accept_reject!(
             S_curr, S_prop, 
             mcmc, 
             a, 
-            V, K_in_ub
+            p_ins,
+            K_in_ub
         )
     end 
 
