@@ -26,13 +26,28 @@ struct SnfPosterior{T<:Union{Int,Bool}}
     data::Vector{Matrix{T}}
     G_prior::SNF{T}
     γ_prior::UnivariateDistribution
+    dist::Metric
+    V::Int
+    directed::Bool
+    self_loops::Bool
     sample_size::Int 
     function SnfPosterior(
         data::Vector{Matrix{S}},
         G_prior::SNF{S},
         γ_prior::UnivariateDistribution
         ) where {S<:Union{Int,Bool}}
-        new{S}(data, G_prior, γ_prior, length(data))
+        dist, V, directed, self_loops = (
+            G_prior.dist,
+            G_prior.V,
+            G_prior.directed, 
+            G_prior.self_loops
+            )
+        new{S}(
+            data, 
+            G_prior, 
+            γ_prior, 
+            dist, V, directed, self_loops, length(data)
+        )
     end 
 end 
 

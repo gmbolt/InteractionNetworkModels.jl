@@ -1,9 +1,14 @@
 using Distances
 export delete_insert!, vectorisable_metrics
 
-function vectorisable_metrics(model::MultigraphSNF)
+function get_vectorisable_metrics(model::MultigraphSNF)
     return [Cityblock]
 end 
+
+function is_vectorisable(model::MultigraphSNF)
+    return typeof(model.d) ∈ get_vectorisable_metrics(model)
+end 
+
 
 # Accept reject for vectorised scheme 
 function accept_reject!(
@@ -186,8 +191,7 @@ function draw_sample(
     ) where {T<:SnfMcmcSampler}
 
     # We first determine whether for this metric we have a vectorised implementation 
-    d = model.d 
-    vectorised = typeof(d) ∈ vectorisable_metrics(model) ? true : false
+    vectorised = is_vectorisable(model)
 
     if vectorised
         if typeof(init)==Matrix{Int}

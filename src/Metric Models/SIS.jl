@@ -75,7 +75,7 @@ struct SisPosterior
     S_prior::SIS
     γ_prior::ContinuousUnivariateDistribution
     dist::Metric
-    V::AbstractArray{Int}
+    V::UnitRange{Int}
     K_inner::DimensionRange
     K_outer::DimensionRange
     sample_size::Int

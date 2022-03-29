@@ -59,6 +59,8 @@ function accept_reject_entry_hamming!(
     end 
 end 
 
+
+
 # Systematic Gibbs scan optimised for Hamming distance
 function draw_sample_hamming!(
     out::Vector{Vector{Int}},
@@ -87,7 +89,7 @@ function draw_sample_hamming!(
         end 
         # Gibbs scan 
         for i in 1:M
-            was_accepted = accept_reject_entry!(
+            was_accepted = accept_reject_entry_hamming!(
                 x_curr, x_prop,
                 i,
                 mcmc, model,
@@ -144,7 +146,9 @@ function draw_sample!(
 end 
 
 
-# Random Gibbs scan optimised for Hamming distance
+# Random scann Gibbs 
+# -------------------
+
 function draw_sample_hamming!(
     out::Vector{Vector{Int}},
     mcmc::SnfMcmcRandGibbs, 
@@ -226,3 +230,4 @@ function draw_sample!(
     end 
     return accept_count / iter_count
 end 
+

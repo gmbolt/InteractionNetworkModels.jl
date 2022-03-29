@@ -19,6 +19,7 @@ include("Data Processing/Multigraphs.jl")
 include("Data Processing/string_to_int.jl")
 include("Data Processing/high_order_heuristic.jl")
 include("Data Processing/remove_repeats.jl")
+include("Data Processing/aggregate_graph.jl")
 
 # Metric Models 
 # ===============

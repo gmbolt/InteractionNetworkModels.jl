@@ -31,6 +31,24 @@ function string_to_int(
 end 
 
 function string_to_int(
+    data::InteractionSequence{String}
+    )
+
+    mapper = Dict{String,Int}()
+    i = 1
+    for v in vcat(data...)
+        if v ∈ keys(mapper)
+            continue
+        else 
+            mapper[v] = i 
+            i +=1 
+        end 
+    end 
+    mapper_inv = Dict(v => k for (k,v) in mapper)
+    return string_to_int(data, mapper), mapper_inv
+end 
+
+function string_to_int(
     data::InteractionSequenceSample{String}
     )
 
@@ -86,4 +104,19 @@ function int_to_string(
     iter = zip(keys(mapper), values(mapper))
     mapper_inv = Dict(v => k for (k,v) in iter)
     return int_to_string(data, mapper), mapper_inv
+end 
+
+function string_to_int(x::Vector{String})
+    out = Int[]
+    count = 1
+    mapper = Dict{String,Int}()
+    for v in x
+        if v ∉ keys(mapper)
+            mapper[v] = count
+            count += 1
+        end 
+        push!(out, mapper[v])
+    end
+    mapper_inv = Dict(v=>k for (k,v) in mapper)
+    return out, mapper_inv    
 end 

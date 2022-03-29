@@ -86,7 +86,7 @@ posterior_sampler_prop = SimIexInsertDeleteProportional(
 E_init = sample_frechet_mean(posterior.data, posterior.dist)[1]
 d(E_init, E)
 
-# E_init = [[10,10]]
+E_init = [[10,10]]
 @time posterior_out = posterior_sampler(
     posterior,
     # 4.9,
@@ -94,7 +94,16 @@ d(E_init, E)
     S_init=E_init, γ_init=2.8,
     aux_init_at_prev=true,
 );
-plot(posterior_out, E)
+plot(
+    posterior_out, E, size=(600,400),   
+    xlabel=["" "Sample Index"], 
+    ylabel=["Distance to True Mode" "γ"],
+    yguidefontsize=[9 9],
+    xguidefontsize=9
+)
+savefig("C:/users/boltg/OneDrive - Lancaster University/PhD/Outputs/Posters/Data on Lake 2022/img/posterior_sample.pdf")
+
+model.mode
 posterior_out.S_sample
 plot(posterior_out, E)
 plot(length.(posterior_out.S_sample))

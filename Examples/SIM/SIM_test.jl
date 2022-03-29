@@ -7,6 +7,7 @@ S = [[1,1,1,1], [2,2,2,2], [3,3,3,3,3,3]]
 V = 1:20
 
 d_lcs = MatchingDistance(FastLCS(100))
+d_lcs_t = ThreadedMatchingDistance(LCS())
 d_lsp = MatchingDistance(FastLSP(100))
 # d_f = FastMatchingDist(FastLCS(100), 51)
 d_lsp_fp = FpMatchingDist(FastLSP(100), 100.0)
@@ -18,7 +19,10 @@ K_outer = DimensionRange(1, 50)
 
 d_lsp_as = AvgSizeMatchingDist(FastLSP(100), 0.5)
 d_lsp_sc = SizeConstrainedMatchingDist(FastLSP(100), 1.0, 4)
-model = SIM(S, 5.0, d_lsp, V, K_inner, K_outer)
+
+model = SIM(S, 5.0, d_lcs, V, K_inner, K_outer)
+model_t = SIM(S, 5.0, d_lcs_t, V, K_inner, K_outer)
+
 
 @time d_lsp_as([[1,2]], [[1,2], [1,3,3,4,5]])
 @time d_lsp_sc([[1,2]], [[1,2], [1,3,3,4,5,12,3]])
@@ -54,6 +58,15 @@ mcmc_sampler_len = SimMcmcInsertDeleteLengthCentered(
 
 @time out=mcmc_sampler(
     model, 
+    lag=20, 
+    init=model.mode, 
+    burn_in=0,
+    desired_samples=200
+)
+
+
+@time out=mcmc_sampler(
+    model_t, 
     lag=20, 
     init=model.mode, 
     burn_in=0,
