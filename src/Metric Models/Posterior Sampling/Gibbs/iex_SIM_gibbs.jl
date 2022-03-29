@@ -25,8 +25,6 @@ function imcmc_gibbs_insert_delete_update!(
     ind_add = view(mcmc.ind_add, 1:(δ_tmp-d))
     vals_del = view(mcmc.vals, 1:d)
 
-    # println("           ind_del: $ind_del ; ind_add: $ind_add")
-
     # Sample indexing info and new entries (all in-place)
     StatsBase.seqsample_a!(1:n, ind_del)
     StatsBase.seqsample_a!(1:m, ind_add)
@@ -41,13 +39,13 @@ function imcmc_gibbs_insert_delete_update!(
 
     log_ratio += log(min(n, δ)+1) - log(min(m, δ)+1)
 
-    aux_model = SIS(
+    aux_model = SIM(
         S_prop, γ_curr, 
         dist, 
         V, 
         K_inner, 
         K_outer
-        )
+    )
 
     if aux_init_at_prev
         @inbounds tmp = deepcopy(aux_data[end])
@@ -110,32 +108,20 @@ function imcmc_gibbs_flip_update!(
     @inbounds I_tmp = S_prop[i]
     n = length(I_tmp)
 
-    δ = rand(1:mcmc.ν_ed)
+    δ = rand(1:min(mcmc.ν_ed, n))
 
-    d = rand(0:min(n,δ))
-    m = n + δ_tmp - 2*d
+    ind = view(mcmc.ind_add, 1:δ)
 
-    ind_del = view(mcmc.ind_del, 1:d)
-    ind_add = view(mcmc.ind_add, 1:(δ_tmp-d))
-    vals_del = view(mcmc.vals, 1:d)
+    # Sample entries to flip
+    StatsBase.seqsample_a!(1:n, ind)
 
-    # println("           ind_del: $ind_del ; ind_add: $ind_add")
-
-    # Sample indexing info and new entries (all in-place)
-    StatsBase.seqsample_a!(1:n, ind_del)
-    StatsBase.seqsample_a!(1:m, ind_add)
-
-    # *** HERE IS DIFFERENT FROM MODEL SAMPLER ***
-    # The delete_insert_informed() function does the sampling + editing 
-    log_ratio = delete_insert_informed!(
+    log_ratio = flip_informed_excl!(
         I_tmp,
-        ind_del, ind_add, vals_del, 
+        ind, 
         P
     )
 
-    log_ratio += log(min(n, δ)+1) - log(min(m, δ)+1)
-
-    aux_model = SIS(
+    aux_model = SIM(
         S_prop, γ_curr, 
         dist, 
         V, 
@@ -186,3 +172,22 @@ function imcmc_gibbs_flip_update!(
 
 end 
 
+function imcmc_gibbs_scan(
+    S_curr::InteractionSequence,
+    S_prop::InteractionSequence,
+    γ_curr::Float64,
+    posterior::SIM, 
+    mcmc::SimMcmcInsertDeleteGibbs,
+    P::CumCondProbMatrix,
+    aux_data::InteractionSequenceSample{Int},
+    suff_stat_curr::Float64,
+    aux_init_at_prev::Bool, 
+    
+    )
+
+    β = mcmc.β
+
+
+
+
+end
