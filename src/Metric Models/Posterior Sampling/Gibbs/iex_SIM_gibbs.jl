@@ -1,5 +1,5 @@
 
-function imcmc_gibbs_insert_delete_update!(
+function iex_gibbs_insert_delete_update!(
     S_curr::InteractionSequence,
     S_prop::InteractionSequence,
     γ_curr::Float64,
@@ -91,7 +91,7 @@ function imcmc_gibbs_insert_delete_update!(
 end 
 
 
-function imcmc_gibbs_flip_update!(
+function iex_gibbs_flip_update!(
     S_curr::InteractionSequence,
     S_prop::InteractionSequence,
     γ_curr::Float64,
@@ -172,7 +172,7 @@ function imcmc_gibbs_flip_update!(
 
 end 
 
-function imcmc_gibbs_scan(
+function iex_gibbs_scan!(
     S_curr::InteractionSequence,
     S_prop::InteractionSequence,
     γ_curr::Float64,
@@ -182,12 +182,219 @@ function imcmc_gibbs_scan(
     aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64,
     aux_init_at_prev::Bool, 
-    
+    count::Vector{Int},
+    acc_count::Vector{Int}
     )
 
-    β = mcmc.β
-
-
-
-
+    for i in 1:length(S_curr)
+        if rand() < 0.5 
+            was_acc, suff_stat_curr = iex_gibbs_insert_delete_update!(
+                S_curr, S_prop, 
+                γ_curr, i, 
+                posterior, mcmc,
+                P, aux_data, 
+                suff_stat_curr, 
+                aux_init_at_prev
+            )
+            count[1] += 1 
+            acc_count[1] += was_acc
+        else
+            was_acc, suff_stat_curr = iex_gibbs_insert_delete_update!(
+                S_curr, S_prop, 
+                γ_curr, i, 
+                posterior, mcmc,
+                P, aux_data, 
+                suff_stat_curr, 
+                aux_init_at_prev
+            )
+            count[2] += 1 
+            acc_count[2] += was_acc
+        end 
+    end
 end
+
+
+function draw_sample_mode!(
+    sample_out::Union{InteractionSequenceSample{Int}, SubArray},
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
+    posterior::SimPosterior,
+    γ_fixed::Float64;
+    burn_in::Int=mcmc.burn_in,
+    lag::Int=mcmc.lag,
+    S_init::InteractionSequence{Int}=sample_frechet_mean(posterior.data, posterior.dist),
+    loading_bar::Bool=true,
+    aux_init_at_prev::Bool=false
+    ) 
+
+    if loading_bar
+        iter = Progress(
+            length(sample_out) * lag + burn_in, # How many iters 
+            1,  # At which granularity to update loading bar
+            "Chain for γ = $(γ_fixed) and n = $(posterior.sample_size) (mode conditional)....")  # Loading bar. Minimum update interval: 1 second
+    end 
+
+    # Define aliases for pointers to the storage of current vals and proposals
+    curr_pointers = mcmc.curr_pointers
+    prop_pointers = mcmc.prop_pointers
+    β = mcmc.β
+    aux_mcmc = mcmc.aux_mcmc
+
+    S_curr = InteractionSequence{Int}()
+    S_prop = InteractionSequence{Int}()
+    for i in 1:length(S_init)
+        migrate!(S_curr, curr_pointers, i, 1)
+        migrate!(S_prop, prop_pointers, i, 1)
+        copy!(S_curr[i], S_init[i])
+        copy!(S_prop[i], S_init[i])
+    end 
+
+    γ_curr = γ_fixed
+
+    sample_count = 1 # Keeps which sample to be stored we are working to get 
+    i = 0 # Keeps track all samples (included lags and burn_ins) 
+
+    tr_dim_count = 0 
+    tr_dim_acc_count = 0
+    ed_count = 0 
+    ed_acc_count = 0
+    flp_count = 0
+    flp_acc_count = 0
+
+    aux_data = [[Int[]] for i in 1:posterior.sample_size]
+    # Initialise the aux_data 
+    aux_model = SIM(
+        S_curr, γ_curr, 
+        posterior.dist, 
+        posterior.V, 
+        posterior.K_inner, 
+        posterior.K_outer)
+    draw_sample!(aux_data, aux_mcmc, aux_model, burn_in=10000)
+
+    # Evaluate sufficient statistic
+    suff_stat_curr = mapreduce(
+        x -> posterior.dist(S_curr, x), 
+        +, 
+        posterior.data
+    )
+    suff_stats = Float64[suff_stat_curr] # Storage for all sufficient stats (for diagnostics)
+    P, vmap, vmap_inv = get_informed_proposal_matrix(posterior, mcmc.α)
+    p_ins = get_informed_insertion_dist(posterior, mcmc.α)
+    while sample_count ≤ length(sample_out)
+        i += 1
+        # Store value 
+        if (i > burn_in) & (((i - burn_in - 1) % lag)==0)
+            @inbounds sample_out[sample_count] = deepcopy(S_curr)
+            push!(suff_stats, suff_stat_curr)
+            sample_count += 1
+        end 
+        # W.P. do update move (accept-reject done internally by function call)
+        if rand() < β
+            if rand() < 0.5 
+                was_acc, suff_stat_curr = double_iex_multinomial_edit_accept_reject!(
+                    S_curr, S_prop, 
+                    posterior, γ_curr,
+                    mcmc, P, 
+                    aux_data,
+                    suff_stat_curr,
+                    aux_init_at_prev
+                )
+                ed_acc_count += was_acc
+                ed_count += 1
+            else 
+                was_acc, suff_stat_curr = double_iex_flip_accept_reject!(
+                    S_curr, S_prop, 
+                    posterior, γ_curr,
+                    mcmc, P, 
+                    aux_data,
+                    suff_stat_curr, 
+                    aux_init_at_prev
+                )
+                flp_acc_count += was_acc
+                flp_count += 1
+            end 
+        # Else do trans-dim move. We will do accept-reject move here 
+        else 
+            was_acc, suff_stat_curr = double_iex_trans_dim_informed_accept_reject!(
+                S_curr, S_prop, 
+                posterior, γ_curr,
+                mcmc,
+                p_ins,
+                aux_data,
+                suff_stat_curr,
+                aux_init_at_prev
+            )
+            tr_dim_acc_count += was_acc
+            tr_dim_count += 1
+        end 
+        if loading_bar
+            next!(iter)
+        end 
+    end 
+    for i in 1:length(S_curr)
+        migrate!(curr_pointers, S_curr, 1, 1)
+        migrate!(prop_pointers, S_prop, 1, 1)
+    end 
+    return (
+        ed_count, ed_acc_count,
+        flp_count, flp_acc_count,
+        tr_dim_count, tr_dim_acc_count,
+        suff_stats
+    )
+end 
+
+
+function accept_reject_mode!(
+    S_curr::InteractionSequence{Int},
+    S_prop::InteractionSequence{Int},
+    posterior::SimPosterior,
+    γ_curr::Float64, 
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
+    P::CumCondProbMatrix,
+    p_ins::Categorical,
+    aux_data::InteractionSequenceSample{Int},
+    acc_count::Vector{Int},
+    count::Vector{Int},
+    suff_stat_curr::Float64,
+    aux_init_at_prev::Bool=false
+    ) 
+    
+    β = mcmc.β
+    if rand() < β
+        if rand() < 0.5 
+            was_accepted, suff_stat_curr = double_iex_multinomial_edit_accept_reject!(
+                S_curr, S_prop, 
+                posterior, γ_curr, 
+                mcmc, P, 
+                aux_data,
+                suff_stat_curr,
+                aux_init_at_prev
+            )
+            acc_count[1] += was_accepted
+            count[1] += 1
+        else 
+            was_accepted, suff_stat_curr = double_iex_flip_accept_reject!(
+                S_curr, S_prop, 
+                posterior, γ_curr, 
+                mcmc, P, 
+                aux_data,
+                suff_stat_curr,
+                aux_init_at_prev
+            )
+            acc_count[2] += was_accepted
+            count[2] += 1
+        end 
+    else 
+        was_accepted, suff_stat_curr = double_iex_trans_dim_informed_accept_reject!(
+            S_curr, S_prop, 
+            posterior, γ_curr, 
+            mcmc, p_ins,
+            aux_data,
+            suff_stat_curr,
+            aux_init_at_prev
+        )
+        acc_count[3] += was_accepted 
+        count[3] += 1
+    end 
+    return suff_stat_curr
+end 
+

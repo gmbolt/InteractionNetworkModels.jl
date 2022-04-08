@@ -9,7 +9,7 @@ function double_iex_multinomial_edit_accept_reject!(
     S_prop::InteractionSequence{Int},
     posterior::SimPosterior,
     γ_curr::Float64,
-    mcmc::SimIexInsertDelete,
+    mcmc::Union{SimIexInsertDelete,SimIexSplitMerge},
     P::CumCondProbMatrix,
     aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64,
@@ -153,7 +153,7 @@ function double_iex_flip_accept_reject!(
     S_prop::InteractionSequence{Int},
     posterior::SimPosterior,
     γ_curr::Float64,
-    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
+    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional,SimIexSplitMerge},
     P::CumCondProbMatrix,
     aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64, 
@@ -367,12 +367,12 @@ function double_iex_trans_dim_informed_accept_reject!(
     S_prop::InteractionSequence{Int},
     posterior::SimPosterior, 
     γ_curr::Float64,
-    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
+    mcmc::T,
     p_ins::Categorical,
     aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64,
     aux_init_at_prev::Bool
-    )  
+    ) where {T<:SimPosteriorSampler}
     
     K_inner, K_outer = (posterior.K_inner, posterior.K_outer)
     K_out_lb, K_out_ub = (K_outer.l, K_outer.u)
@@ -622,7 +622,7 @@ function draw_sample_mode!(
 end 
 
 function draw_sample_mode(
-    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
+    mcmc::T,
     posterior::SimPosterior,
     γ_fixed::Float64;
     desired_samples::Int=mcmc.desired_samples,
@@ -631,7 +631,7 @@ function draw_sample_mode(
     S_init::InteractionSequence{Int}=sample_frechet_mean(posterior.data, posterior.dist),
     loading_bar::Bool=true,
     aux_init_at_prev::Bool=false
-    ) 
+    ) where {T<:SimPosteriorSampler}
 
     sample_out = Vector{InteractionSequence{Int}}(undef, desired_samples)
     draw_sample_mode!(
@@ -646,7 +646,7 @@ function draw_sample_mode(
 
 end 
 
-function (mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional})(
+function (mcmc::T where {T<:SimPosteriorSampler})(
     posterior::SimPosterior, 
     γ_fixed::Float64;
     desired_samples::Int=mcmc.desired_samples,
@@ -655,7 +655,7 @@ function (mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional})(
     S_init::InteractionSequence{Int}=sample_frechet_mean(posterior.data, posterior.dist),
     loading_bar::Bool=true,
     aux_init_at_prev::Bool=false
-    ) 
+    )
     sample_out = Vector{InteractionSequence{Int}}(undef, desired_samples)
 
     (
@@ -698,7 +698,7 @@ end
 
 function draw_sample_gamma!(
     sample_out::Union{Vector{Float64}, SubArray},
-    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
+    mcmc::T,
     posterior::SimPosterior,
     S_fixed::InteractionSequence{Int};
     burn_in::Int=mcmc.burn_in,
@@ -706,7 +706,7 @@ function draw_sample_gamma!(
     γ_init::Float64=4.0,
     loading_bar::Bool=true,
     aux_init_at_prev::Bool=false
-    ) 
+    ) where {T<:SimPosteriorSampler}
 
     if loading_bar
         iter = Progress(
@@ -792,7 +792,7 @@ function draw_sample_gamma!(
 end 
 
 function draw_sample_gamma(
-    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
+    mcmc::T,
     posterior::SimPosterior,
     S_fixed::InteractionSequence{Int};
     desired_samples::Int=mcmc.desired_samples,
@@ -801,7 +801,7 @@ function draw_sample_gamma(
     γ_init::Float64,
     loading_bar::Bool=true,
     aux_init_at_prev::Bool=false
-    ) 
+    ) where {T<:SimPosteriorSampler}
 
     sample_out = Vector{Float64}(undef, desired_samples)
     draw_sample_gamme!(
@@ -817,7 +817,7 @@ function draw_sample_gamma(
 end 
 
 
-function (mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional})(
+function (mcmc::T where {T<:SimPosteriorSampler})(
     posterior::SimPosterior, 
     S_fixed::InteractionSequence{Int};
     desired_samples::Int=mcmc.desired_samples,
@@ -924,11 +924,11 @@ function accept_reject_gamma!(
     γ_curr::Float64,
     S_curr::InteractionSequence{Int},
     posterior::SimPosterior,
-    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
+    mcmc::T,
     aux_data::InteractionSequenceSample{Int},
     suff_stat_curr::Float64,
     aux_init_at_prev::Bool=false
-    ) 
+    ) where {T<:SimPosteriorSampler}
 
     ε = mcmc.ε
     aux_mcmc = mcmc.aux_mcmc    
@@ -966,12 +966,10 @@ function accept_reject_gamma!(
     end 
 end 
 
-
-
 function draw_sample!(
     sample_out_S::Union{InteractionSequenceSample{Int},SubArray},
     sample_out_gamma::Union{Vector{Float64},SubArray},
-    mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional},
+    mcmc::T,
     posterior::SimPosterior;
     burn_in::Int=mcmc.burn_in,
     lag::Int=mcmc.lag,
@@ -979,7 +977,7 @@ function draw_sample!(
     γ_init::Float64=5.0,
     loading_bar::Bool=true,
     aux_init_at_prev::Bool=false
-    ) 
+    ) where {T<:SimPosteriorSampler}
 
     if loading_bar
         iter = Progress(
@@ -1108,7 +1106,7 @@ function draw_sample(
     return (S=sample_out_S, gamma=sample_out_gamma)
 end 
 
-function (mcmc::Union{SimIexInsertDelete,SimIexInsertDeleteProportional})(
+function (mcmc::T where {T<:SimPosteriorSampler})(
     posterior::SimPosterior;
     desired_samples::Int=mcmc.desired_samples,
     burn_in::Int=mcmc.burn_in,
