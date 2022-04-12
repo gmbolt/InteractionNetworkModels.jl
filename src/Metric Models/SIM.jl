@@ -1,9 +1,9 @@
 export SIM, SimPosterior, Distances
 
-struct SIM
+struct SIM{T<:Metric}
     mode::Vector{Path{Int}} # Mode
     γ::Real # Precision
-    dist::Metric # Distance metric
+    dist::T # Distance metric
     V::UnitRange # Vertex Set
     K_inner::DimensionRange # Maximum interaction sequence size
     K_outer::DimensionRange # Maximum path (interaction) length
@@ -40,7 +40,7 @@ function Base.show(
     io::IO, model::SIM
     ) 
 
-    title = "SIM Model"
+    title = "$(typeof(model))"
     n = length(title)
     println(io, title)
     println(io, "-"^n)

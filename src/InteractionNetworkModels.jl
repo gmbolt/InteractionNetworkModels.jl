@@ -95,4 +95,13 @@ include("Graph Models/Model Sampling/SNF_multigraph_gibbs.jl")
 
 include("Graph Models/Model Sampling/Summaries/plot_recipes.jl")
 
+# iMCMC Moves (new structure)
+include("Metric Models/iMCMC Moves/imcmc_move_type.jl")
+include("Metric Models/iMCMC Moves/edit_allocation_move.jl")
+include("Metric Models/iMCMC Moves/insert_delete_move.jl")
+include("Metric Models/iMCMC Moves/mixture_move.jl")
+include("Metric Models/iMCMC Moves/model_sampler.jl")
+include("Metric Models/iMCMC Moves/posterior_sampler.jl")
+
+
 end

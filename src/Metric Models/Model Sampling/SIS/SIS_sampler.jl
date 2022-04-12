@@ -364,7 +364,7 @@ function imcmc_trans_dim_accept_reject!(
     # Enact insertion / deletion 
     N = length(S_curr)
     ε = rand(1:ν_td)
-    d = rand(0:min(ν_td, N))
+    d = rand(0:min(ε, N))
     a = ε - d
 
     # Catch invalid proposal (outside dimension bounds)
@@ -389,7 +389,7 @@ function imcmc_trans_dim_accept_reject!(
         )
     end 
 
-    log_ratio += log(min(ν_td, N) + 1) - log(min(ν_td, M) + 1)
+    log_ratio += log(min(ε, N) + 1) - log(min(ε, M) + 1)
 
     # Now do accept-reject step 
     dist_prop = dist(mode, S_prop)

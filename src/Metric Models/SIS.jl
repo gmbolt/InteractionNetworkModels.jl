@@ -23,10 +23,10 @@ function notin(
     return (val < r.l) | (val > r.u)
 end 
 
-struct SIS
+struct SIS{T<:Metric}
     mode::Vector{Path{Int}} # Mode
     γ::Float64 # Precision
-    dist::Metric # Distance metric
+    dist::T # Distance metric
     V::UnitRange{Int} # Vertex Set
     K_inner::DimensionRange # Maximum interaction sequence size
     K_outer::DimensionRange # Maximum path (interaction) length
@@ -59,7 +59,7 @@ function Base.show(
     io::IO, model::SIS
     ) 
 
-    title = "SIS Model"
+    title = "$(typeof(model))"
     n = length(title)
     println(io, title)
     println(io, "-"^n)

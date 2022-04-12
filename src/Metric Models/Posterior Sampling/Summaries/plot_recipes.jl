@@ -39,7 +39,10 @@ end
     y1 = [map(y->d(S_true,y), x) for x in S_samples]
     y2 = γ_samples 
     vcat(y1,y2)
+
+    
 end 
+
 
 @recipe function f(output::SisPosteriorModeConditionalMcmcOutput, S_true::Vector{Path{Int}}) 
     S_sample = output.S_sample

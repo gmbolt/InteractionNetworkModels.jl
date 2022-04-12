@@ -139,8 +139,6 @@ function draw_sample!(
     init::InteractionSequence{Int}=get_init(mcmc.init, model)
     ) 
 
-
-
     # Define aliases for pointers to the storage of current vals and proposals
     curr_pointers = mcmc.curr_pointers
     prop_pointers = mcmc.prop_pointers
