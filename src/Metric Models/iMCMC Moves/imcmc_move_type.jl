@@ -6,8 +6,8 @@ abstract type InvMcmcMove end
 
 acceptance_prob(move::InvMcmcMove) = move.counts[1]/move.counts[2]
 
-function reset_counts!(move::InvMcmcMove) 
-    move.counts .= 0
+function reset_counts!(mcmc::InvMcmcMove)
+    mcmc.counts .= 0
 end 
 
 # Any move must have the following 

@@ -1,5 +1,6 @@
 using LinearAlgebra
 export sample_urn_without_replacement, adj_mat_to_vec, vec_to_adj_mat
+export rand_perturb, get_num_vertices
 
 function sample_urn_without_replacement(
     n::Int, bins::Vector{Int}
@@ -36,7 +37,7 @@ function adj_mat_to_vec(
     elseif directed & !self_loops
         return A[[i!=j ? true : false for i=1:V,j=1:V]]
     elseif !directed & self_loops
-       return A[[i ≤ j ? true : false for i=1:V,j=1:V]]
+        return A[[i ≤ j ? true : false for i=1:V,j=1:V]]
     elseif !directed & !self_loops
         return A[[i < j ? true : false for i=1:V,j=1:V]]
     end
@@ -74,4 +75,21 @@ function vec_to_adj_mat(
         return A
     end 
 
+end 
+
+rand_perturb(A::Matrix{Bool}, τ::Float64) = [rand() < τ ? !x : x for x in A]
+
+function get_num_vertices(
+    M::Int, # Number of edges
+    directed::Bool, self_loops::Bool
+    )
+    if directed & self_loops
+        return round(Int, √(M))
+    elseif directed & !self_loops
+        return round(Int, √(M+1/4) + 1/2)
+    elseif !directed & self_loops
+        return round(Int, √(2M+1/4) - 1/2)       
+    elseif !directed & !self_loops
+        return round(Int, √(2M+1/4) + 1/2)
+    end 
 end 

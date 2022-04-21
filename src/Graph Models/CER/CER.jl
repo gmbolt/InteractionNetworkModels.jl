@@ -1,5 +1,5 @@
 using LinearAlgebra
-export CER, CerPosterior
+export CER
 
 struct CER 
     mode::Matrix{Bool}
@@ -37,35 +37,46 @@ function CER(
     return CER(mode, α, directed, self_loops)
 end 
 
+# Sampling functions 
 
-# Poster
+function draw_sample!(
+    out::Vector{Matrix},
+    model::CER
+    )
+    for A in out 
+        copy!(A, model.mode)
+        for c in eachcol(A)
+            for i in eachindex(c)
+                if rand() < model.α
+                    c[i] = !c[i]
+                end 
+            end 
+        end 
 
-struct CerPosterior
-    data::Vector{Matrix{Bool}}
-    G_prior::CER 
-    α_prior::UnivariateDistribution
-    sample_size::Int
-    function CerPosterior(
-        data::Vector{Matrix{Bool}},
-        G_prior::CER, 
-        α_prior::UnivariateDistribution
-        ) 
-
-        new(data,G_prior,α_prior,length(data))
-    end
-end 
-
-function CerPosterior(
-    data::Vector{Matrix{Int}},
-    G_prior::CER, 
-    α_prior::UnivariateDistribution
-    ) 
-
-    if prod(y->prod(x->x∈[0,1], y), data)
-        data_bool = map(x->convert(Matrix{Bool},x), data)
-        CerPosterior(data_bool, G_prior, α_prior)
-    else 
-        error("Entries must be boolean or 0/1 integers.")
     end 
-
 end 
+
+function draw_sample_no_copy!(
+    out::Vector{Matrix{Bool}},
+    model::CER
+    )
+    for A in out 
+        for c in eachcol(A)
+            for i in eachindex(c)
+                if rand() < model.α
+                    c[i] = !c[i]
+                end 
+            end 
+        end 
+    end 
+end 
+
+function draw_sample(
+    model::CER,
+    n::Int
+    )
+    out = [copy(model.mode) for i in 1:n]
+    draw_sample_no_copy!(out, model)
+    return out
+end 
+

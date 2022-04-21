@@ -1,20 +1,81 @@
 using Distances, StructuredDistances, InteractionNetworkModels
-using Plots, BenchmarkTools, Distributions
+using Plots, BenchmarkTools, Distributions, StatsPlots
 
 d = Cityblock()
 V = 20
-mode = rand(0:10, V, V)
-γ = 5.4
-model = SNF(mode, γ, d)
+τ = 0.2
+mode = [rand() < 0.2 ? rand(1:4) : 0 for i in 1:V,j in 1:V]
+γ = 3.0
+
+model = SNF(mode, γ, d, directed=false)
+model = vectorise(model)
+
 
 # Gibbs scan 
-mcmc = SnfMcmcRandGibbs(ν=1)
+gibbs_move_rand = GibbsRandMove(ν=1)
+gibbs_move = GibbsScanMove(ν=1)
 
-@time out, a = draw_sample(mcmc, model, desired_samples=1000, lag=100, burn_in=0)
-plot(map(x->d(x,model.mode), out))
+mcmc = McmcSampler(gibbs_move_rand)
+mcmc_scan = McmcSampler(gibbs_move)
 
-out = mcmc(model)
+@time out = mcmc(model, desired_samples=100, lag=length(model.mode)÷2)
 plot(out)
-@time x = mcmc(model, desired_samples=1000, lag=100)
+
+@time x = mcmc_scan(model, desired_samples=100, lag=1)
+plot!(x)
+
+acceptance_prob(mcmc_scan)
+acceptance_prob(mcmc)
+typeof(model)
+
+
+# Testing posterior sampler
+@time out  = mcmc_scan(model, desired_samples=40, lag=30, burn_in=500)
+plot(out)
+similar(model, rand(1:10, 20), 1.0)
+
+model.mode
+data = out.sample 
+γ_prior = Gamma(model.γ, 1)
+plot(γ_prior)
+G_prior = SNF(
+    model.mode, 
+    0.1, 
+    model.d,
+    directed=model.directed, 
+    self_loops=model.self_loops
+)
+posterior = SnfPosterior(data, G_prior, γ_prior)
+
+mode_move = GibbsScanMove(ν=1)
+aux_mcmc = McmcSampler(GibbsRandMove(ν=1), burn_in=3000, lag=50)
+
+@time x = aux_mcmc(model, desired_samples=100)
+acceptance_prob(aux_mcmc)
 plot(x)
 
+mcmc_posterior = SnfPosteriorSampler(
+    mode_move, aux_mcmc, posterior,
+    ε=0.2, 
+    aux_init_at_prev=true
+)
+mcmc_posterior.aux.data
+
+@time x = mcmc_posterior(posterior, desired_samples=100, γ_init=4.0)
+
+plot(x, model.mode)
+
+x.x_sample[end]
+
+x.x_sample[end]
+
+x_sample_mat = get_sample_matrices(x)
+
+using GraphRecipes
+
+graphplot(
+    x_sample_mat[1], edgewidth=x_sample_mat[1],
+    curves=false
+)
+
+using GraphMakie

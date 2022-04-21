@@ -8,11 +8,11 @@ export sample_frechet_mean, sample_frechet_mean_mem, sample_frechet_var
 
 
 function sample_frechet_mean(
-    data::InteractionSequenceSample{T}, 
+    data::Vector{T}, 
     d::Metric;
     show_progress::Bool=false,
     with_memory::Bool=false
-    ) where T <:Union{Int, String}
+    ) where T 
 
     if with_memory 
         return sample_frechet_mean_mem(

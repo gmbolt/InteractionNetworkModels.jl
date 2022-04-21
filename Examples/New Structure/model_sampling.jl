@@ -1,7 +1,7 @@
 using InteractionNetworkModels, StructuredDistances, BenchmarkTools
 using Plots
 mode = [[1,2,1],[1,1,1]]
-γ = 5.0
+γ = 4.0
 d_S = EditDistance(LCS())
 d_E = MatchingDistance(LCS())
 V = 1:10
@@ -11,7 +11,8 @@ model = SIM(mode, γ, d_E, V, 10, 20)
 mcmc_move = InvMcmcMixtureMove(
     (
         EditAllocationMove(ν=1),
-        InsertDeleteMove(ν=1, len_dist=TrGeometric(0.8, 1, model.K_inner.u))
+        # InsertDeleteMove(ν=1, len_dist=TrGeometric(0.8, 1, model.K_inner.u))
+        SplitMergeMove(ν=1)
     ),
     (β, 1-β)
 )
@@ -21,11 +22,13 @@ mcmc = InvMcmcSampler(
     burn_in=2000, lag=75
     )
 
-x = mcmc(model, desired_samples=4000)
+x = mcmc(model, desired_samples=4000, lag=1, burn_in=0)
 plot(x)
 acceptance_prob(mcmc)
 summaryplot(x)
 x.sample
+
+x.sample[findall(length.(x.sample) .> 5)]
 
 @btime draw_sample(mcmc, model, desired_samples=1000, burn_in=0, lag=1)
 

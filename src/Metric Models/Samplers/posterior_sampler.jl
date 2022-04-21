@@ -1,9 +1,9 @@
 using RecipesBase, Measures
 export IexMcmcSampler, AuxiliaryMcmc, PosteriorMcmcOutput
 
-struct AuxiliaryMcmc{S<:InvMcmcSampler}
-    mcmc::S 
-    data::InteractionSequenceSample{Int}
+struct AuxiliaryMcmc{S,T}
+    mcmc::S  # Mcmc move (leave general since will also use for graph models)
+    data::Vector{T} # To store auxiliary samples 
     init_at_prev::Bool 
 end 
 
@@ -20,7 +20,8 @@ struct IexMcmcSampler{T<:InvMcmcMove,S<:AuxiliaryMcmc}
     γ_counts::Vector{Int}
     function IexMcmcSampler(
         move::T, aux_mcmc::InvMcmcSampler;
-        ε::Float64=0.15, desired_samples::Int=1000, burn_in::Int=0, lag::Int=1,
+        ε::Float64=0.15, 
+        desired_samples::Int=1000, burn_in::Int=0, lag::Int=1,
         K::Int=100, aux_init_at_prev::Bool=false
         ) where {T<:InvMcmcMove}
         pointers = [Int[] for i in 1:(2K)]
@@ -37,6 +38,9 @@ struct IexMcmcSampler{T<:InvMcmcMove,S<:AuxiliaryMcmc}
             )
     end 
 end 
+
+Base.show(io::IO, x::IexMcmcSampler) = print(io, typeof(x))
+
 
 struct PosteriorMcmcOutput{T<:Union{SisPosterior,SimPosterior}} 
     S_sample::Vector{InteractionSequence{Int}}
@@ -308,12 +312,17 @@ function (mcmc::IexMcmcSampler)(
     args...
     ) where {T<:Union{SisPosterior,SimPosterior}}
 
-    sample_out, sample_suff_stat = draw_sample_mode(
+    S_sample, suff_stat_trace = draw_sample_mode(
         mcmc, posterior, γ_fixed,
         arg...
     )
+    γ_sample = fill(γ_fixed, length(S_sample))
 
-    return sample_out, sample_suff_stat
+    return PosteriorMcmcOutput(
+        S_sample, γ_sample, 
+        suff_stat_trace, 
+        posterior
+    )
 end 
 
 
@@ -405,8 +414,6 @@ function draw_sample_gamma!(
     i = 0 # Counter for iterations 
     sample_count = 1  # Which sample we are working to get 
 
-    S_curr = deepcopy(S_fixed)
-
     while sample_count ≤ length(sample_out)
         i += 1
         # Store value 
@@ -457,9 +464,17 @@ function (mcmc::IexMcmcSampler)(
     args...
     ) where {T<:Union{SisPosterior,SimPosterior}}
 
-    return draw_sample_gamma(
+    γ_sample = draw_sample_gamma(
         mcmc, posterior, γ_fixed,
         args...
+    )
+    S_sample = [deepcopy(S_fixed) for i in eachindex(γ_sample)]
+    suff_stat = sum(posterior.dist(x,S_fixed) for x in posterior.data)
+    suff_stat_trace = fill(suff_stat, length(γ_sample))
+    return PosteriorMcmcOutput(
+        S_sample, γ_sample, 
+        suff_stat_trace, 
+        posterior
     )
 end 
 

@@ -82,26 +82,31 @@ include("Metric Models/Posterior Sampling/Summaries/plot_recipes.jl")
 include("Metric Models/Posterior Sampling/Summaries/misc_summaries.jl")
 include("Metric Models/Posterior Sampling/Summaries/predictive_summaries.jl")
 
-# Graphs Models
-# =============
-include("Graph Models/utils.jl")
-include("Graph Models/CER.jl")
-include("Graph Models/SNF.jl")
-include("Graph Models/Model Sampling/Types/SNF_samplers.jl")
-include("Graph Models/Model Sampling/Types/outputs.jl")
-include("Graph Models/Model Sampling/CER_sampler.jl")
-include("Graph Models/Model Sampling/SNF_multigraph.jl")
-include("Graph Models/Model Sampling/SNF_multigraph_gibbs.jl")
-
-include("Graph Models/Model Sampling/Summaries/plot_recipes.jl")
 
 # iMCMC Moves (new structure)
 include("Metric Models/iMCMC Moves/imcmc_move_type.jl")
 include("Metric Models/iMCMC Moves/edit_allocation_move.jl")
 include("Metric Models/iMCMC Moves/insert_delete_move.jl")
+include("Metric Models/iMCMC Moves/split_merge_move.jl")
 include("Metric Models/iMCMC Moves/mixture_move.jl")
-include("Metric Models/iMCMC Moves/model_sampler.jl")
-include("Metric Models/iMCMC Moves/posterior_sampler.jl")
+include("Metric Models/Samplers/model_sampler.jl")
+include("Metric Models/Samplers/posterior_sampler.jl")
 
+
+# Graphs Models
+# =============
+include("Graph Models/utils.jl")
+include("Graph Models/CER/CER.jl")
+include("Graph Models/CER/CER_posterior.jl")
+
+include("Graph Models/SNF/SNF.jl")
+include("Graph Models/SNF/MCMC Moves/move_type.jl")
+include("Graph Models/SNF/MCMC Moves/gibbs_moves.jl")
+# include("Graph Models/SNF/SNF_samplers.jl")
+# include("Graph Models/SNF/SNF_multigraph.jl")
+# include("Graph Models/SNF/SNF_multigraph_gibbs.jl")
+include("Graph Models/SNF/Samplers/SNF_model_sampler.jl")
+include("Graph Models/SNF/Samplers/SNF_posterior_sampler.jl")
+# include("Graph Models/SNF/SNF_multigraph_gibbs_posterior.jl")
 
 end

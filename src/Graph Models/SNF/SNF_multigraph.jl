@@ -9,7 +9,6 @@ function is_vectorisable(model::MultigraphSNF)
     return typeof(model.d) ∈ get_vectorisable_metrics(model)
 end 
 
-
 # Accept reject for vectorised scheme 
 function accept_reject!(
     x_curr::Vector{Int},
@@ -77,7 +76,7 @@ function accept_reject!(
     # println(x_curr==x_prop)
     log_model = γ * (d(x_curr, x_mode) - d(x_prop, x_mode))
     log_α =  log_model + log_ratio
-    @show log_model, log_ratio, M_curr, M_prop, log_size_factorial, log_insertion
+    # @show log_model, log_ratio, M_curr, M_prop, log_size_factorial, log_insertion
     if log(rand()) < log_α 
         copy!(x_curr, x_prop)
         return true 
