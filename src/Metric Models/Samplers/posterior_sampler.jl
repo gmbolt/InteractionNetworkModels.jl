@@ -221,6 +221,27 @@ function accept_reject_mode!(
     )
 end 
 
+function initialise!(
+    aux::AuxiliaryMcmc{S,T},
+    S_init::T, # Initial value for aux chain
+    γ_init::Float64, # Used to set-up auxiliary model 
+    S_prior::V,
+    n::Int # Sample size
+    ) where {T,S,V<:Union{SIS,SIM}}
+
+    if length(aux.data) ≥ n
+        resize!(aux.data, n)
+    else
+        append!(aux.data, [similar(S_init) for i in 1:(n-length(aux.data))])
+    end 
+    aux_model = similar(
+        S_prior, 
+        S_init, 
+        γ_init
+    )
+    draw_sample!(aux.data, aux.mcmc, aux_model)
+
+end 
 
 function draw_sample_mode!(
     sample_out::Union{InteractionSequenceSample{Int}, SubArray},
@@ -248,14 +269,7 @@ function draw_sample_mode!(
     reset_counts!(mcmc.move) # Reset counts for mcmc move (tracks acceptances) 
 
     # Initialise aux data 
-    aux = mcmc.aux
-    n = length(posterior.data)
-    if length(aux.data) ≥ n
-        resize!(aux.data, n)
-    else
-        append!(aux.data, [[Int[]] for i in 1:(n-length(aux.data))])
-    end 
-    @assert length(aux.data)==n "aux data not right size."
+    initialise!(mcmc.aux, S_curr, γ_fixed, posterior.S_prior, posterior.sample_size)
 
     # Initialise sufficient statistic 
     dist, data = (posterior.dist, posterior.data)
@@ -401,14 +415,12 @@ function draw_sample_gamma!(
     i = 0               # Keeps track all samples (included lags and burn_ins) 
 
     # Initialise aux data 
-    aux = mcmc.aux
-    n = length(posterior.data)
-    if length(aux.data) ≥ n
-        resize!(aux.data, n)
-    else
-        append!(aux.data, [[Int[]] for i in 1:(n-length(aux.data))])
-    end 
-    @assert length(aux.data)==n "aux data not right size."
+    initialise!(mcmc.aux, S_curr, γ_curr, posterior.S_prior, posterior.sample_size)
+
+    # Initialise sufficient statistic 
+    dist, data = (posterior.dist, posterior.data)
+    suff_stats = mcmc.suff_stats
+    suff_stats[1] = sum(dist(S_curr, x) for x in data)
 
     acc_count = 0
     i = 0 # Counter for iterations 
@@ -507,15 +519,8 @@ function draw_sample!(
     reset_counts!(mcmc.move) # Reset counts for mcmc move (tracks acceptances)
 
     # Initialise aux data 
-    aux = mcmc.aux
-    n = length(posterior.data)
-    if length(aux.data) ≥ n
-        resize!(aux.data, n)
-    else
-        append!(aux.data, [[Int[]] for i in 1:(n-length(aux.data))])
-    end 
-    @assert length(aux.data)==n "aux data not right size."
-
+    initialise!(mcmc.aux, S_curr, γ_curr, posterior.S_prior, posterior.sample_size)
+    
     # Initialise sufficient statistic 
     dist, data = (posterior.dist, posterior.data)
     suff_stats = mcmc.suff_stats

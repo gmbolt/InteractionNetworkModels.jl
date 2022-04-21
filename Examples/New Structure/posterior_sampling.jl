@@ -15,6 +15,7 @@ model = SIM(
     K_inner, K_outer
 )
 
+
 # Auxiliary sampler 
 β = 0.7
 mcmc_move = InvMcmcMixtureMove(
@@ -63,22 +64,20 @@ mode_move = InvMcmcMixtureMove(
 
 posterior_sampler = IexMcmcSampler(
     mode_move, mcmc_sampler,
-    ε=0.3
+    ε=0.3,
+    aux_init_at_prev=true
 )
 
-x = posterior_sampler(posterior, desired_samples=20)
+x = posterior_sampler(posterior, desired_samples=100, γ_init=3.5)
+acceptance_prob(posterior_sampler)
 
 plot(x, E)
 
-acceptance_prob(posterior_sampler)
-
-acceptance_prob(mode_move)
-
-x.S_sample
+model
 
 # Conditionals 
 x = posterior_sampler(posterior, model.γ, desired_samples=200)
 plot(x, E)
-x = posterior_sampler(posterior, model.mode, desired_samples=20)
+x = posterior_sampler(posterior, model.mode, desired_samples=200)
 plot(x,E)
 

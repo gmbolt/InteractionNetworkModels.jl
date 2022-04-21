@@ -4,7 +4,7 @@ struct SIM{T<:Metric}
     mode::Vector{Path{Int}} # Mode
     γ::Real # Precision
     dist::T # Distance metric
-    V::UnitRange # Vertex Set
+    V::UnitRange{Int} # Vertex Set
     K_inner::DimensionRange # Maximum interaction sequence size
     K_outer::DimensionRange # Maximum path (interaction) length
 end
@@ -51,6 +51,13 @@ function Base.show(
 end 
 
 
+function Base.similar(
+    model::SIM{T},
+    mode::Vector{Vector{Int}},
+    γ::Float64
+    ) where {T}
+    return SIM(mode, γ, model.dist, model.V, model.K_inner, model.K_outer)
+end 
 
 struct SimPosterior
     data::InteractionSequenceSample{Int}

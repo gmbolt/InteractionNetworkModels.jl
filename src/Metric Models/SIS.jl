@@ -69,6 +69,13 @@ function Base.show(
     end 
 end 
 
+function Base.similar(
+    model::SIS{T},
+    mode::Vector{Vector{Int}},
+    γ::Float64
+    ) where {T}
+    return SIS(mode, γ, model.dist, model.V, model.K_inner, model.K_outer)
+end 
 
 struct SisPosterior
     data::InteractionSequenceSample{Int}
