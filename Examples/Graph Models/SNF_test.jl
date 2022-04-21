@@ -10,7 +10,6 @@ mode = [rand() < 0.2 ? rand(1:4) : 0 for i in 1:V,j in 1:V]
 model = SNF(mode, γ, d, directed=false)
 model = vectorise(model)
 
-
 # Gibbs scan 
 gibbs_move_rand = GibbsRandMove(ν=1)
 gibbs_move = GibbsScanMove(ν=1)
@@ -27,7 +26,6 @@ plot!(x)
 acceptance_prob(mcmc_scan)
 acceptance_prob(mcmc)
 typeof(model)
-
 
 # Testing posterior sampler
 @time out  = mcmc_scan(model, desired_samples=40, lag=30, burn_in=500)
@@ -46,7 +44,6 @@ G_prior = SNF(
     self_loops=model.self_loops
 )
 posterior = SnfPosterior(data, G_prior, γ_prior)
-
 mode_move = GibbsScanMove(ν=1)
 aux_mcmc = McmcSampler(GibbsRandMove(ν=1), burn_in=3000, lag=50)
 

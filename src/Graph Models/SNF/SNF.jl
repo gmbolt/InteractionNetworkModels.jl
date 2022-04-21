@@ -96,6 +96,41 @@ struct SnfPosterior{T<:Union{Int,Bool},N,V<:Metric,S<:UnivariateDistribution}
     end 
 end 
 
+# We want the prior to drive how the posterior is structured, e.g.
+# if the prior if vectorised, then so is the posterior. However,
+# one might still want to pass data as matrices. Thus the data must be
+# pre-processed slighlty before constructing posterior. 
+
+function SnfPosterior(
+    data::Vector{Array{S,2}},
+    G_prior::SNF{S,1,V},
+    γ_prior::UnivariateDistribution
+    ) where {S<:Union{Int,Bool},V<:Metric}
+
+    dir, sl = (G_prior.directed, G_prior.self_loops)
+    data_vec =  adj_mat_to_vec.(data, directed=dir, self_loops=sl)
+    return SnfPosterior(
+        data_vec, 
+        G_prior, 
+        γ_prior
+    )
+end 
+
+function SnfPosterior(
+    data_vec::Vector{Array{S,1}},
+    G_prior::SNF{S,2,V},
+    γ_prior::UnivariateDistribution
+    ) where {S<:Union{Int,Bool},V<:Metric}
+
+    dir, sl = (G_prior.directed, G_prior.self_loops)
+    data =  vec_to_adj_mat.(data_vec, directed=dir, self_loops=sl)
+    return SnfPosterior(
+        data, 
+        G_prior, 
+        γ_prior
+    )
+end 
+
 const MultigraphSnfPosterior{S,T} = SnfPosterior{Int,2,V,S} where {V<:Metric,S<:UnivariateDistribution} 
 const BinarySnfPosterior{S,T} = SnfPosterior{Bool,2,V,S} where {V<:Metric,S<:UnivariateDistribution} 
 
