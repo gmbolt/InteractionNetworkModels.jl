@@ -313,8 +313,8 @@ function (mcmc::IexMcmcSampler)(
     ) where {T<:Union{SisPosterior,SimPosterior}}
 
     S_sample, suff_stat_trace = draw_sample_mode(
-        mcmc, posterior, γ_fixed,
-        arg...
+        mcmc, posterior, γ_fixed;
+        args...
     )
     γ_sample = fill(γ_fixed, length(S_sample))
 
@@ -391,7 +391,7 @@ function draw_sample_gamma!(
         iter = Progress(
             length(sample_out)*lag + burn_in, # How many iters 
             1,  # At which granularity to update loading bar
-            "Chain for γ = $(γ_fixed) and n = $(posterior.sample_size) (mode conditional)....")  # Loading bar. Minimum update interval: 1 second
+            "Chain for n = $(posterior.sample_size) (disperison conditional)....")  # Loading bar. Minimum update interval: 1 second
     end 
 
     γ_curr = γ_init 
@@ -433,7 +433,7 @@ function draw_sample_gamma!(
         end 
 
     end 
-    mcmc.γ_counts = [acc_count, i]
+    mcmc.γ_counts[1:2] = [acc_count, i]
     return
 end 
 
@@ -450,7 +450,7 @@ function draw_sample_gamma(
     draw_sample_gamma!(
         sample_out, 
         mcmc, posterior, 
-        S_fixed, 
+        S_fixed;
         args...
         )
     return sample_out
@@ -465,7 +465,7 @@ function (mcmc::IexMcmcSampler)(
     ) where {T<:Union{SisPosterior,SimPosterior}}
 
     γ_sample = draw_sample_gamma(
-        mcmc, posterior, γ_fixed,
+        mcmc, posterior, S_fixed;
         args...
     )
     S_sample = [deepcopy(S_fixed) for i in eachindex(γ_sample)]

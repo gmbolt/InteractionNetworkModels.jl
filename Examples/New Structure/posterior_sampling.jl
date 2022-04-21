@@ -19,8 +19,8 @@ model = SIM(
 β = 0.7
 mcmc_move = InvMcmcMixtureMove(
     (
-        EditAllocationMove(ν=1),
-        InsertDeleteMove(ν=1, len_dist=TrGeometric(0.8, 1, model.K_inner.u))
+        EditAllocationMove(ν=3),
+        InsertDeleteMove(ν=3, len_dist=TrGeometric(0.8, 1, model.K_inner.u))
     ),
     (β, 1-β)
 )
@@ -40,7 +40,10 @@ mcmc_sampler = InvMcmcSampler(
     lag=500,
     burn_in=10000
 )
+acceptance_prob(mcmc_sampler)
+
 plot(x)
+summaryplot(x)
 
 E_prior = SIM(E, 0.1, model.dist, model.V, model.K_inner, model.K_outer)
 γ_prior = Uniform(0.5,7.0)
@@ -63,7 +66,7 @@ posterior_sampler = IexMcmcSampler(
     ε=0.3
 )
 
-x = posterior_sampler(posterior, desired_samples=200)
+x = posterior_sampler(posterior, desired_samples=20)
 
 plot(x, E)
 
@@ -72,3 +75,10 @@ acceptance_prob(posterior_sampler)
 acceptance_prob(mode_move)
 
 x.S_sample
+
+# Conditionals 
+x = posterior_sampler(posterior, model.γ, desired_samples=200)
+plot(x, E)
+x = posterior_sampler(posterior, model.mode, desired_samples=20)
+plot(x,E)
+

@@ -64,18 +64,34 @@ mcmc_posterior.aux.data
 @time x = mcmc_posterior(posterior, desired_samples=100, γ_init=4.0)
 
 plot(x, model.mode)
-
-x.x_sample[end]
-
-x.x_sample[end]
-
 x_sample_mat = get_sample_matrices(x)
 
-using GraphRecipes
+# Plot graph 
+using CairoMakie, GraphMakie, Graphs
 
-graphplot(
-    x_sample_mat[1], edgewidth=x_sample_mat[1],
-    curves=false
+g = SimpleDiGraph(x_sample_mat[1])
+
+f,ax,p = graphplot(
+    g,
+    node_color=:blue,
+    edge_plottype=:linesegments,
+    showaxis=false
+)
+hidedecorations!(ax)  # hides ticks, grid and lables
+hidespines!(ax)  # hide the frame
+f 
+
+V = 15
+g = SimpleDiGraph(
+    [rand() < 0.5 ? true : false for i in 1:V, j in 1:V]
 )
 
-using GraphMakie
+f, ax, p = graphplot(
+    g,
+    node_size=10,
+    node_color=:red,
+    edge_plottype=:linesegments
+)
+hidedecorations!(ax)  # hides ticks, grid and lables
+hidespines!(ax)  # hide the frame
+f
