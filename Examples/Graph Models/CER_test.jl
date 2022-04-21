@@ -29,6 +29,8 @@ mcmc = CerPosteriorMcmc(τ=0.001, ε=0.01)
 acceptance_prob(mcmc)
 plot(out, mode)
 
+plot(log_posterior_prob(out))
+
 hline!([model.α], subplot=2)
 
 # Verify alpha is unbiased 

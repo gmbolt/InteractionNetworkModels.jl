@@ -1,6 +1,6 @@
 using Distances, RecipesBase
 export CerPosterior, CerPosteriorMcmc, CerPosteriorMcmcOutput
-export McmcOutputParameters
+export McmcOutputParameters, log_posterior_prob
 
 struct CerPosterior
     data::Vector{Matrix{Bool}}
@@ -61,16 +61,16 @@ acceptance_prob(mcmc::CerPosteriorMcmc) = (
 )
 
 struct CerPosteriorMcmcOutput 
-    G_sample::Vector{Vector{Bool}}
+    G_sample::Vector{Matrix{Bool}}
     α_sample::Vector{Float64}
     posterior::CerPosterior
 end 
 
-ajd_mats(out::CerPosteriorMcmcOutput) = vec_to_adj_mat.(
-    out.G_sample, 
-    directed=out.posterior.G_prior.directed,
-    self_loops=out.posterior.G_prior.self_loops
-)
+# get_sample_matrices(out::CerPosteriorMcmcOutput) = vec_to_adj_mat.(
+#     out.G_sample, 
+#     directed=out.posterior.G_prior.directed,
+#     self_loops=out.posterior.G_prior.self_loops
+# )
 
 @recipe function f(
     output::CerPosteriorMcmcOutput,
@@ -290,6 +290,28 @@ function draw_sample(
     return sample_out_G, sample_out_alpha
 end 
 
+function cer_post_log_prob(
+    x::Vector{Bool}, 
+    α::Float64,
+    data_vec::Vector{Vector{Bool}},
+    x₀::Vector{Bool},
+    α₀::Float64,
+    α_prior::UnivariateDistribution
+    )
+
+    n = length(data_vec)
+    E = length(x)
+
+    d = Hamming()
+    S = sum(d(y,x) for y in data_vec)
+
+    return (
+        S * log(α) + (n*E -  S) * log(1-α)
+        + d(x,x₀) * log(α₀) + (E - d(x,x₀)) * log(1-α₀)
+        + log(pdf(α_prior, α))
+    )
+end 
+
 function (mcmc::CerPosteriorMcmc)(
     posterior::CerPosterior;
     args...
@@ -299,6 +321,12 @@ function (mcmc::CerPosteriorMcmc)(
         mcmc, posterior;
         args...
     )
+    # Make sample into matrices 
+    G_sample = vec_to_adj_mat.(
+        G_sample, 
+        directed=posterior.G_prior.directed, 
+        self_loops=posterior.G_prior.self_loops
+    )
     return CerPosteriorMcmcOutput(
         G_sample, α_sample,
         posterior
@@ -306,3 +334,38 @@ function (mcmc::CerPosteriorMcmc)(
     
 end 
 
+function log_posterior_prob(
+    out::CerPosteriorMcmcOutput
+    )
+    posterior = out.posterior
+    dir, sl = (
+        posterior.G_prior.directed,
+        posterior.G_prior.self_loops
+    )
+    x_sample = adj_mat_to_vec.(
+        out.G_sample, 
+        directed=dir, 
+        self_loops=sl
+    )
+    # Post-hoc log-probability evaluation
+    data_vec = adj_mat_to_vec.(
+        posterior.data,
+        directed=dir, 
+        self_loops=sl
+    )
+    x₀ = adj_mat_to_vec(
+        posterior.G_prior.mode, 
+        directed=dir, 
+        self_loops=sl
+    )
+    α₀ = posterior.G_prior.α
+    log_post_prob = [ 
+        cer_post_log_prob(
+            x, α, 
+            data_vec, 
+            x₀, α₀, 
+            posterior.α_prior
+        ) for (x,α) in zip(x_sample, out.α_sample)
+    ]
+    return log_post_prob
+end 
