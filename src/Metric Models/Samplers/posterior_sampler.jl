@@ -142,8 +142,17 @@ function accept_reject_mode!(
     suff_stats::Vector{Float64}
     ) where {S<:Union{SisPosterior,SimPosterior}}
 
+    move.counts[2] += 1
+    
     # Do imcmc proposal 
     log_ratio = prop_sample!(S_curr, S_prop, move, pointers, posterior.V)
+
+    # Adjust for dimension bounds (reject if outside of them)
+    if any(length(x) > posterior.K_inner.u for x in S_prop)
+        enact_reject!(S_curr, S_prop, pointers, move)
+    elseif length(S_prop) > posterior.K_outer.u
+        enact_reject!(S_curr, S_prop, pointers, move)
+    end 
 
     log_α = eval_accept_prob(
         S_curr, S_prop, γ_curr, 
@@ -152,8 +161,6 @@ function accept_reject_mode!(
         log_ratio,
         suff_stats
     )
-
-    move.counts[2] += 1
     
     if log(rand()) < log_α
         # We accept! 

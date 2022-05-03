@@ -1,5 +1,5 @@
 using InteractionNetworkModels, StructuredDistances, Distributions
-using Plots
+using Plots, Random
 
 E = [
     [1,2,1,2],
@@ -56,10 +56,11 @@ posterior = SimPosterior(x.sample, E_prior, γ_prior)
 mode_move = InvMcmcMixtureMove(
     (
         EditAllocationMove(ν=1),
+        PathPermutationMove(ν=1),
         InsertDeleteMove(ν=1, len_dist=TrGeometric(0.8, 1, model.K_inner.u)),
         SplitMergeMove(ν=1)
     ),
-    (β, (1-β)/2, (1-β)/2)
+    (β/2, β/2, (1-β)/2, (1-β)/2)
 )
 
 posterior_sampler = IexMcmcSampler(
@@ -68,11 +69,17 @@ posterior_sampler = IexMcmcSampler(
     aux_init_at_prev=true
 )
 
-x = posterior_sampler(posterior, desired_samples=100, γ_init=3.5)
+E_init = shuffle.(model.mode)
+x = posterior_sampler(
+    posterior, 
+    desired_samples=100, 
+    S_init=E_init,
+    γ_init=3.5
+)
 acceptance_prob(posterior_sampler)
 
 plot(x, E)
-
+x.S_sample
 model
 
 # Conditionals 

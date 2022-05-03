@@ -2,12 +2,13 @@ using Distances, StructuredDistances, InteractionNetworkModels
 using Plots, BenchmarkTools, Distributions, StatsPlots
 
 d = Cityblock()
-V = 20
-τ = 0.2
-mode = [rand() < 0.2 ? rand(1:4) : 0 for i in 1:V,j in 1:V]
-γ = 3.0
 
-model = SNF(mode, γ, d, directed=false)
+V = 9
+τ = 0.2
+mode = [rand() < 0.1 ? rand(1:4) : 0 for i in 1:V,j in 1:V]
+γ = 1.9
+
+model = SNF(mode, γ, d)
 model = vectorise(model)
 
 # Gibbs scan 
@@ -17,18 +18,17 @@ gibbs_move = GibbsScanMove(ν=1)
 mcmc = McmcSampler(gibbs_move_rand)
 mcmc_scan = McmcSampler(gibbs_move)
 
-@time out = mcmc(model, desired_samples=100, lag=length(model.mode)÷2)
-plot(out)
+@time x = mcmc(model, desired_samples=10000, lag=1)
+plot(x)
 
-@time x = mcmc_scan(model, desired_samples=100, lag=1)
-plot!(x)
+sum(mode)
 
 acceptance_prob(mcmc_scan)
 acceptance_prob(mcmc)
 typeof(model)
 
 # Testing posterior sampler
-@time out  = mcmc_scan(model, desired_samples=40, lag=30, burn_in=500)
+@time out  = mcmc_scan(model, desired_samples=100, lag=5, burn_in=500)
 plot(out)
 similar(model, rand(1:10, 20), 1.0)
 
@@ -53,15 +53,17 @@ plot(x)
 
 mcmc_posterior = SnfPosteriorSampler(
     mode_move, aux_mcmc, posterior,
-    ε=0.2, 
+    ε=0.1, 
     aux_init_at_prev=true
 )
 mcmc_posterior.aux.data
 
-@time x = mcmc_posterior(posterior, desired_samples=100, γ_init=4.0)
+@time x = mcmc_posterior(posterior, desired_samples=500, γ_init=4.0)
 
 plot(x, model.mode)
-x_sample_mat = get_sample_matrices(x)
+x_sample_mat = get_sample_matrices(x)[end]
+
+data
 
 # Plot graph 
 using CairoMakie, GraphMakie, Graphs

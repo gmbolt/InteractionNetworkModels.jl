@@ -4,7 +4,7 @@ export MultigraphSNF, BinarySNF, VecBinarySNF, VecMultigraphSNF
 export MultigraphSnfPosterior, BinarySnfPosterior, VecMultigraphSnfPosterior, VecBinarySnfPosterior
 export vectorise
 
-struct SNF{T<:Union{Int,Bool},N,S<:Metric}
+struct SNF{T<:Union{Int,Bool},N,S<:SemiMetric}
     mode::Array{T,N}
     γ::Real
     d::S
@@ -19,7 +19,7 @@ const MultigraphSNF{S} = SNF{Int,2,S}
 const BinarySNF{S} = SNF{Bool,2,S}
 
 function SNF(
-    mode::Array{S,2}, γ::Real, d::Metric;
+    mode::Array{S,2}, γ::Real, d::SemiMetric;
     directed::Bool=!issymmetric(mode),        # Leave these as kw args so they can be specified if desired
     self_loops::Bool=any(diag(mode).>0)     # e.g. if you want a distribution over directed graphs where 
     ) where {S<:Union{Int,Bool}}            # the mode happens to be symmetric.
@@ -33,7 +33,7 @@ function SNF(
 end 
 
 function SNF(
-    mode::Array{S,1}, γ::Real, d::Metric;
+    mode::Array{S,1}, γ::Real, d::SemiMetric;
     directed::Bool=true,        # Leave these as kw args so they can be specified if desired
     self_loops::Bool=true     # e.g. if you want a distribution over directed graphs where 
     ) where {S<:Union{Int,Bool}}            # the mode happens to be symmetric.
@@ -68,7 +68,7 @@ function vectorise(model::SNF{T,2,S}) where {S,T}
     return SNF(mode_vec, model.γ, model.d, directed=dir, self_loops=sl)
 end 
 
-struct SnfPosterior{T<:Union{Int,Bool},N,V<:Metric,S<:UnivariateDistribution}
+struct SnfPosterior{T<:Union{Int,Bool},N,V<:SemiMetric,S<:UnivariateDistribution}
     data::Vector{Array{T,N}}
     G_prior::SNF{T,N,V}
     γ_prior::S
@@ -80,7 +80,7 @@ struct SnfPosterior{T<:Union{Int,Bool},N,V<:Metric,S<:UnivariateDistribution}
         data::Vector{Array{S,N}},
         G_prior::SNF{S,N,V},
         γ_prior::UnivariateDistribution
-        ) where {S<:Union{Int,Bool},N,V<:Metric}
+        ) where {S<:Union{Int,Bool},N,V<:SemiMetric}
 
         d, directed, self_loops = (
             G_prior.d,
@@ -105,7 +105,7 @@ function SnfPosterior(
     data::Vector{Array{S,2}},
     G_prior::SNF{S,1,V},
     γ_prior::UnivariateDistribution
-    ) where {S<:Union{Int,Bool},V<:Metric}
+    ) where {S<:Union{Int,Bool},V<:SemiMetric}
 
     dir, sl = (G_prior.directed, G_prior.self_loops)
     data_vec =  adj_mat_to_vec.(data, directed=dir, self_loops=sl)
@@ -120,7 +120,7 @@ function SnfPosterior(
     data_vec::Vector{Array{S,1}},
     G_prior::SNF{S,2,V},
     γ_prior::UnivariateDistribution
-    ) where {S<:Union{Int,Bool},V<:Metric}
+    ) where {S<:Union{Int,Bool},V<:SemiMetric}
 
     dir, sl = (G_prior.directed, G_prior.self_loops)
     data =  vec_to_adj_mat.(data_vec, directed=dir, self_loops=sl)
@@ -131,11 +131,11 @@ function SnfPosterior(
     )
 end 
 
-const MultigraphSnfPosterior{S,T} = SnfPosterior{Int,2,V,S} where {V<:Metric,S<:UnivariateDistribution} 
-const BinarySnfPosterior{S,T} = SnfPosterior{Bool,2,V,S} where {V<:Metric,S<:UnivariateDistribution} 
+const MultigraphSnfPosterior{S,T} = SnfPosterior{Int,2,V,S} where {V<:SemiMetric,S<:UnivariateDistribution} 
+const BinarySnfPosterior{S,T} = SnfPosterior{Bool,2,V,S} where {V<:SemiMetric,S<:UnivariateDistribution} 
 
-const VecMultigraphSnfPosterior{S,T} = SnfPosterior{Int,1,V,S} where {V<:Metric,S<:UnivariateDistribution} 
-const VecBinarySnfPosterior{S,T} = SnfPosterior{Bool,1,V,S} where {V<:Metric,S<:UnivariateDistribution} 
+const VecMultigraphSnfPosterior{S,T} = SnfPosterior{Int,1,V,S} where {V<:SemiMetric,S<:UnivariateDistribution} 
+const VecBinarySnfPosterior{S,T} = SnfPosterior{Bool,1,V,S} where {V<:SemiMetric,S<:UnivariateDistribution} 
 
 function vectorise(posterior::SnfPosterior{T,2,S}) where {S,T}
     dir, sl = (posterior.directed, posterior.self_loops)
