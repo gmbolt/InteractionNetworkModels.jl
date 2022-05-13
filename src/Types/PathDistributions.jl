@@ -1,4 +1,4 @@
-using Distributions
+using Distributions, Random
 
 export PathDistribution, PathPseudoUniform, PathCooccurrence
 
@@ -14,7 +14,7 @@ function Base.rand(d::PathPseudoUniform)
     return rand(d.vertex_set, m)
 end 
 
-function Base.rand!(p::Vector{Int}, d::PathPseudoUniform)
+function Random.rand!(p::Vector{Int}, d::PathPseudoUniform)
 
     m = rand(d.length_dist)
     resize!(p, m)
@@ -52,7 +52,7 @@ function Base.rand(d::PathCondCat, curr::InteractionSequence{Int})
     return rand(Categorical(p), m)
 end 
 
-function Base.rand!(x::Vector{Int}, d::PathCondCat, curr::InteractionSequence{Int})
+function Random.rand!(x::Vector{Int}, d::PathCondCat, curr::InteractionSequence{Int})
     m = rand(Poisson(mean(length.(curr))))
     resize!(x, m)
     p = get_cond_dist(S, α=d.α, V=length(d.V))

@@ -6,7 +6,7 @@ using Distributed
 include("aliases.jl")
 
 # Types
-# include("Types/PathDistributions.jl")
+include("Types/PathDistributions.jl")
 include("Types/MarkovModels.jl")
 include("Types/distributions.jl")
 include("Types/hollywood_model.jl")
