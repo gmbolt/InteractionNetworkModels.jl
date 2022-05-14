@@ -51,6 +51,7 @@ function eval_accept_prob(
 
     mode, γ, dist = (model.mode, model.γ, model.dist)
 
+    # @show S_curr, S_prop
     log_lik_ratio = -γ * (
         dist(mode, S_prop)-dist(mode, S_curr)
     )

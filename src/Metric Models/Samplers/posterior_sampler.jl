@@ -148,9 +148,9 @@ function accept_reject_mode!(
     log_ratio = prop_sample!(S_curr, S_prop, move, pointers, posterior.V)
 
     # Adjust for dimension bounds (reject if outside of them)
-    if any(length(x) > posterior.K_inner.u for x in S_prop)
+    if any(!(1 ≤ length(x) ≤ posterior.K_inner.u) for x in S_prop)
         enact_reject!(S_curr, S_prop, pointers, move)
-    elseif length(S_prop) > posterior.K_outer.u
+    elseif !(1 ≤ length(S_prop) ≤ posterior.K_outer.u)
         enact_reject!(S_curr, S_prop, pointers, move)
     end 
 
@@ -557,6 +557,7 @@ function draw_sample!(
             mcmc, 
             posterior
         )
+        # println(S_curr)
         γ_acc_count += was_acc
         # println(S_prop)
         if loading_bar

@@ -89,9 +89,6 @@ function PathCooccurrence(
     return PathCooccurrence(collect(1:size(P)[1]), length_dist, initial_dist, P)
 end 
 
-
-
-
 function Base.rand(d::PathCooccurrence{String})
     m = rand(d.length_dist) # Sample length 
     log_prob = logpdf(d.length_dist, m) # Intiialise log probability
@@ -142,11 +139,7 @@ function Base.rand(d::PathCooccurrence{Int})
     return z, log_prob
 end 
 
-
-
 function Distributions.logpdf(d::PathPseudoUniform, p::Path{Int})
     m = length(p)
     return logpdf(d.length_dist, m) - m*log(length(d.vertex_set))
 end 
-
-

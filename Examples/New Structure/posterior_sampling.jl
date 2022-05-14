@@ -30,10 +30,10 @@ mcmc_sampler = InvMcmcSampler(
     lag=30, burn_in=3000
 )
 
-@time draw_sample(
-    mcmc_sampler,
+@time x = mcmc_sampler(
     model, desired_samples=5000, burn_in=0, lag=1
 )
+plot(x)
 
 @time x = mcmc_sampler(
     model,
@@ -49,7 +49,8 @@ summaryplot(x)
 E_prior = SIM(E, 0.1, model.dist, model.V, model.K_inner, model.K_outer)
 γ_prior = Uniform(0.5,7.0)
 
-posterior = SimPosterior(x.sample, E_prior, γ_prior)
+data = x.sample
+posterior = SimPosterior(data, E_prior, γ_prior)
 
 # Construct posterior sampler
 β = 0.8
@@ -61,6 +62,7 @@ mode_move = InvMcmcMixtureMove(
         SplitMergeMove(ν=1)
     ),
     (β/2, β/2, (1-β)/2, (1-β)/2)
+    # (β, 1-β)
 )
 
 posterior_sampler = IexMcmcSampler(
@@ -69,22 +71,38 @@ posterior_sampler = IexMcmcSampler(
     aux_init_at_prev=true
 )
 
-E_init = shuffle.(model.mode)
-x = posterior_sampler(
+# E_init = shuffle.(model.mode)
+E_init = [vcat(model.mode...)]
+@time x = posterior_sampler(
     posterior, 
-    desired_samples=100, 
+    desired_samples=1_000, 
     S_init=E_init,
     γ_init=3.5
 )
 acceptance_prob(posterior_sampler)
 
-plot(x, E)
-x.S_sample
-model
+# With fast matching distance 
+d_fast = FastMatchingDistance(FastLCS(101), 1000)
+model_fast = SIM(
+    E, 3.5, 
+    d_fast,
+    1:10,
+    K_inner, K_outer
+)
 
-# Conditionals 
-x = posterior_sampler(posterior, model.γ, desired_samples=200)
-plot(x, E)
-x = posterior_sampler(posterior, model.mode, desired_samples=200)
+E_prior_fast = SIM(E, 0.1, model.dist, model.V, model.K_inner, model.K_outer)
+posterior_fast = SimPosterior(data, E_prior_fast, γ_prior)
+
+E_init = [vcat(model.mode...)]
+@time x = posterior_sampler(
+    posterior_fast, 
+    desired_samples=1_000, 
+    S_init=E_init,
+    γ_init=3.5
+)
+acceptance_prob(posterior_sampler)
+
+plot(x.suff_stat_trace)
 plot(x,E)
+x.S_sample
 
