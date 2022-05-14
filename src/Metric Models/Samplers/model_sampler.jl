@@ -73,18 +73,19 @@ function accept_reject!(
     model::T
     ) where {T<:Union{SIS,SIM}}
 
-    log_ratio = prop_sample!(S_curr, S_prop, move, pointers, model.V)
-    
-    log_α = eval_accept_prob(S_curr, S_prop, model, log_ratio)
+    move.counts[2] += 1
 
-    # Adjust for dimension bounds 
-    if any(length(x) > model.K_inner.u for x in S_prop)
-        log_α += -Inf 
-    elseif length(S_prop) > model.K_outer.u
-        log_α += -Inf 
+    log_ratio = prop_sample!(S_curr, S_prop, move, pointers, model.V)
+
+    # Catch out of bounds proposals (reject them, i.e. 0 acc prob)
+    if any(!(1 ≤ length(x) ≤ model.K_inner.u) for x in S_prop)
+        log_α = -Inf 
+    elseif !(1 ≤ length(S_prop) ≤ model.K_outer.u)
+        log_α = -Inf 
+    else 
+        log_α = eval_accept_prob(S_curr, S_prop, model, log_ratio)
     end 
 
-    move.counts[2] += 1
     # @show log_α
     if log(rand()) < log_α
         # We accept!

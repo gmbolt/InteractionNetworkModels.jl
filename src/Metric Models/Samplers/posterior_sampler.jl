@@ -144,24 +144,24 @@ function accept_reject_mode!(
 
     move.counts[2] += 1
     
-    # Do imcmc proposal 
+    # Do imcmc proposal (log_ratio gets passed to eval_accept_prob()...)
     log_ratio = prop_sample!(S_curr, S_prop, move, pointers, posterior.V)
 
     # Adjust for dimension bounds (reject if outside of them)
     if any(!(1 ≤ length(x) ≤ posterior.K_inner.u) for x in S_prop)
-        enact_reject!(S_curr, S_prop, pointers, move)
+        log_α = -Inf
     elseif !(1 ≤ length(S_prop) ≤ posterior.K_outer.u)
-        enact_reject!(S_curr, S_prop, pointers, move)
+        log_α = -Inf
+    else 
+        log_α = eval_accept_prob(
+            S_curr, S_prop, γ_curr, 
+            aux,
+            posterior, 
+            log_ratio,
+            suff_stats
+        )
     end 
 
-    log_α = eval_accept_prob(
-        S_curr, S_prop, γ_curr, 
-        aux,
-        posterior, 
-        log_ratio,
-        suff_stats
-    )
-    
     if log(rand()) < log_α
         # We accept! 
         move.counts[1] += 1
@@ -171,6 +171,7 @@ function accept_reject_mode!(
         # We reject!
         enact_reject!(S_curr, S_prop, pointers, move)
     end 
+    
 end 
 
 function accept_reject_mode!(
