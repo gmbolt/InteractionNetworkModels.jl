@@ -1,6 +1,7 @@
 using InteractionNetworkModels, StructuredDistances, BenchmarkTools
 using Plots
 mode = [[1,2,1],[1,1,1]]
+mode = [[1,2,1],[1]]
 γ = 2.9
 d_S = EditDistance(LCS())
 d_E = MatchingDistance(LCS())
