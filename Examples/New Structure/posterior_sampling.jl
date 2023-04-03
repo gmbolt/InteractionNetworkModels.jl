@@ -74,12 +74,15 @@ posterior_sampler = IexMcmcSampler(
 # E_init = shuffle.(model.mode)
 E_init = [vcat(model.mode...)]
 @time x = posterior_sampler(
-    posterior, 
-    desired_samples=1_000, 
+    posterior,
+    desired_samples=500, 
     S_init=E_init,
     γ_init=3.5
 )
+x.S_sample
 acceptance_prob(posterior_sampler)
+plot(x, E)
+
 
 # With fast matching distance 
 d_fast = FastMatchingDistance(FastLCS(101), 1000)

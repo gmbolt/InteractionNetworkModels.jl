@@ -1,5 +1,6 @@
 using RecipesBase, Measures
 export IexMcmcSampler, AuxiliaryMcmc, PosteriorMcmcOutput
+export eval_accept_prob
 
 struct AuxiliaryMcmc{S,T}
     mcmc::S  # Mcmc move (leave general since will also use for graph models)
@@ -108,7 +109,8 @@ function eval_accept_prob(
         sum(dist(x, S_curr) for x in aux.data)
         - sum(dist(x, S_prop) for x in aux.data)
     )
-
+    # @show aux_log_lik_ratio
+    
     suff_stats[2] = sum(dist(x, S_prop) for x in posterior.data)
 
     log_lik_ratio = -γ_curr * (
@@ -320,7 +322,7 @@ function draw_sample_mode(
     sample_out = [[Int[]] for i in 1:desired_samples]
     sample_suff_stat = draw_sample_mode!(
         sample_out, 
-        mcmc, posterior, γ_fixed,
+        mcmc, posterior, γ_fixed;
         args...
     )
     

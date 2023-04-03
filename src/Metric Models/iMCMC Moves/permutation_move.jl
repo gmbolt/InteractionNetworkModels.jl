@@ -17,12 +17,14 @@ Base.show(io::IO, x::PathPermutationMove) = print(io, "PathPermutationMove(ν=$(
 
 # Exclusive shuffle (without identity permutation )
 function excl_shuffle!(x)
-    ind_ref = collect(1:length(x))
-    ind = randperm(length(x))
-    while ind == ind_ref
-        shuffle!(ind)
+    if length(x) > 1
+        ind_ref = collect(1:length(x))
+        ind = randperm(length(x))
+        while ind == ind_ref
+            shuffle!(ind)
+        end 
+        permute!(x, ind)
     end 
-    permute!(x, ind)
 end 
 
 function prop_sample!(
